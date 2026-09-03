@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { v4 as uuid } from 'uuid';
 import type { ActivityKind, InteractionKind, PlainEvent, StoredEvent } from './domain/types';
 import { activityProbe, classify } from './platform/activity';
+import { localUtcOffsetMinutes } from './platform/clock';
 import { listEvents } from './storage/events';
 import { LoopbackTransport } from './services/mockTransport';
 import { buildReplay } from './services/replay';
@@ -71,6 +72,7 @@ export default function App() {
       relationshipId: 'demo-couple',
       senderDeviceId: 'my-device',
       createdAt: new Date().toISOString(),
+      senderUtcOffsetMinutes: localUtcOffsetMinutes(),
       kind: 'interaction',
       payload: { action }
     };
@@ -103,7 +105,10 @@ export default function App() {
         <div className="hover-ui">
           <div className="status-pill" aria-live="polite">
             <span>{current?.icon ?? '●'}</span>
-            <b>{current?.label ?? statusText[displayedActivity]}</b>
+            <span className="status-copy">
+              <b>{current?.label ?? statusText[displayedActivity]}</b>
+              {current?.clockLabel && <small>{current.clockLabel}</small>}
+            </span>
           </div>
           <div className="quick-actions" aria-label="给 TA 一个小动作">
             {interactions.map(item => (

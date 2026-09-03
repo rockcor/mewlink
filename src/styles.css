@@ -82,6 +82,20 @@ button { font: inherit; }
   font-size: 10px;
 }
 
+.status-pill .status-copy {
+  display: grid;
+  gap: 2px;
+  color: #6a485a;
+  font-size: 12px;
+}
+
+.status-pill .status-copy small {
+  color: #9b7c8b;
+  font-size: 8px;
+  font-weight: 550;
+  white-space: nowrap;
+}
+
 .quick-actions {
   display: flex;
   gap: 7px;

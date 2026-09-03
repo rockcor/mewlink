@@ -27,7 +27,7 @@ MewLink 用一个原创的常驻卡通桌宠承载情侣间低负担、可忽略
 数据分三级：
 
 1. **原始信号（仅内存）**：前台进程标识、输入空闲秒数、锁屏状态。默认不读取窗口标题；绝不读取屏幕像素、文档、URL、按键或音频。
-2. **本地派生状态**：六类之一、置信度区间、起止时间。进程标识经本地规则匹配后立即丢弃；用户可覆盖分类或将应用列为“始终私密”。
+2. **本地派生状态**：七类之一、置信度区间、起止时间。进程标识经本地规则匹配后立即丢弃；用户可覆盖分类或将应用列为“始终私密”。
 3. **同步状态**：最短持续 5 分钟、时间取整到 5 分钟的状态段；默认延迟批量发送。实时“现在忙碌”是用户显式开启的独立选项。
 
 分类优先级：`locked => rest`；空闲超过 10 分钟 => `rest`；空闲 2–10 分钟 => `idle`；已知会议应用通话态 => `meeting`；本地媒体类别 => `video`；其余由仅含进程类别的本地规则产生。无法可靠判断时使用 `browsing` 或不发送，不猜测具体内容。
@@ -50,7 +50,7 @@ DP 只用于需要同步的聚合统计（例如“今天大约 coding 多久”
 
 互动状态机：`composed -> queued -> encrypted -> uploaded -> delivered -> acknowledged -> expired`。专注模式下 `delivered -> cached`，退出后按频率规则回放。静音时保留收件箱但不动画；阻止后拒收并轮换关系密钥。
 
-回放状态机：`collecting -> ready -> playing -> paused/skipped -> completed`。将连续同类状态合并，24 小时压缩为最多 30 秒；互动有更高权重但每分钟最多一次动画。
+回放状态机：`collecting -> ready -> playing -> paused/skipped -> completed`。将连续同类状态合并，24 小时压缩为最多 30 秒；互动有更高权重但每分钟最多一次动画。事件以 UTC 时间排序，播放时同时还原发送方当时的本地时间并换算为接收方当地时间。
 
 ## 7. 事件协议
 
@@ -60,12 +60,13 @@ DP 只用于需要同步的聚合统计（例如“今天大约 coding 多久”
 type PlainEvent = {
   id: string; version: 1; relationshipId: string;
   senderDeviceId: string; createdAt: string;
+  senderUtcOffsetMinutes?: number;
   kind: 'activity.segment' | 'interaction' | 'receipt';
   payload: ActivityPayload | InteractionPayload | ReceiptPayload;
 };
 ```
 
-`activity.segment` 含类别、取整后的开始/结束时间；`interaction` 含允许列表中的动作及可选本地化短语 ID，不允许任意文本进入 MVP；`receipt` 仅确认事件 ID 与状态。客户端验证版本、字段长度、允许值、时间偏差和签名后再持久化。事件 ID 使用 UUIDv7（骨架暂用 UUIDv4）。同一 ID 幂等；每设备序号防重放；协议升级采用显式版本，未知版本隔离而非丢弃。
+`senderUtcOffsetMinutes` 是发送当时按 15 分钟取整的 UTC 偏移，只存在于 E2EE 密文内；不读取或同步城市、时区名称。接收端根据事件绝对时间和自己的历史夏令时偏移换算回放时钟；旧事件缺少该字段时只显示接收方本地时间。`activity.segment` 含类别、取整后的开始/结束时间；`interaction` 含允许列表中的动作及可选本地化短语 ID，不允许任意文本进入 MVP；`receipt` 仅确认事件 ID 与状态。客户端验证版本、字段长度、允许值、时间偏差和签名后再持久化。事件 ID 使用 UUIDv7（骨架暂用 UUIDv4）。同一 ID 幂等；每设备序号防重放；协议升级采用显式版本，未知版本隔离而非丢弃。
 
 ## 8. 数据模型
 

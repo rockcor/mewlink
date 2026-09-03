@@ -7,6 +7,7 @@ export interface ActivitySegment { category: ActivityKind; startedAt: string; en
 export interface InteractionPayload { action: InteractionKind; phraseId?: string }
 export interface PlainEvent {
   id: string; version: 1; relationshipId: string; senderDeviceId: string; createdAt: string;
+  senderUtcOffsetMinutes?: number;
   kind: 'activity.segment' | 'interaction'; payload: ActivitySegment | InteractionPayload;
 }
 export interface EncryptedEnvelope {
