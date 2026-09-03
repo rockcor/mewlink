@@ -1,0 +1,6 @@
+{
+  "$schema":"https://schema.tauri.app/config/2","productName":"MewLink","version":"0.1.0","identifier":"app.mewlink.desktop",
+  "build":{"beforeDevCommand":"pnpm dev","devUrl":"http://localhost:1420","beforeBuildCommand":"pnpm build","frontendDist":"../dist"},
+  "app":{"macOSPrivateApi":true,"windows":[{"label":"main","title":"MewLink","width":390,"height":720,"minWidth":360,"minHeight":620,"transparent":true,"decorations":false,"alwaysOnTop":true,"resizable":true,"shadow":true}],"security":{"csp":"default-src 'self'; connect-src ipc: http://ipc.localhost; img-src 'self' asset: http://asset.localhost data:; style-src 'self' 'unsafe-inline'"}},
+  "bundle":{"active":true,"targets":"all","icon":[]}
+}

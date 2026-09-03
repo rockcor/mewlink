@@ -1,0 +1,21 @@
+name: Bug report
+description: Report a reproducible non-security problem
+title: "[Bug]: "
+body:
+  - type: markdown
+    attributes:
+      value: "Do not include private screen content, partner data, secrets, or security vulnerabilities. Use a private Security Advisory for security reports."
+  - type: dropdown
+    id: os
+    attributes:
+      label: Operating system
+      options: [macOS, Windows, Web preview]
+    validations: { required: true }
+  - type: textarea
+    id: steps
+    attributes: { label: Reproduction steps }
+    validations: { required: true }
+  - type: textarea
+    id: expected
+    attributes: { label: Expected behavior }
+    validations: { required: true }
