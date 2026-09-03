@@ -30,10 +30,34 @@ const statusText: Record<ActivityKind, string> = {
   rest: '休息中'
 };
 
+const transitionPose = (activity: ActivityKind) => activity === 'idle' ? 'rest' : activity;
+
+function ActivityTransitionFrames({
+  from,
+  to,
+  character
+}: {
+  from: ActivityKind;
+  to: ActivityKind;
+  character: 'self' | 'partner';
+}) {
+  const fromPose = transitionPose(from);
+  const toPose = transitionPose(to);
+  return (
+    <span className={`activity-transition ${character}`} aria-hidden="true">
+      <i className={`activity-transition-frame ${fromPose} frame-a phase-one`} />
+      <i className={`activity-transition-frame ${fromPose} frame-b phase-two`} />
+      <i className={`activity-transition-frame ${toPose} frame-b phase-three`} />
+      <i className={`activity-transition-frame ${toPose} frame-a phase-four`} />
+    </span>
+  );
+}
+
 export default function App() {
   const [activity, setActivity] = useState<ActivityKind>('browsing');
   const [inputKind, setInputKind] = useState<InputKind>('none');
   const [inputBeat, setInputBeat] = useState(0);
+  const [previousSelfActivity, setPreviousSelfActivity] = useState<ActivityKind>();
   const [previousPartnerActivity, setPreviousPartnerActivity] = useState<ActivityKind>();
   const [events, setEvents] = useState<StoredEvent[]>([]);
   const [playing, setPlaying] = useState(false);
@@ -53,6 +77,7 @@ export default function App() {
   const clickTimer = useRef<number | undefined>(undefined);
   const gestureTimer = useRef<number | undefined>(undefined);
   const noticeTimer = useRef<number | undefined>(undefined);
+  const selfActivityRef = useRef<ActivityKind>('browsing');
   const partnerActivityRef = useRef<ActivityKind>('rest');
   const receiverUtcOffsetMinutes = effectiveUtcOffsetMinutes(preferences);
   const partnerUtcOffsetMinutes = useMemo(() => [...events].reverse().find(({ event }) => event.senderUtcOffsetMinutes !== undefined)?.event.senderUtcOffsetMinutes, [events]);
@@ -72,7 +97,8 @@ export default function App() {
     '--pet-browse-duration': `${Math.round(3_200 * durationScale)}ms`,
     '--pet-rest-duration': `${Math.round(4_300 * durationScale)}ms`,
     '--pet-idle-duration': `${Math.round(3_800 * durationScale)}ms`,
-    '--interaction-duration': `${Math.round(1_900 * durationScale)}ms`
+    '--interaction-duration': `${Math.round(1_900 * durationScale)}ms`,
+    '--activity-transition-duration': `${Math.round(1_080 * durationScale)}ms`
   }) as CSSProperties, [durationScale]);
 
   const runUpdateCheck = useCallback(async () => {
@@ -119,11 +145,19 @@ export default function App() {
     return () => clearInterval(timer);
   }, [durationScale, playing, replay.length]);
   useEffect(() => {
+    const previous = selfActivityRef.current;
+    if (previous === activity) return;
+    selfActivityRef.current = activity;
+    setPreviousSelfActivity(previous);
+    const timer = window.setTimeout(() => setPreviousSelfActivity(undefined), 1_100);
+    return () => window.clearTimeout(timer);
+  }, [activity]);
+  useEffect(() => {
     const previous = partnerActivityRef.current;
     if (previous === partnerActivity) return;
     partnerActivityRef.current = partnerActivity;
     setPreviousPartnerActivity(previous);
-    const timer = window.setTimeout(() => setPreviousPartnerActivity(undefined), 420);
+    const timer = window.setTimeout(() => setPreviousPartnerActivity(undefined), 1_100);
     return () => window.clearTimeout(timer);
   }, [partnerActivity]);
   useEffect(() => () => {
@@ -241,11 +275,13 @@ export default function App() {
         <div className={`pet-pair ${displayedGesture ? 'interacting' : ''}`}>
           <div className="pet-avatar self-pet" aria-label={`我的宠物：${statusText[activity]}`}>
             <span className="identity-badge">我</span>
-            <span className={`pet-sprite ${activity} input-${inputKind}`} aria-hidden="true" />
+            {previousSelfActivity && <span className={`pet-sprite state-leaving ${previousSelfActivity}`} aria-hidden="true" />}
+            <span className={`pet-sprite ${previousSelfActivity ? 'state-entering' : ''} ${activity} input-${inputKind}`} aria-hidden="true" />
             <span className={`input-action ${inputKind}`} aria-hidden="true">
               <i key={`${inputKind}-${inputBeat}`} className={`input-action-frame current ${inputKind} beat-${inputBeat % 2}`}/>
               <i key={`${inputKind}-${inputBeat - 1}`} className={`input-action-frame previous ${inputKind} beat-${(inputBeat + 1) % 2}`}/>
             </span>
+            {previousSelfActivity && <ActivityTransitionFrames key={`self-${previousSelfActivity}-${activity}`} from={previousSelfActivity} to={activity} character="self" />}
           </div>
           <button
             className="pet-avatar partner-pet"
@@ -257,6 +293,7 @@ export default function App() {
             <span className="identity-badge">TA</span>
             {previousPartnerActivity && <span className={`pet-sprite partner-sprite state-leaving ${previousPartnerActivity}`} aria-hidden="true" />}
             <span className={`pet-sprite partner-sprite ${previousPartnerActivity ? 'state-entering' : ''} ${partnerActivity} ${playing ? 'replaying' : ''}`} aria-hidden="true" />
+            {previousPartnerActivity && <ActivityTransitionFrames key={`partner-${previousPartnerActivity}-${partnerActivity}`} from={previousPartnerActivity} to={partnerActivity} character="partner" />}
           </button>
           {displayedGesture && <span className={`interaction-sprite ${displayedGesture} ${displayedCup}`} aria-hidden="true" />}
         </div>

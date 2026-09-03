@@ -87,8 +87,47 @@
 .input-action-frame.previous { z-index: 1; animation: input-frame-out 190ms ease-out both; }
 .pet-pair.interacting .input-action { display: none; }
 
-.pet-sprite.partner-sprite.state-entering { animation: partner-state-in 420ms cubic-bezier(.2,.75,.2,1) both; }
-.pet-sprite.partner-sprite.state-leaving { z-index: 1; animation: partner-state-out 420ms cubic-bezier(.2,.75,.2,1) both; }
+.pet-sprite.state-entering { animation: activity-state-in var(--activity-transition-duration, 1080ms) linear both; }
+.pet-sprite.state-leaving { z-index: 1; animation: activity-state-out var(--activity-transition-duration, 1080ms) linear both; }
+
+.activity-transition {
+  --transition-cell: 226px;
+  position: absolute;
+  z-index: 3;
+  left: 1px;
+  bottom: 0;
+  width: var(--transition-cell);
+  height: var(--transition-cell);
+  pointer-events: none;
+}
+
+.activity-transition-frame {
+  position: absolute;
+  inset: 0;
+  background-image: url('/pets/activity-transition-sprites-v1.png');
+  background-repeat: no-repeat;
+  background-size: calc(var(--transition-cell) * 4) calc(var(--transition-cell) * 3);
+  filter: drop-shadow(0 13px 10px rgba(86, 45, 67, .16));
+  opacity: 0;
+}
+
+.activity-transition.partner .activity-transition-frame { background-image: url('/pets/partner-activity-transition-sprites-v1.png'); }
+.activity-transition-frame.coding.frame-a { background-position: 0 0; }
+.activity-transition-frame.coding.frame-b { background-position: calc(var(--transition-cell) * -1) 0; }
+.activity-transition-frame.reading.frame-a { background-position: calc(var(--transition-cell) * -2) 0; }
+.activity-transition-frame.reading.frame-b { background-position: calc(var(--transition-cell) * -3) 0; }
+.activity-transition-frame.meeting.frame-a { background-position: 0 calc(var(--transition-cell) * -1); }
+.activity-transition-frame.meeting.frame-b { background-position: calc(var(--transition-cell) * -1) calc(var(--transition-cell) * -1); }
+.activity-transition-frame.video.frame-a { background-position: calc(var(--transition-cell) * -2) calc(var(--transition-cell) * -1); }
+.activity-transition-frame.video.frame-b { background-position: calc(var(--transition-cell) * -3) calc(var(--transition-cell) * -1); }
+.activity-transition-frame.browsing.frame-a { background-position: 0 calc(var(--transition-cell) * -2); }
+.activity-transition-frame.browsing.frame-b { background-position: calc(var(--transition-cell) * -1) calc(var(--transition-cell) * -2); }
+.activity-transition-frame.rest.frame-a { background-position: calc(var(--transition-cell) * -2) calc(var(--transition-cell) * -2); }
+.activity-transition-frame.rest.frame-b { background-position: calc(var(--transition-cell) * -3) calc(var(--transition-cell) * -2); }
+.activity-transition-frame.phase-one { animation: transition-phase-one var(--activity-transition-duration, 1080ms) linear both; }
+.activity-transition-frame.phase-two { animation: transition-phase-two var(--activity-transition-duration, 1080ms) linear both; }
+.activity-transition-frame.phase-three { animation: transition-phase-three var(--activity-transition-duration, 1080ms) linear both; }
+.activity-transition-frame.phase-four { animation: transition-phase-four var(--activity-transition-duration, 1080ms) linear both; }
 
 @keyframes input-frame-in {
   from { opacity: .18; transform: translateY(4px) scale(.985); }
@@ -100,14 +139,38 @@
   to { opacity: 0; transform: translateY(-3px) scale(1.01); }
 }
 
-@keyframes partner-state-in {
-  from { opacity: 0; transform: translateY(8px) scale(.97); }
-  to { opacity: 1; transform: translateY(0) scale(1); }
+@keyframes activity-state-in {
+  0%, 76% { opacity: 0; transform: translateY(5px) scale(.985); }
+  96%, 100% { opacity: 1; transform: translateY(0) scale(1); }
 }
 
-@keyframes partner-state-out {
-  from { opacity: 1; transform: translateY(0) scale(1); }
-  to { opacity: 0; transform: translateY(-6px) scale(1.025); }
+@keyframes activity-state-out {
+  0%, 8% { opacity: 1; transform: translateY(0) scale(1); }
+  24%, 100% { opacity: 0; transform: translateY(-2px) scale(1.01); }
+}
+
+@keyframes transition-phase-one {
+  0%, 5% { opacity: 0; transform: translateY(3px) scale(.99); }
+  10%, 28% { opacity: 1; transform: translateY(0) scale(1); }
+  38%, 100% { opacity: 0; transform: translateY(-2px) scale(1.01); }
+}
+
+@keyframes transition-phase-two {
+  0%, 24% { opacity: 0; transform: translateY(3px) scale(.99); }
+  32%, 50% { opacity: 1; transform: translateY(0) scale(1); }
+  60%, 100% { opacity: 0; transform: translateY(-2px) scale(1.01); }
+}
+
+@keyframes transition-phase-three {
+  0%, 46% { opacity: 0; transform: translateY(3px) scale(.99); }
+  54%, 72% { opacity: 1; transform: translateY(0) scale(1); }
+  82%, 100% { opacity: 0; transform: translateY(-2px) scale(1.01); }
+}
+
+@keyframes transition-phase-four {
+  0%, 68% { opacity: 0; transform: translateY(3px) scale(.99); }
+  76%, 90% { opacity: 1; transform: translateY(0) scale(1); }
+  100% { opacity: 0; transform: translateY(-1px) scale(1.005); }
 }
 
 .interaction-sprite {
@@ -187,4 +250,10 @@
   52% { opacity: 1; transform: translateY(-4px) rotate(-1.5deg); }
   72% { opacity: 1; transform: translateY(0) rotate(1deg); }
   100% { opacity: 0; transform: translateY(-5px) scale(.95); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .activity-transition { display: none; }
+  .pet-sprite.state-entering { animation: none; }
+  .pet-sprite.state-leaving { display: none; }
 }
