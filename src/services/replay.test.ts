@@ -11,7 +11,7 @@ describe('time-zone aware replay', () => {
     const later: PlainEvent = {
       id: 'later', version: 1, relationshipId: 'pair', senderDeviceId: 'partner',
       createdAt: '2026-09-03T07:30:00.000Z', senderUtcOffsetMinutes: -420,
-      kind: 'interaction', payload: { action: 'water' }
+      kind: 'interaction', payload: { action: 'water', cupStyle: 'tumbler' }
     };
     const earlier: PlainEvent = {
       id: 'earlier', version: 1, relationshipId: 'pair', senderDeviceId: 'partner',
@@ -23,5 +23,6 @@ describe('time-zone aware replay', () => {
 
     expect(replay.map(item => item.id)).toEqual(['earlier', 'later']);
     expect(replay[0].clockLabel).toBe('TA 09/02 23:30 → 你 09/03 14:30');
+    expect(replay[1].cupStyle).toBe('tumbler');
   });
 });

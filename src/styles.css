@@ -138,6 +138,38 @@ button { font: inherit; }
 .quick-actions button:focus-visible { outline: 3px solid rgba(218, 126, 161, .35); outline-offset: 2px; }
 .quick-actions button > span { font-size: 16px; }
 .quick-actions .replay-action { padding-inline: 10px; }
+.quick-actions .cup-switch { grid-template-columns: auto auto; position: relative; padding-right: 14px; }
+.quick-actions .cup-switch small { position: absolute; right: 7px; bottom: -6px; padding: 1px 5px; border-radius: 999px; background: #fff; color: #8c7180; font-size: 7px; box-shadow: 0 3px 8px rgba(75, 42, 60, .12); }
+
+.cup-symbol {
+  position: relative;
+  display: inline-block;
+  width: 15px;
+  height: 14px;
+  border: 2px solid currentColor;
+  border-radius: 3px 3px 6px 6px;
+  color: #db86a4;
+  background: #ffdbe7;
+}
+
+.cup-symbol::after {
+  content: '';
+  position: absolute;
+  top: 2px;
+  right: -7px;
+  width: 6px;
+  height: 7px;
+  border: 2px solid currentColor;
+  border-left: 0;
+  border-radius: 0 6px 6px 0;
+}
+
+.cup-symbol.tumbler { height: 17px; border-radius: 2px 2px 5px 5px; color: #649bd8; background: #cce5ff; }
+.cup-symbol.tumbler::before { content: ''; position: absolute; left: -2px; right: -2px; top: -4px; border-top: 3px solid currentColor; }
+.cup-symbol.tumbler::after { top: -8px; right: 1px; width: 2px; height: 7px; border: 0; border-left: 2px solid currentColor; border-radius: 0; transform: rotate(12deg); }
+.cup-symbol.bottle { width: 12px; height: 18px; border-radius: 4px 4px 5px 5px; color: #58a99c; background: #ccefe8; }
+.cup-symbol.bottle::before { content: ''; position: absolute; left: 1px; right: 1px; top: -5px; height: 4px; border: 2px solid currentColor; border-bottom: 0; border-radius: 2px 2px 0 0; }
+.cup-symbol.bottle::after { display: none; }
 
 .drag-handle {
   position: absolute;
@@ -215,16 +247,7 @@ button { font: inherit; }
 
 .partner-pet .identity-badge { color: #6656ac; }
 
-.pet-pair.hugging .self-pet { animation: pair-hug-left 1.25s ease-in-out both; }
-.pet-pair.hugging .partner-pet { animation: pair-hug-right 1.25s ease-in-out both; }
-
-@keyframes pair-hug-left {
-  35%, 68% { transform: translateX(22px) rotate(2deg); }
-}
-
-@keyframes pair-hug-right {
-  35%, 68% { transform: translateX(-22px) rotate(-2deg); }
-}
+.pet-pair.interacting .pet-avatar { opacity: 0; transition: opacity 100ms ease; }
 
 .shortcut-hint {
   position: absolute;

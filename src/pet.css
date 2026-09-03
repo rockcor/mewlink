@@ -6,17 +6,16 @@
   display: block;
   width: var(--cell);
   height: var(--cell);
-  background-image: url('/pets/activity-sprites-v1.png');
+  background-image: url('/pets/activity-sprites-v2.png');
   background-repeat: no-repeat;
   background-size: calc(var(--cell) * 3) calc(var(--cell) * 2);
   filter: drop-shadow(0 13px 10px rgba(86, 45, 67, .16));
-  clip-path: inset(0 14px 0 0);
   transform-origin: 52% 88%;
   animation: pet-breathe 2.8s ease-in-out infinite;
 }
 
 .pet-sprite.partner-sprite {
-  background-image: url('/pets/partner-activity-sprites-v1.png');
+  background-image: url('/pets/partner-activity-sprites-v2.png');
 }
 
 .pet-sprite.coding { background-position: 0 0; animation: pet-type 720ms ease-in-out infinite; }
@@ -27,45 +26,51 @@
 .pet-sprite.rest { background-position: calc(var(--cell) * -2) calc(var(--cell) * -1); animation: pet-sleep 3.3s ease-in-out infinite; }
 
 .pet-sprite.idle {
-  background-image: url('/mewlink-pet.png');
-  background-position: center;
-  background-size: contain;
-  clip-path: none;
+  background-image: url('/pets/activity-sprites-v2.png');
+  background-position: calc(var(--cell) * -2) calc(var(--cell) * -1);
+  background-size: calc(var(--cell) * 3) calc(var(--cell) * 2);
   animation: pet-idle 2.9s ease-in-out infinite;
 }
 
 .pet-sprite.partner-sprite.idle {
-  background-image: url('/pets/partner-activity-sprites-v1.png');
+  background-image: url('/pets/partner-activity-sprites-v2.png');
   background-position: calc(var(--cell) * -2) calc(var(--cell) * -1);
   background-size: calc(var(--cell) * 3) calc(var(--cell) * 2);
-  clip-path: inset(0 14px 0 0);
   animation: pet-idle 2.9s ease-in-out infinite;
 }
 
 .pet-sprite.replaying { filter: drop-shadow(0 13px 10px rgba(86, 45, 67, .16)) saturate(1.08); }
 
-.gesture-burst {
+.pet-sprite.input-keyboard.coding,
+.pet-sprite.input-keyboard.reading,
+.pet-sprite.input-keyboard.browsing {
+  animation: pet-type 260ms ease-in-out infinite;
+}
+
+.pet-sprite.input-pointer {
+  animation: pet-pointer 560ms ease-in-out infinite;
+}
+
+.interaction-sprite {
+  --interaction-cell: 300px;
   position: absolute;
-  z-index: 4;
-  top: 65px;
-  left: calc(50% - 29px);
-  display: grid;
-  place-items: center;
-  width: 58px;
-  height: 58px;
-  border-radius: 50%;
-  background: rgba(255, 249, 249, .88);
-  box-shadow: 0 8px 24px rgba(95, 43, 67, .18);
-  font-size: 31px;
+  z-index: 5;
+  left: calc(50% - var(--interaction-cell) / 2);
+  bottom: -26px;
+  width: var(--interaction-cell);
+  height: var(--interaction-cell);
+  background-image: url('/pets/couple-interactions-v1.png');
+  background-repeat: no-repeat;
+  background-size: calc(var(--interaction-cell) * 2) calc(var(--interaction-cell) * 2);
+  filter: drop-shadow(0 13px 10px rgba(86, 45, 67, .16));
+  transform-origin: 50% 78%;
   pointer-events: none;
 }
 
-.gesture-burst.hug {
-  color: #e7739d;
-  animation: hug-pop 1.4s ease-out both;
-}
-
-.gesture-burst.water { animation: water-drop 1.4s ease-out both; }
+.interaction-sprite.hug { background-position: 0 0; animation: interaction-hug 1.4s ease-in-out both; }
+.interaction-sprite.water.ceramic { background-position: calc(var(--interaction-cell) * -1) 0; animation: interaction-drink 1.4s ease-in-out both; }
+.interaction-sprite.water.tumbler { background-position: 0 calc(var(--interaction-cell) * -1); animation: interaction-drink 1.4s ease-in-out both; }
+.interaction-sprite.water.bottle { background-position: calc(var(--interaction-cell) * -1) calc(var(--interaction-cell) * -1); animation: interaction-drink 1.4s ease-in-out both; }
 
 @keyframes pet-breathe {
   50% { transform: translateY(-4px) scale(1.015); }
@@ -106,16 +111,21 @@
   50% { transform: translateY(-5px); }
 }
 
-@keyframes hug-pop {
-  0% { opacity: 0; transform: translateY(14px) scale(.4) rotate(-12deg); }
-  28% { opacity: 1; transform: translateY(0) scale(1.16) rotate(5deg); }
-  70% { opacity: 1; transform: translateY(-7px) scale(1); }
-  100% { opacity: 0; transform: translateY(-24px) scale(.72); }
+@keyframes pet-pointer {
+  0%, 100% { transform: translateX(-3px) rotate(-1deg); }
+  50% { transform: translateX(4px) translateY(-2px) rotate(1deg); }
 }
 
-@keyframes water-drop {
-  0% { opacity: 0; transform: translateY(-18px) scale(.65); }
-  28% { opacity: 1; transform: translateY(0) scale(1.12); }
-  68% { opacity: 1; transform: translateY(4px) scale(1); }
-  100% { opacity: 0; transform: translateY(18px) scale(.74); }
+@keyframes interaction-hug {
+  0% { opacity: 0; transform: translateY(16px) scale(.82); }
+  28%, 72% { opacity: 1; transform: translateY(0) scale(1.04) rotate(-1deg); }
+  100% { opacity: 0; transform: translateY(-6px) scale(.94); }
+}
+
+@keyframes interaction-drink {
+  0% { opacity: 0; transform: translateY(14px) scale(.86); }
+  30% { opacity: 1; transform: translateY(0) scale(1); }
+  52% { opacity: 1; transform: translateY(-4px) rotate(-1.5deg); }
+  72% { opacity: 1; transform: translateY(0) rotate(1deg); }
+  100% { opacity: 0; transform: translateY(-5px) scale(.95); }
 }

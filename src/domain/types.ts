@@ -2,9 +2,11 @@ export const activityKinds = ['coding', 'reading', 'meeting', 'video', 'browsing
 export type ActivityKind = (typeof activityKinds)[number];
 export const interactionKinds = ['water', 'hug'] as const;
 export type InteractionKind = (typeof interactionKinds)[number];
+export const cupStyles = ['ceramic', 'tumbler', 'bottle'] as const;
+export type CupStyle = (typeof cupStyles)[number];
 
 export interface ActivitySegment { category: ActivityKind; startedAt: string; endedAt: string }
-export interface InteractionPayload { action: InteractionKind; phraseId?: string }
+export interface InteractionPayload { action: InteractionKind; cupStyle?: CupStyle; phraseId?: string }
 export interface PlainEvent {
   id: string; version: 1; relationshipId: string; senderDeviceId: string; createdAt: string;
   senderUtcOffsetMinutes?: number;

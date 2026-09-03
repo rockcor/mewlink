@@ -1784,6 +1784,8 @@ dependencies = [
 name = "mewlink"
 version = "0.1.0"
 dependencies = [
+ "objc2",
+ "objc2-app-kit",
  "serde",
  "tauri",
  "tauri-build",
