@@ -1,5 +1,5 @@
 {
-  "version": "0.2.1",
-  "notes": "新增可关闭的时差重放、配对后的自动时差识别，以及跟随键盘和鼠标输入的实时手部动作。",
-  "downloadUrl": "https://mewlink.jshmhsb.chatgpt.site/downloads/MewLink-macOS-0.2.1.zip"
+  "version": "0.2.2",
+  "notes": "时差重放改为快速播放宠物的一天；键盘与鼠标动作改为完整手臂相连的逐帧动画。",
+  "downloadUrl": "https://mewlink.jshmhsb.chatgpt.site/downloads/MewLink-macOS-0.2.2.zip"
 }

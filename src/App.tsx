@@ -65,8 +65,6 @@ export default function App() {
     '--pet-browse-duration': `${Math.round(3_200 * durationScale)}ms`,
     '--pet-rest-duration': `${Math.round(4_300 * durationScale)}ms`,
     '--pet-idle-duration': `${Math.round(3_800 * durationScale)}ms`,
-    '--pet-keyboard-duration': `${Math.round(520 * durationScale)}ms`,
-    '--pet-pointer-duration': `${Math.round(900 * durationScale)}ms`,
     '--interaction-duration': `${Math.round(1_900 * durationScale)}ms`
   }) as CSSProperties, [durationScale]);
 
@@ -110,7 +108,7 @@ export default function App() {
     if (!playing || !replay.length) return;
     const timer = window.setInterval(() => {
       setFrame(current => current + 1 >= replay.length ? (setPlaying(false), 0) : current + 1);
-    }, Math.round(2_200 * durationScale));
+    }, Math.round(1_700 * durationScale));
     return () => clearInterval(timer);
   }, [durationScale, playing, replay.length]);
   useEffect(() => () => {
@@ -231,7 +229,7 @@ export default function App() {
           <div className="pet-avatar self-pet" aria-label={`我的宠物：${statusText[activity]}`}>
             <span className="identity-badge">我</span>
             <span className={`pet-sprite ${activity} input-${inputKind}`} aria-hidden="true" />
-            <span className={`input-paws ${inputKind} beat-${inputBeat % 2}`} aria-hidden="true"><i className="left-paw"/><i className="right-paw"/><em/></span>
+            <span className={`input-action-sprite ${inputKind} beat-${inputBeat % 2}`} aria-hidden="true" />
           </div>
           <button
             className="pet-avatar partner-pet"

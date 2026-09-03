@@ -3,7 +3,7 @@ import { getVersion } from '@tauri-apps/api/app';
 export const UPDATE_MANIFEST_URL = import.meta.env.DEV
   ? '/updates/latest.json'
   : 'https://mewlink.jshmhsb.chatgpt.site/updates/latest.json';
-export const FALLBACK_APP_VERSION = '0.2.1';
+export const FALLBACK_APP_VERSION = '0.2.2';
 
 export interface UpdateManifest {
   version: string;
