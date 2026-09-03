@@ -1,0 +1,129 @@
+import { decryptEvent, encryptEvent } from '../crypto/events';
+import type { EncryptedEnvelope, PlainEvent, StoredEvent } from '../domain/types';
+import { pairingKey, relayTokenHash, type PairingState } from '../pairing/pairing';
+
+export const RELAY_ENDPOINT = import.meta.env.VITE_RELAY_ENDPOINT || (import.meta.env.DEV
+  ? 'http://localhost:3000/api/relay'
+  : 'https://mewlink.jshmhsb.chatgpt.site/api/relay');
+
+type Fetcher = typeof fetch;
+
+interface RelayMessage {
+  relayId: number;
+  envelope: EncryptedEnvelope;
+}
+
+interface SyncResponse {
+  cursor: number;
+  devices: string[];
+  messages: RelayMessage[];
+}
+
+export class RelayError extends Error {
+  constructor(message: string, readonly status: number) {
+    super(message);
+  }
+}
+
+function headers(state?: PairingState) {
+  return {
+    'Content-Type': 'application/json',
+    ...(state ? { Authorization: `Bearer ${state.relayToken}` } : {}),
+  };
+}
+
+async function checked(response: Response) {
+  if (response.ok) return response;
+  let message = '连接暂时不可用';
+  try {
+    const value = await response.json() as { error?: string };
+    if (value.error === 'invite_expired') message = '邀请码已经过期';
+    if (value.error === 'pair_full') message = '这组邀请码已经连接了两台设备';
+    if (value.error === 'slow_down') message = '发送得太快了，请稍后再试';
+  } catch {
+    // Keep the friendly fallback message.
+  }
+  throw new RelayError(message, response.status);
+}
+
+export async function registerPairCreator(state: PairingState, fetcher: Fetcher = fetch) {
+  await checked(await fetcher(RELAY_ENDPOINT, {
+    method: 'POST',
+    headers: headers(),
+    body: JSON.stringify({
+      operation: 'create',
+      relationshipId: state.relationshipId,
+      tokenHash: await relayTokenHash(state.relayToken),
+      deviceId: state.deviceId,
+      inviteExpiresAt: Math.floor(state.inviteExpiresAt / 1000),
+    }),
+  }));
+}
+
+export async function registerPairJoiner(state: PairingState, fetcher: Fetcher = fetch) {
+  await checked(await fetcher(RELAY_ENDPOINT, {
+    method: 'POST',
+    headers: headers(state),
+    body: JSON.stringify({ operation: 'join', relationshipId: state.relationshipId, deviceId: state.deviceId }),
+  }));
+}
+
+function validEnvelope(value: unknown): value is EncryptedEnvelope {
+  if (!value || typeof value !== 'object') return false;
+  const envelope = value as Partial<EncryptedEnvelope>;
+  return envelope.protocolVersion === 1 && typeof envelope.relationshipId === 'string'
+    && typeof envelope.senderDeviceId === 'string' && typeof envelope.recipientDeviceId === 'string'
+    && typeof envelope.keyId === 'string' && Number.isSafeInteger(envelope.sequence)
+    && typeof envelope.nonce === 'string' && typeof envelope.ciphertext === 'string';
+}
+
+export async function syncEncryptedEvents(state: PairingState, fetcher: Fetcher = fetch) {
+  const url = new URL(RELAY_ENDPOINT);
+  url.searchParams.set('relationshipId', state.relationshipId);
+  url.searchParams.set('deviceId', state.deviceId);
+  url.searchParams.set('after', String(state.relayCursor));
+  const response = await checked(await fetcher(url, { headers: headers(state) }));
+  const payload = await response.json() as Partial<SyncResponse>;
+  const cursor = Number.isSafeInteger(payload.cursor) && (payload.cursor ?? 0) >= state.relayCursor ? payload.cursor as number : state.relayCursor;
+  const devices = Array.isArray(payload.devices) ? payload.devices.filter(device => typeof device === 'string' && device !== state.deviceId) : [];
+  const receivedSequences = { ...state.receivedSequences };
+  const received: StoredEvent[] = [];
+  const key = await pairingKey(state);
+  for (const message of Array.isArray(payload.messages) ? payload.messages : []) {
+    if (!message || !Number.isSafeInteger(message.relayId) || !validEnvelope(message.envelope)) continue;
+    const envelope = message.envelope;
+    if (envelope.relationshipId !== state.relationshipId || envelope.recipientDeviceId !== state.deviceId
+      || envelope.keyId !== state.keyId || envelope.senderDeviceId === state.deviceId
+      || envelope.sequence <= (receivedSequences[envelope.senderDeviceId] ?? 0)) continue;
+    try {
+      const event = await decryptEvent(envelope, key);
+      receivedSequences[envelope.senderDeviceId] = envelope.sequence;
+      received.push({ event, direction: 'in', status: 'delivered', receivedAt: new Date().toISOString() });
+    } catch {
+      // Advance the opaque relay cursor while ignoring unauthenticated envelopes.
+    }
+  }
+  const next: PairingState = {
+    ...state,
+    ...(devices[0] ? { partnerDeviceId: devices[0] } : {}),
+    relayCursor: cursor,
+    receivedSequences,
+  };
+  return { state: next, received };
+}
+
+export async function sendEncryptedEvent(state: PairingState, event: PlainEvent, fetcher: Fetcher = fetch) {
+  let active = state;
+  if (!active.partnerDeviceId) active = (await syncEncryptedEvents(active, fetcher)).state;
+  if (!active.partnerDeviceId) throw new RelayError('还在等待 TA 连接', 409);
+  const sequence = active.nextSequence + 1;
+  const envelope = await encryptEvent(event, active.partnerDeviceId, sequence, await pairingKey(active), active.keyId);
+  await checked(await fetcher(RELAY_ENDPOINT, {
+    method: 'POST',
+    headers: headers(active),
+    body: JSON.stringify({ operation: 'send', envelope }),
+  }));
+  const next = { ...active, nextSequence: sequence };
+  const stored: StoredEvent = { event, direction: 'out', status: 'delivered', receivedAt: new Date().toISOString() };
+  return { state: next, stored, envelope };
+}

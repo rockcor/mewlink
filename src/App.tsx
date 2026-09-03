@@ -1,19 +1,28 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties } from 'react';
 import { v4 as uuid } from 'uuid';
 import { SettingsPanel, type UpdateViewState } from './components/SettingsPanel';
-import type { ActivityKind, CupStyle, InteractionKind, PlainEvent, StoredEvent } from './domain/types';
+import type { ActivityKind, CupStyle, InteractionKind, InteractionPayload, PlainEvent, StoredEvent } from './domain/types';
 import { cupStyles } from './domain/types';
+import {
+  clearPairing,
+  createPairingState,
+  joinPairingState,
+  loadPairing,
+  pairingInviteCode,
+  pairingSafetyCode,
+  savePairing,
+  type PairingState,
+} from './pairing/pairing';
 import { activityProbe, classify, nextSampleDelay, type InputKind } from './platform/activity';
 import { localUtcOffsetMinutes } from './platform/clock';
+import { registerPairCreator, registerPairJoiner, sendEncryptedEvent, syncEncryptedEvents } from './services/relayTransport';
 import { checkForUpdate } from './services/update';
-import { listEvents } from './storage/events';
-import { LoopbackTransport } from './services/mockTransport';
+import { listEvents, putEvent } from './storage/events';
 import { buildReplay } from './services/replay';
 import { animationDurationScale, effectiveUtcOffsetMinutes, loadPreferences, savePreferences } from './settings/preferences';
 import './styles.css';
 import './pet.css';
 
-const transport = new LoopbackTransport();
 const cupOptions: Record<CupStyle, { label: string; shortLabel: string }> = {
   ceramic: { label: '樱粉陶瓷杯', shortLabel: '陶瓷杯' },
   tumbler: { label: '天空随行杯', shortLabel: '随行杯' },
@@ -69,6 +78,10 @@ export default function App() {
   const [updateState, setUpdateState] = useState<UpdateViewState>({ kind: 'idle', message: '尚未检查更新' });
   const [feedback, setFeedback] = useState('');
   const [feedbackStatus, setFeedbackStatus] = useState('');
+  const [pairing, setPairing] = useState<PairingState | undefined>(() => loadPairing());
+  const [pairingStatus, setPairingStatus] = useState('');
+  const [joinCode, setJoinCode] = useState('');
+  const [safetyCode, setSafetyCode] = useState('');
   const [cupStyle, setCupStyle] = useState<CupStyle>(() => {
     const saved = window.localStorage.getItem('mewlink.cupStyle');
     return cupStyles.includes(saved as CupStyle) ? saved as CupStyle : 'ceramic';
@@ -79,8 +92,11 @@ export default function App() {
   const noticeTimer = useRef<number | undefined>(undefined);
   const selfActivityRef = useRef<ActivityKind>('browsing');
   const partnerActivityRef = useRef<ActivityKind>('rest');
+  const pairingRef = useRef<PairingState | undefined>(pairing);
+  const incomingInteractionRef = useRef<(action: InteractionKind, cup?: CupStyle) => void>(() => undefined);
   const receiverUtcOffsetMinutes = effectiveUtcOffsetMinutes(preferences);
-  const partnerUtcOffsetMinutes = useMemo(() => [...events].reverse().find(({ event }) => event.senderUtcOffsetMinutes !== undefined)?.event.senderUtcOffsetMinutes, [events]);
+  const partnerUtcOffsetMinutes = useMemo(() => [...events].reverse().find(({ direction, event }) => direction === 'in' && event.senderUtcOffsetMinutes !== undefined)?.event.senderUtcOffsetMinutes, [events]);
+  const inviteCode = pairing && !pairing.partnerDeviceId ? pairingInviteCode(pairing) : '';
   const durationScale = animationDurationScale(preferences.animationSpeed);
   const replay = useMemo(
     () => preferences.replayEnabled ? buildReplay(events, receiverUtcOffsetMinutes, preferences.timezoneMode !== 'off') : [],
@@ -113,7 +129,56 @@ export default function App() {
     }
   }, []);
 
+  const persistPairing = useCallback((next: PairingState) => {
+    pairingRef.current = next;
+    savePairing(next);
+    setPairing(next);
+  }, []);
+
   useEffect(() => { void listEvents().then(setEvents); }, []);
+  useEffect(() => {
+    if (!pairing) {
+      setSafetyCode('');
+      return;
+    }
+    let current = true;
+    void pairingSafetyCode(pairing).then(code => { if (current) setSafetyCode(code); });
+    return () => { current = false; };
+  }, [pairing]);
+  useEffect(() => {
+    if (!pairing?.relationshipId || !pairing.deviceId) return;
+    let stopped = false;
+    let running = false;
+    const sync = async () => {
+      if (running || stopped) return;
+      running = true;
+      try {
+        const active = pairingRef.current;
+        if (!active) return;
+        const result = await syncEncryptedEvents(active);
+        if (stopped) return;
+        if (result.state.partnerDeviceId !== active.partnerDeviceId || result.state.relayCursor !== active.relayCursor || result.received.length) {
+          persistPairing(result.state);
+        }
+        setPairingStatus(result.state.partnerDeviceId ? '已连接，可以互相发送拥抱和喝水' : '等待 TA 粘贴邀请码');
+        for (const stored of result.received) {
+          await putEvent(stored);
+          setEvents(currentEvents => currentEvents.some(item => item.event.id === stored.event.id) ? currentEvents : [...currentEvents, stored]);
+          if (stored.event.kind === 'interaction') {
+            const payload = stored.event.payload as InteractionPayload;
+            incomingInteractionRef.current(payload.action, payload.cupStyle);
+          }
+        }
+      } catch {
+        if (!stopped) setPairingStatus('暂时无法连接，稍后会自动重试');
+      } finally {
+        running = false;
+      }
+    };
+    void sync();
+    const timer = window.setInterval(() => { void sync(); }, 2_500);
+    return () => { stopped = true; window.clearInterval(timer); };
+  }, [pairing?.relationshipId, pairing?.deviceId, persistPairing]);
   useEffect(() => {
     let timer: number | undefined;
     let stopped = false;
@@ -176,23 +241,77 @@ export default function App() {
     noticeTimer.current = window.setTimeout(() => setNotice('单击拥抱 · 双击喝水'), Math.round(2_800 * durationScale));
   }
 
+  incomingInteractionRef.current = (action, selectedCup = 'ceramic') => {
+    showGesture(action, action === 'hug' ? 'TA 送来一个拥抱' : 'TA 提醒你喝水', selectedCup);
+  };
+
+  async function createPairing() {
+    setPairingStatus('正在生成邀请码…');
+    try {
+      const next = await createPairingState();
+      await registerPairCreator(next);
+      persistPairing(next);
+      setPairingStatus('等待 TA 粘贴邀请码');
+    } catch {
+      setPairingStatus('暂时无法生成，请稍后再试');
+    }
+  }
+
+  async function joinPairing() {
+    setPairingStatus('正在连接…');
+    try {
+      const next = joinPairingState(joinCode);
+      await registerPairJoiner(next);
+      persistPairing(next);
+      setJoinCode('');
+      setPairingStatus('已连接，可以互相发送拥抱和喝水');
+    } catch (error) {
+      setPairingStatus(error instanceof Error ? error.message : '暂时无法连接');
+    }
+  }
+
+  async function copyInvite() {
+    try {
+      await navigator.clipboard.writeText(inviteCode);
+      setPairingStatus('邀请码已复制，请私下发给 TA');
+    } catch {
+      setPairingStatus('复制失败，请手动选择邀请码');
+    }
+  }
+
+  function disconnectPairing() {
+    clearPairing();
+    pairingRef.current = undefined;
+    setPairing(undefined);
+    setPairingStatus('已解除连接');
+    setJoinCode('');
+  }
+
   async function send(action: InteractionKind) {
+    const active = pairingRef.current;
+    if (!active) {
+      setSettingsOpen(true);
+      setPairingStatus('先连接 TA，才能送出互动');
+      return;
+    }
     const event: PlainEvent = {
       id: uuid(),
       version: 1,
-      relationshipId: 'demo-couple',
-      senderDeviceId: 'my-device',
+      relationshipId: active.relationshipId,
+      senderDeviceId: active.deviceId,
       createdAt: new Date().toISOString(),
       senderUtcOffsetMinutes: localUtcOffsetMinutes(),
       kind: 'interaction',
       payload: { action, ...(action === 'water' ? { cupStyle } : {}) }
     };
     try {
-      const received = await transport.send(event, { muted: false, focusMode: false, minIntervalMs: 800 });
-      setEvents(currentEvents => [...currentEvents, received]);
+      const result = await sendEncryptedEvent(active, event);
+      persistPairing(result.state);
+      await putEvent(result.stored);
+      setEvents(currentEvents => [...currentEvents, result.stored]);
       showGesture(action, action === 'hug' ? '拥抱已送出' : `${cupOptions[cupStyle].label}已送出`, cupStyle);
-    } catch {
-      setNotice('暂时没有送出去');
+    } catch (error) {
+      setNotice(error instanceof Error ? error.message : '暂时没有送出去');
     }
   }
 
@@ -305,10 +424,20 @@ export default function App() {
           updateState={updateState}
           feedback={feedback}
           feedbackStatus={feedbackStatus}
+          pairing={pairing}
+          pairingStatus={pairingStatus}
+          inviteCode={inviteCode}
+          joinCode={joinCode}
+          safetyCode={safetyCode}
           onChange={setPreferences}
           onCheckUpdate={() => { void runUpdateCheck(); }}
           onFeedbackChange={value => { setFeedback(value); setFeedbackStatus(''); }}
           onShareFeedback={() => { void shareFeedback(); }}
+          onCreatePairing={() => { void createPairing(); }}
+          onCopyInvite={() => { void copyInvite(); }}
+          onJoinCodeChange={setJoinCode}
+          onJoinPairing={() => { void joinPairing(); }}
+          onDisconnect={disconnectPairing}
           onClose={() => setSettingsOpen(false)}
         />}
       </section>

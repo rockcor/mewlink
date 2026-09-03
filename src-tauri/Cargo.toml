@@ -1,6 +1,6 @@
 [package]
 name = "mewlink"
-version = "0.2.4"
+version = "0.3.0"
 description = "Privacy-first ambient couple companion"
 authors = ["MewLink contributors"]
 edition = "2021"

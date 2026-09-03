@@ -1,13 +1,14 @@
 {
   "name": "mewlink",
   "private": true,
-  "version": "0.2.4",
+  "version": "0.3.0",
   "type": "module",
   "scripts": {
     "dev": "vite",
     "build": "tsc -b && vite build",
     "lint": "eslint .",
     "test": "vitest run",
+    "test:peer": "node scripts/test-peer.mjs",
     "tauri": "tauri"
   },
   "dependencies": {

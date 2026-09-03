@@ -1,4 +1,5 @@
 import type { AnimationSpeed, Preferences } from '../settings/preferences';
+import type { PairingState } from '../pairing/pairing';
 import { animationSpeeds, formatUtcOffset } from '../settings/preferences';
 
 export interface UpdateViewState {
@@ -14,10 +15,20 @@ interface SettingsPanelProps {
   updateState: UpdateViewState;
   feedback: string;
   feedbackStatus: string;
+  pairing?: PairingState;
+  pairingStatus: string;
+  inviteCode: string;
+  joinCode: string;
+  safetyCode: string;
   onChange: (next: Preferences) => void;
   onCheckUpdate: () => void;
   onFeedbackChange: (value: string) => void;
   onShareFeedback: () => void;
+  onCreatePairing: () => void;
+  onCopyInvite: () => void;
+  onJoinCodeChange: (value: string) => void;
+  onJoinPairing: () => void;
+  onDisconnect: () => void;
   onClose: () => void;
 }
 
@@ -34,10 +45,20 @@ export function SettingsPanel({
   updateState,
   feedback,
   feedbackStatus,
+  pairing,
+  pairingStatus,
+  inviteCode,
+  joinCode,
+  safetyCode,
   onChange,
   onCheckUpdate,
   onFeedbackChange,
   onShareFeedback,
+  onCreatePairing,
+  onCopyInvite,
+  onJoinCodeChange,
+  onJoinPairing,
+  onDisconnect,
   onClose
 }: SettingsPanelProps) {
   const patchPreferences = (patch: Partial<Preferences>) => onChange({ ...preferences, ...patch });
@@ -50,6 +71,39 @@ export function SettingsPanel({
       </header>
 
       <div className="settings-scroll">
+        <article className="setting-block pairing-block">
+          <div className="setting-title">
+            <div><b>连接 TA</b><small>一台 Mac 生成邀请码，另一台粘贴连接</small></div>
+            {pairing && <span className={`pairing-badge ${pairing.partnerDeviceId ? 'connected' : ''}`}>{pairing.partnerDeviceId ? '已连接' : '等待中'}</span>}
+          </div>
+          {!pairing && <>
+            <button type="button" className="pairing-primary" onClick={onCreatePairing}>生成邀请码</button>
+            <div className="pairing-divider"><span>或</span></div>
+            <textarea
+              className="pairing-code-input"
+              value={joinCode}
+              onChange={event => onJoinCodeChange(event.target.value)}
+              placeholder="粘贴 TA 发来的邀请码"
+              aria-label="邀请码"
+            />
+            <button type="button" className="pairing-secondary" onClick={onJoinPairing} disabled={!joinCode.trim()}>连接</button>
+          </>}
+          {pairing && !pairing.partnerDeviceId && <>
+            <textarea className="pairing-code-input invite-code" value={inviteCode} readOnly aria-label="我的邀请码" />
+            <div className="pairing-actions">
+              <button type="button" className="pairing-primary" onClick={onCopyInvite}>复制邀请码</button>
+              <button type="button" className="pairing-quiet" onClick={onDisconnect}>取消</button>
+            </div>
+          </>}
+          {pairing?.partnerDeviceId && <div className="pairing-connected">
+            <span className="pairing-heart" aria-hidden="true">♥</span>
+            <div><b>两只宠物已经连在一起</b><small>请和 TA 核对下方号码</small></div>
+            <button type="button" className="pairing-quiet" onClick={onDisconnect}>解除</button>
+          </div>}
+          {pairing && safetyCode && <div className="safety-code"><small>核对号码</small><b>{safetyCode}</b></div>}
+          {pairingStatus && <p className="pairing-status" role="status">{pairingStatus}</p>}
+        </article>
+
         <article className="setting-row replay-setting">
           <div><b>时差重放</b><small>两人连接后自动识别时差，上线时重放错过的片刻</small></div>
           <button
