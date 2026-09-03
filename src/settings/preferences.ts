@@ -6,6 +6,7 @@ export type TimezoneMode = 'auto' | 'manual';
 
 export interface Preferences {
   autoUpdate: boolean;
+  replayEnabled: boolean;
   timezoneMode: TimezoneMode;
   manualUtcOffsetMinutes: number;
   animationSpeed: AnimationSpeed;
@@ -17,6 +18,7 @@ const STORAGE_KEY = 'mewlink.preferences.v1';
 export function defaultPreferences(): Preferences {
   return {
     autoUpdate: true,
+    replayEnabled: true,
     timezoneMode: 'auto',
     manualUtcOffsetMinutes: localUtcOffsetMinutes(),
     animationSpeed: 'calm'
@@ -34,6 +36,7 @@ export function loadPreferences(storage?: StorageLike): Preferences {
     const value = parsed as Partial<Preferences>;
     return {
       autoUpdate: typeof value.autoUpdate === 'boolean' ? value.autoUpdate : defaults.autoUpdate,
+      replayEnabled: typeof value.replayEnabled === 'boolean' ? value.replayEnabled : defaults.replayEnabled,
       timezoneMode: value.timezoneMode === 'manual' ? 'manual' : 'auto',
       manualUtcOffsetMinutes: typeof value.manualUtcOffsetMinutes === 'number'
         ? normalizeUtcOffsetMinutes(value.manualUtcOffsetMinutes)

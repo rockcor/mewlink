@@ -9,6 +9,8 @@ export interface UpdateViewState {
 
 interface SettingsPanelProps {
   preferences: Preferences;
+  localUtcOffsetMinutes: number;
+  partnerUtcOffsetMinutes?: number;
   updateState: UpdateViewState;
   feedback: string;
   feedbackStatus: string;
@@ -27,6 +29,8 @@ const speedLabels: Record<AnimationSpeed, string> = {
 
 export function SettingsPanel({
   preferences,
+  localUtcOffsetMinutes,
+  partnerUtcOffsetMinutes,
   updateState,
   feedback,
   feedbackStatus,
@@ -46,6 +50,17 @@ export function SettingsPanel({
       </header>
 
       <div className="settings-scroll">
+        <article className="setting-row replay-setting">
+          <div><b>时差重放</b><small>两人连接后自动识别时差，上线时重放错过的片刻</small></div>
+          <button
+            type="button"
+            className={`switch ${preferences.replayEnabled ? 'on' : ''}`}
+            role="switch"
+            aria-checked={preferences.replayEnabled}
+            onClick={() => patchPreferences({ replayEnabled: !preferences.replayEnabled })}
+          ><span /></button>
+        </article>
+
         <article className="setting-row">
           <div><b>自动更新</b><small>启动时检查，有新版本就提醒你</small></div>
           <button
@@ -65,7 +80,8 @@ export function SettingsPanel({
         </div>
 
         <article className="setting-block">
-          <div className="setting-title"><div><b>时区</b><small>回放按你选择的当地时间显示</small></div><div className="mini-tabs"><button type="button" className={preferences.timezoneMode === 'auto' ? 'selected' : ''} onClick={() => patchPreferences({ timezoneMode: 'auto' })}>自动</button><button type="button" className={preferences.timezoneMode === 'manual' ? 'selected' : ''} onClick={() => patchPreferences({ timezoneMode: 'manual' })}>手动</button></div></div>
+          <div className="setting-title"><div><b>时区</b><small>连接后自动读取双方当地时差，也可以手动调整</small></div><div className="mini-tabs"><button type="button" className={preferences.timezoneMode === 'auto' ? 'selected' : ''} onClick={() => patchPreferences({ timezoneMode: 'auto' })}>自动</button><button type="button" className={preferences.timezoneMode === 'manual' ? 'selected' : ''} onClick={() => patchPreferences({ timezoneMode: 'manual' })}>手动</button></div></div>
+          {preferences.timezoneMode === 'auto' && <div className="timezone-detected"><span>你 · {formatUtcOffset(localUtcOffsetMinutes)}</span><i>↔</i><span>{partnerUtcOffsetMinutes === undefined ? 'TA · 连接后识别' : `TA · ${formatUtcOffset(partnerUtcOffsetMinutes)}`}</span></div>}
           {preferences.timezoneMode === 'manual' && <label className="timezone-slider"><span>{formatUtcOffset(preferences.manualUtcOffsetMinutes)}</span><input type="range" min="-720" max="840" step="15" value={preferences.manualUtcOffsetMinutes} onChange={event => patchPreferences({ manualUtcOffsetMinutes: Number(event.target.value) })} aria-label="手动时区 UTC 偏移"/><small>每格 15 分钟</small></label>}
         </article>
 

@@ -15,13 +15,19 @@ describe('desktop preferences', () => {
     expect(animationDurationScale('calm')).toBeGreaterThan(animationDurationScale('lively'));
   });
 
-  it('persists manual timezone and update preferences', () => {
+  it('persists replay, manual timezone, and update preferences', () => {
     const storage = memoryStorage();
-    savePreferences({ autoUpdate: false, timezoneMode: 'manual', manualUtcOffsetMinutes: 330, animationSpeed: 'natural' }, storage);
+    savePreferences({ autoUpdate: false, replayEnabled: false, timezoneMode: 'manual', manualUtcOffsetMinutes: 330, animationSpeed: 'natural' }, storage);
     const saved = loadPreferences(storage);
     expect(effectiveUtcOffsetMinutes(saved)).toBe(330);
     expect(saved.autoUpdate).toBe(false);
+    expect(saved.replayEnabled).toBe(false);
     expect(formatUtcOffset(saved.manualUtcOffsetMinutes)).toBe('UTC+05:30');
+  });
+
+  it('enables asynchronous replay for existing installations', () => {
+    const saved = loadPreferences(memoryStorage(JSON.stringify({ autoUpdate: true })));
+    expect(saved.replayEnabled).toBe(true);
   });
 
   it('falls back safely when stored data is malformed', () => {

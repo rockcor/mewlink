@@ -165,9 +165,9 @@ mod platform {
             OTHER_MOUSE_DOWN,
             OTHER_MOUSE_DRAGGED,
         ]);
-        if keyboard <= 1.5 && keyboard <= pointer {
+        if keyboard <= 0.9 && keyboard <= pointer {
             "keyboard"
-        } else if pointer <= 1.5 {
+        } else if pointer <= 0.9 {
             "pointer"
         } else {
             "none"
@@ -254,15 +254,15 @@ mod platform {
     };
 
     static LAST_CURSOR: AtomicU64 = AtomicU64::new(u64::MAX);
-    static LAST_IDLE: AtomicU64 = AtomicU64::new(u64::MAX);
+    static LAST_INPUT_TICK: AtomicU64 = AtomicU64::new(u64::MAX);
 
     pub(super) fn sample() -> PresenceSignal {
-        let idle_seconds = idle_seconds();
+        let (idle_seconds, input_tick) = input_state();
         PresenceSignal {
             idle_seconds,
             locked: session_is_locked(),
             app_class: foreground_app_class(),
-            input_kind: recent_input_kind(idle_seconds),
+            input_kind: recent_input_kind(input_tick, idle_seconds),
         }
     }
 
@@ -292,7 +292,7 @@ mod platform {
         }
     }
 
-    fn recent_input_kind(idle_seconds: u64) -> &'static str {
+    fn recent_input_kind(input_tick: u64, idle_seconds: u64) -> &'static str {
         if idle_seconds > 2 {
             return "none";
         }
@@ -303,13 +303,13 @@ mod platform {
             u64::MAX
         };
         let previous_cursor = LAST_CURSOR.swap(packed_cursor, Ordering::Relaxed);
-        let previous_idle = LAST_IDLE.swap(idle_seconds, Ordering::Relaxed);
+        let previous_tick = LAST_INPUT_TICK.swap(input_tick, Ordering::Relaxed);
         if packed_cursor != u64::MAX
             && previous_cursor != u64::MAX
             && packed_cursor != previous_cursor
         {
             "pointer"
-        } else if previous_idle != u64::MAX && idle_seconds < previous_idle {
+        } else if previous_tick != u64::MAX && input_tick != previous_tick {
             // A fresh non-pointer event is treated as keyboard/trackpad activity; content is unknown.
             "keyboard"
         } else {
@@ -317,17 +317,20 @@ mod platform {
         }
     }
 
-    fn idle_seconds() -> u64 {
+    fn input_state() -> (u64, u64) {
         let mut last_input = LASTINPUTINFO {
             cbSize: size_of::<LASTINPUTINFO>() as u32,
             dwTime: 0,
         };
         if unsafe { GetLastInputInfo(&mut last_input) } == 0 {
-            return 0;
+            return (0, 0);
         }
 
         let now = unsafe { GetTickCount64() } as u32;
-        u64::from(now.wrapping_sub(last_input.dwTime)) / 1_000
+        (
+            u64::from(now.wrapping_sub(last_input.dwTime)) / 1_000,
+            u64::from(last_input.dwTime),
+        )
     }
 
     fn session_is_locked() -> bool {

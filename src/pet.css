@@ -16,6 +16,7 @@
 
 .pet-sprite.partner-sprite {
   background-image: url('/pets/partner-activity-sprites-v3.png');
+  width: calc(var(--cell) + 14px);
 }
 
 .pet-sprite.coding { background-position: 0 0; animation: pet-type var(--pet-type-duration, 1100ms) ease-in-out infinite; }
@@ -24,6 +25,12 @@
 .pet-sprite.video { background-position: 0 calc(var(--cell) * -1); animation: pet-watch var(--pet-video-duration, 2900ms) ease-in-out infinite; }
 .pet-sprite.browsing { background-position: calc(var(--cell) * -1) calc(var(--cell) * -1); animation: pet-search var(--pet-browse-duration, 3200ms) ease-in-out infinite; }
 .pet-sprite.rest { background-position: calc(var(--cell) * -2) calc(var(--cell) * -1); animation: pet-sleep var(--pet-rest-duration, 4300ms) ease-in-out infinite; }
+
+/* Give the partner artwork a little transparent room before each sprite cell. */
+.pet-sprite.partner-sprite.reading { background-position: calc(var(--cell) * -1 + 14px) 0; }
+.pet-sprite.partner-sprite.meeting { background-position: calc(var(--cell) * -2 + 14px) 0; }
+.pet-sprite.partner-sprite.browsing { background-position: calc(var(--cell) * -1 + 14px) calc(var(--cell) * -1); }
+.pet-sprite.partner-sprite.rest { background-position: calc(var(--cell) * -2 + 14px) calc(var(--cell) * -1); }
 
 .pet-sprite.idle {
   background-image: url('/pets/activity-sprites-v3.png');
@@ -34,7 +41,7 @@
 
 .pet-sprite.partner-sprite.idle {
   background-image: url('/pets/partner-activity-sprites-v3.png');
-  background-position: calc(var(--cell) * -2) calc(var(--cell) * -1);
+  background-position: calc(var(--cell) * -2 + 14px) calc(var(--cell) * -1);
   background-size: calc(var(--cell) * 3) calc(var(--cell) * 2);
   animation: pet-idle var(--pet-idle-duration, 3800ms) ease-in-out infinite;
 }
@@ -44,12 +51,72 @@
 .pet-sprite.input-keyboard.coding,
 .pet-sprite.input-keyboard.reading,
 .pet-sprite.input-keyboard.browsing {
-  animation: pet-type var(--pet-keyboard-duration, 520ms) ease-in-out infinite;
+  animation: pet-breathe var(--pet-breathe-duration, 3600ms) ease-in-out infinite;
 }
 
 .pet-sprite.input-pointer {
-  animation: pet-pointer var(--pet-pointer-duration, 900ms) ease-in-out infinite;
+  animation: pet-breathe var(--pet-breathe-duration, 3600ms) ease-in-out infinite;
 }
+
+.input-paws {
+  position: absolute;
+  z-index: 3;
+  inset: 0;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 120ms ease;
+}
+
+.input-paws.keyboard,
+.input-paws.pointer { opacity: 1; }
+
+.input-paws i {
+  position: absolute;
+  width: 28px;
+  height: 20px;
+  border: 2px solid #382132;
+  border-radius: 52% 52% 48% 48%;
+  background: #fffdfd;
+  box-shadow: inset 0 -3px 0 #eee7f5, 0 4px 7px rgba(70, 38, 58, .12);
+  transform-origin: 50% 80%;
+  transition: transform 150ms cubic-bezier(.2, .8, .2, 1), left 150ms cubic-bezier(.2, .8, .2, 1);
+}
+
+.input-paws i:after {
+  content: '';
+  position: absolute;
+  left: 8px;
+  bottom: 3px;
+  width: 8px;
+  height: 5px;
+  border-radius: 50%;
+  background: #efb3cb;
+  opacity: .82;
+}
+
+.input-paws .left-paw { left: 70px; bottom: 49px; }
+.input-paws .right-paw { left: 126px; bottom: 49px; }
+.input-paws.keyboard.beat-0 .left-paw { transform: translateY(-9px) rotate(-9deg); }
+.input-paws.keyboard.beat-0 .right-paw { transform: translateY(1px) rotate(5deg); }
+.input-paws.keyboard.beat-1 .left-paw { transform: translateY(1px) rotate(-4deg); }
+.input-paws.keyboard.beat-1 .right-paw { transform: translateY(-9px) rotate(9deg); }
+
+.input-paws.pointer .left-paw { opacity: 0; }
+.input-paws.pointer .right-paw { left: 143px; bottom: 57px; transform: translate(0, -2px) rotate(12deg); }
+.input-paws.pointer.beat-1 .right-paw { left: 155px; transform: translateY(-7px) rotate(18deg); }
+.input-paws.pointer em {
+  position: absolute;
+  left: 177px;
+  bottom: 58px;
+  width: 9px;
+  height: 9px;
+  border: 2px solid #7764bd;
+  border-radius: 50%;
+  opacity: .72;
+  transition: transform 150ms ease, opacity 150ms ease;
+}
+.input-paws.pointer.beat-1 em { opacity: .25; transform: scale(1.65); }
+.pet-pair.interacting .input-paws { opacity: 0; }
 
 .interaction-sprite {
   --interaction-cell: 300px;

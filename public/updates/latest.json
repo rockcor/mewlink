@@ -1,5 +1,5 @@
 {
-  "version": "0.2.0",
-  "notes": "新增更丰富的工作表情、舒缓动画、手动时区、自动更新检查与反馈入口。",
-  "downloadUrl": "https://mewlink.jshmhsb.chatgpt.site/downloads/MewLink-macOS-0.2.0.zip"
+  "version": "0.2.1",
+  "notes": "新增可关闭的时差重放、配对后的自动时差识别，以及跟随键盘和鼠标输入的实时手部动作。",
+  "downloadUrl": "https://mewlink.jshmhsb.chatgpt.site/downloads/MewLink-macOS-0.2.1.zip"
 }

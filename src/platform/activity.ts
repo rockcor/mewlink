@@ -17,6 +17,7 @@ export const classify = (signal: PresenceSignal): ActivityKind => {
 export const nextSampleDelay = (signal: PresenceSignal) => {
   if (signal.locked) return 5_000;
   if (signal.idleSeconds >= 120) return 900;
+  if (signal.inputKind && signal.inputKind !== 'none') return 260;
   return 500;
 };
 
@@ -32,7 +33,7 @@ class DemoProbe implements ActivityProbe {
   async sample(): Promise<PresenceSignal> {
     const demoFrame = Math.floor(Date.now() / 8_000) % this.demoClasses.length;
     const idleSeconds = (Date.now() - this.lastInput) / 1000;
-    return { idleSeconds, locked: document.visibilityState === 'hidden', appClass: this.demoClasses[demoFrame], inputKind: idleSeconds <= 1.5 ? this.inputKind : 'none' };
+    return { idleSeconds, locked: document.visibilityState === 'hidden', appClass: this.demoClasses[demoFrame], inputKind: idleSeconds <= .9 ? this.inputKind : 'none' };
   }
 }
 export const activityProbe: ActivityProbe = typeof window !== 'undefined' && '__TAURI_INTERNALS__' in window ? new TauriProbe() : typeof window !== 'undefined' ? new DemoProbe() : { sample: async () => ({ idleSeconds: 0, locked: false, appClass: 'unknown', inputKind: 'none' }) };

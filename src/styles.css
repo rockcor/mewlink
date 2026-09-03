@@ -434,6 +434,24 @@ button { font: inherit; }
 .timezone-slider input { width: 100%; accent-color: #d986a5; }
 .timezone-slider small { color: #aa8d9a; font-size: 8px; text-align: right; }
 
+.timezone-detected {
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
+  align-items: center;
+  gap: 8px;
+  margin-top: 11px;
+  padding: 9px 11px;
+  border-radius: 11px;
+  background: #f7eef1;
+  color: #785c69;
+  font-size: 9px;
+  font-weight: 720;
+}
+
+.timezone-detected span:last-child { text-align: right; }
+.timezone-detected i { color: #bd8ea2; font-style: normal; }
+.replay-setting small { max-width: 280px; }
+
 .feedback-block { border-bottom: 0; }
 .feedback-block textarea {
   width: 100%;

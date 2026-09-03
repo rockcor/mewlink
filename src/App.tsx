@@ -19,7 +19,7 @@ const cupOptions: Record<CupStyle, { label: string; shortLabel: string }> = {
   tumbler: { label: '天空随行杯', shortLabel: '随行杯' },
   bottle: { label: '薄荷运动瓶', shortLabel: '运动瓶' }
 };
-const inputText: Record<InputKind, string> = { keyboard: '键盘同步', pointer: '鼠标/触控板同步', none: '' };
+const inputText: Record<InputKind, string> = { keyboard: '键盘输入 · 手部同步', pointer: '鼠标/触控板 · 手部同步', none: '' };
 const statusText: Record<ActivityKind, string> = {
   coding: '在写代码',
   reading: '在阅读',
@@ -33,6 +33,7 @@ const statusText: Record<ActivityKind, string> = {
 export default function App() {
   const [activity, setActivity] = useState<ActivityKind>('browsing');
   const [inputKind, setInputKind] = useState<InputKind>('none');
+  const [inputBeat, setInputBeat] = useState(0);
   const [events, setEvents] = useState<StoredEvent[]>([]);
   const [playing, setPlaying] = useState(false);
   const [frame, setFrame] = useState(0);
@@ -52,8 +53,9 @@ export default function App() {
   const gestureTimer = useRef<number | undefined>(undefined);
   const noticeTimer = useRef<number | undefined>(undefined);
   const receiverUtcOffsetMinutes = effectiveUtcOffsetMinutes(preferences);
+  const partnerUtcOffsetMinutes = useMemo(() => [...events].reverse().find(({ event }) => event.senderUtcOffsetMinutes !== undefined)?.event.senderUtcOffsetMinutes, [events]);
   const durationScale = animationDurationScale(preferences.animationSpeed);
-  const replay = useMemo(() => buildReplay(events, receiverUtcOffsetMinutes), [events, receiverUtcOffsetMinutes]);
+  const replay = useMemo(() => preferences.replayEnabled ? buildReplay(events, receiverUtcOffsetMinutes) : [], [events, preferences.replayEnabled, receiverUtcOffsetMinutes]);
   const motionStyle = useMemo(() => ({
     '--pet-breathe-duration': `${Math.round(3_600 * durationScale)}ms`,
     '--pet-type-duration': `${Math.round(1_100 * durationScale)}ms`,
@@ -87,7 +89,9 @@ export default function App() {
     const sample = async () => {
       const signal = await activityProbe.sample();
       if (stopped) return;
-      setInputKind(currentInput => currentInput === (signal.inputKind ?? 'none') ? currentInput : (signal.inputKind ?? 'none'));
+      const nextInputKind = signal.inputKind ?? 'none';
+      setInputKind(currentInput => currentInput === nextInputKind ? currentInput : nextInputKind);
+      if (nextInputKind !== 'none') setInputBeat(currentBeat => currentBeat + 1);
       setActivity(currentActivity => {
         if (!signal.locked && signal.idleSeconds < 120 && signal.appClass === 'unknown') return currentActivity;
         const next = classify(signal);
@@ -101,6 +105,7 @@ export default function App() {
   useEffect(() => { window.localStorage.setItem('mewlink.cupStyle', cupStyle); }, [cupStyle]);
   useEffect(() => { savePreferences(preferences); }, [preferences]);
   useEffect(() => { if (preferences.autoUpdate) void runUpdateCheck(); }, [preferences.autoUpdate, runUpdateCheck]);
+  useEffect(() => { if (!preferences.replayEnabled) { setPlaying(false); setFrame(0); } }, [preferences.replayEnabled]);
   useEffect(() => {
     if (!playing || !replay.length) return;
     const timer = window.setInterval(() => {
@@ -226,6 +231,7 @@ export default function App() {
           <div className="pet-avatar self-pet" aria-label={`我的宠物：${statusText[activity]}`}>
             <span className="identity-badge">我</span>
             <span className={`pet-sprite ${activity} input-${inputKind}`} aria-hidden="true" />
+            <span className={`input-paws ${inputKind} beat-${inputBeat % 2}`} aria-hidden="true"><i className="left-paw"/><i className="right-paw"/><em/></span>
           </div>
           <button
             className="pet-avatar partner-pet"
@@ -242,6 +248,8 @@ export default function App() {
         <div className="shortcut-hint" aria-live="polite">{notice}</div>
         {settingsOpen && <SettingsPanel
           preferences={preferences}
+          localUtcOffsetMinutes={receiverUtcOffsetMinutes}
+          partnerUtcOffsetMinutes={partnerUtcOffsetMinutes}
           updateState={updateState}
           feedback={feedback}
           feedbackStatus={feedbackStatus}
