@@ -30,6 +30,12 @@ describe('desktop preferences', () => {
     expect(saved.replayEnabled).toBe(true);
   });
 
+  it('lets people turn automatic timezone detection off', () => {
+    const storage = memoryStorage();
+    savePreferences({ autoUpdate: true, replayEnabled: true, timezoneMode: 'off', manualUtcOffsetMinutes: 0, animationSpeed: 'calm' }, storage);
+    expect(loadPreferences(storage).timezoneMode).toBe('off');
+  });
+
   it('falls back safely when stored data is malformed', () => {
     expect(loadPreferences(memoryStorage('{bad')).animationSpeed).toBe('calm');
   });

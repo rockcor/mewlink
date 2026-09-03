@@ -450,6 +450,8 @@ button { font: inherit; }
 
 .timezone-detected span:last-child { text-align: right; }
 .timezone-detected i { color: #bd8ea2; font-style: normal; }
+.timezone-detected.timezone-off { display: block; text-align: center; }
+.timezone-detected.timezone-off span:last-child { text-align: center; }
 .replay-setting small { max-width: 280px; }
 
 .feedback-block { border-bottom: 0; }

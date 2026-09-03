@@ -2,7 +2,7 @@ import { localUtcOffsetMinutes, normalizeUtcOffsetMinutes } from '../platform/cl
 
 export const animationSpeeds = ['calm', 'natural', 'lively'] as const;
 export type AnimationSpeed = (typeof animationSpeeds)[number];
-export type TimezoneMode = 'auto' | 'manual';
+export type TimezoneMode = 'auto' | 'manual' | 'off';
 
 export interface Preferences {
   autoUpdate: boolean;
@@ -37,7 +37,7 @@ export function loadPreferences(storage?: StorageLike): Preferences {
     return {
       autoUpdate: typeof value.autoUpdate === 'boolean' ? value.autoUpdate : defaults.autoUpdate,
       replayEnabled: typeof value.replayEnabled === 'boolean' ? value.replayEnabled : defaults.replayEnabled,
-      timezoneMode: value.timezoneMode === 'manual' ? 'manual' : 'auto',
+      timezoneMode: value.timezoneMode === 'manual' || value.timezoneMode === 'off' ? value.timezoneMode : 'auto',
       manualUtcOffsetMinutes: typeof value.manualUtcOffsetMinutes === 'number'
         ? normalizeUtcOffsetMinutes(value.manualUtcOffsetMinutes)
         : defaults.manualUtcOffsetMinutes,

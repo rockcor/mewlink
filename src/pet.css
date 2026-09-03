@@ -56,7 +56,7 @@
   opacity: 0;
 }
 
-.input-action-sprite {
+.input-action {
   --input-cell: 226px;
   position: absolute;
   z-index: 3;
@@ -65,20 +65,50 @@
   display: none;
   width: var(--input-cell);
   height: var(--input-cell);
+  pointer-events: none;
+}
+
+.input-action-frame {
+  position: absolute;
+  inset: 0;
   background-image: url('/pets/input-action-sprites-v1.png');
   background-repeat: no-repeat;
   background-size: calc(var(--input-cell) * 2) calc(var(--input-cell) * 2);
   filter: drop-shadow(0 13px 10px rgba(86, 45, 67, .16));
-  pointer-events: none;
 }
 
-.input-action-sprite.keyboard,
-.input-action-sprite.pointer { display: block; }
-.input-action-sprite.keyboard.beat-0 { background-position: 0 0; }
-.input-action-sprite.keyboard.beat-1 { background-position: calc(var(--input-cell) * -1) 0; }
-.input-action-sprite.pointer.beat-0 { background-position: 0 calc(var(--input-cell) * -1); }
-.input-action-sprite.pointer.beat-1 { background-position: calc(var(--input-cell) * -1) calc(var(--input-cell) * -1); }
-.pet-pair.interacting .input-action-sprite { display: none; }
+.input-action.keyboard,
+.input-action.pointer { display: block; }
+.input-action-frame.keyboard.beat-0 { background-position: 0 0; }
+.input-action-frame.keyboard.beat-1 { background-position: calc(var(--input-cell) * -1) 0; }
+.input-action-frame.pointer.beat-0 { background-position: 0 calc(var(--input-cell) * -1); }
+.input-action-frame.pointer.beat-1 { background-position: calc(var(--input-cell) * -1) calc(var(--input-cell) * -1); }
+.input-action-frame.current { z-index: 2; animation: input-frame-in 190ms ease-out both; }
+.input-action-frame.previous { z-index: 1; animation: input-frame-out 190ms ease-out both; }
+.pet-pair.interacting .input-action { display: none; }
+
+.pet-sprite.partner-sprite.state-entering { animation: partner-state-in 420ms cubic-bezier(.2,.75,.2,1) both; }
+.pet-sprite.partner-sprite.state-leaving { z-index: 1; animation: partner-state-out 420ms cubic-bezier(.2,.75,.2,1) both; }
+
+@keyframes input-frame-in {
+  from { opacity: .18; transform: translateY(4px) scale(.985); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+@keyframes input-frame-out {
+  from { opacity: 1; transform: translateY(0) scale(1); }
+  to { opacity: 0; transform: translateY(-3px) scale(1.01); }
+}
+
+@keyframes partner-state-in {
+  from { opacity: 0; transform: translateY(8px) scale(.97); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+@keyframes partner-state-out {
+  from { opacity: 1; transform: translateY(0) scale(1); }
+  to { opacity: 0; transform: translateY(-6px) scale(1.025); }
+}
 
 .interaction-sprite {
   --interaction-cell: 300px;

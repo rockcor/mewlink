@@ -34,6 +34,7 @@ export default function App() {
   const [activity, setActivity] = useState<ActivityKind>('browsing');
   const [inputKind, setInputKind] = useState<InputKind>('none');
   const [inputBeat, setInputBeat] = useState(0);
+  const [previousPartnerActivity, setPreviousPartnerActivity] = useState<ActivityKind>();
   const [events, setEvents] = useState<StoredEvent[]>([]);
   const [playing, setPlaying] = useState(false);
   const [frame, setFrame] = useState(0);
@@ -52,10 +53,16 @@ export default function App() {
   const clickTimer = useRef<number | undefined>(undefined);
   const gestureTimer = useRef<number | undefined>(undefined);
   const noticeTimer = useRef<number | undefined>(undefined);
+  const partnerActivityRef = useRef<ActivityKind>('rest');
   const receiverUtcOffsetMinutes = effectiveUtcOffsetMinutes(preferences);
   const partnerUtcOffsetMinutes = useMemo(() => [...events].reverse().find(({ event }) => event.senderUtcOffsetMinutes !== undefined)?.event.senderUtcOffsetMinutes, [events]);
   const durationScale = animationDurationScale(preferences.animationSpeed);
-  const replay = useMemo(() => preferences.replayEnabled ? buildReplay(events, receiverUtcOffsetMinutes) : [], [events, preferences.replayEnabled, receiverUtcOffsetMinutes]);
+  const replay = useMemo(
+    () => preferences.replayEnabled ? buildReplay(events, receiverUtcOffsetMinutes, preferences.timezoneMode !== 'off') : [],
+    [events, preferences.replayEnabled, preferences.timezoneMode, receiverUtcOffsetMinutes]
+  );
+  const current = playing ? replay[frame] : undefined;
+  const partnerActivity = current?.activity ?? 'rest';
   const motionStyle = useMemo(() => ({
     '--pet-breathe-duration': `${Math.round(3_600 * durationScale)}ms`,
     '--pet-type-duration': `${Math.round(1_100 * durationScale)}ms`,
@@ -111,6 +118,14 @@ export default function App() {
     }, Math.round(1_700 * durationScale));
     return () => clearInterval(timer);
   }, [durationScale, playing, replay.length]);
+  useEffect(() => {
+    const previous = partnerActivityRef.current;
+    if (previous === partnerActivity) return;
+    partnerActivityRef.current = partnerActivity;
+    setPreviousPartnerActivity(previous);
+    const timer = window.setTimeout(() => setPreviousPartnerActivity(undefined), 420);
+    return () => window.clearTimeout(timer);
+  }, [partnerActivity]);
   useEffect(() => () => {
     window.clearTimeout(clickTimer.current);
     window.clearTimeout(gestureTimer.current);
@@ -185,8 +200,6 @@ export default function App() {
     }
   }
 
-  const current = playing ? replay[frame] : undefined;
-  const partnerActivity = current?.activity ?? 'rest';
   const displayedGesture = gesture ?? current?.interaction;
   const displayedCup = gesture ? gestureCup : (current?.cupStyle ?? cupStyle);
 
@@ -229,7 +242,10 @@ export default function App() {
           <div className="pet-avatar self-pet" aria-label={`我的宠物：${statusText[activity]}`}>
             <span className="identity-badge">我</span>
             <span className={`pet-sprite ${activity} input-${inputKind}`} aria-hidden="true" />
-            <span className={`input-action-sprite ${inputKind} beat-${inputBeat % 2}`} aria-hidden="true" />
+            <span className={`input-action ${inputKind}`} aria-hidden="true">
+              <i key={`${inputKind}-${inputBeat}`} className={`input-action-frame current ${inputKind} beat-${inputBeat % 2}`}/>
+              <i key={`${inputKind}-${inputBeat - 1}`} className={`input-action-frame previous ${inputKind} beat-${(inputBeat + 1) % 2}`}/>
+            </span>
           </div>
           <button
             className="pet-avatar partner-pet"
@@ -239,7 +255,8 @@ export default function App() {
             onDoubleClick={handlePetDoubleClick}
           >
             <span className="identity-badge">TA</span>
-            <span className={`pet-sprite partner-sprite ${partnerActivity} ${playing ? 'replaying' : ''}`} aria-hidden="true" />
+            {previousPartnerActivity && <span className={`pet-sprite partner-sprite state-leaving ${previousPartnerActivity}`} aria-hidden="true" />}
+            <span className={`pet-sprite partner-sprite ${previousPartnerActivity ? 'state-entering' : ''} ${partnerActivity} ${playing ? 'replaying' : ''}`} aria-hidden="true" />
           </button>
           {displayedGesture && <span className={`interaction-sprite ${displayedGesture} ${displayedCup}`} aria-hidden="true" />}
         </div>

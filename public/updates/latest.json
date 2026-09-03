@@ -1,5 +1,5 @@
 {
-  "version": "0.2.2",
-  "notes": "时差重放改为快速播放宠物的一天；键盘与鼠标动作改为完整手臂相连的逐帧动画。",
-  "downloadUrl": "https://mewlink.jshmhsb.chatgpt.site/downloads/MewLink-macOS-0.2.2.zip"
+  "version": "0.2.3",
+  "notes": "重放一天时动作更自然，小宠物的忙碌也会连贯呈现。",
+  "downloadUrl": "https://mewlink.jshmhsb.chatgpt.site/downloads/MewLink-macOS-0.2.3.zip"
 }

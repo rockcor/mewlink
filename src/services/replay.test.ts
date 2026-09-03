@@ -25,4 +25,14 @@ describe('time-zone aware replay', () => {
     expect(replay[0].clockLabel).toBe('TA 09/02 23:30 → 你 09/03 14:30');
     expect(replay[1].cupStyle).toBe('tumbler');
   });
+
+  it('can hide timezone labels without disabling replay', () => {
+    const event: PlainEvent = {
+      id: 'hidden-clock', version: 1, relationshipId: 'pair', senderDeviceId: 'partner',
+      createdAt: '2026-09-03T07:30:00.000Z', senderUtcOffsetMinutes: -420,
+      kind: 'activity.segment', payload: { category: 'coding', startedAt: '2026-09-03T07:00:00.000Z', endedAt: '2026-09-03T07:30:00.000Z' }
+    };
+
+    expect(buildReplay([stored(event)], 480, false)[0].clockLabel).toBe('');
+  });
 });
