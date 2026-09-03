@@ -1,12 +1,15 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties } from 'react';
 import { v4 as uuid } from 'uuid';
+import { SettingsPanel, type UpdateViewState } from './components/SettingsPanel';
 import type { ActivityKind, CupStyle, InteractionKind, PlainEvent, StoredEvent } from './domain/types';
 import { cupStyles } from './domain/types';
 import { activityProbe, classify, nextSampleDelay, type InputKind } from './platform/activity';
 import { localUtcOffsetMinutes } from './platform/clock';
+import { checkForUpdate } from './services/update';
 import { listEvents } from './storage/events';
 import { LoopbackTransport } from './services/mockTransport';
 import { buildReplay } from './services/replay';
+import { animationDurationScale, effectiveUtcOffsetMinutes, loadPreferences, savePreferences } from './settings/preferences';
 import './styles.css';
 import './pet.css';
 
@@ -35,6 +38,11 @@ export default function App() {
   const [frame, setFrame] = useState(0);
   const [gesture, setGesture] = useState<InteractionKind>();
   const [gestureCup, setGestureCup] = useState<CupStyle>('ceramic');
+  const [settingsOpen, setSettingsOpen] = useState(false);
+  const [preferences, setPreferences] = useState(loadPreferences);
+  const [updateState, setUpdateState] = useState<UpdateViewState>({ kind: 'idle', message: '尚未检查更新' });
+  const [feedback, setFeedback] = useState('');
+  const [feedbackStatus, setFeedbackStatus] = useState('');
   const [cupStyle, setCupStyle] = useState<CupStyle>(() => {
     const saved = window.localStorage.getItem('mewlink.cupStyle');
     return cupStyles.includes(saved as CupStyle) ? saved as CupStyle : 'ceramic';
@@ -43,7 +51,34 @@ export default function App() {
   const clickTimer = useRef<number | undefined>(undefined);
   const gestureTimer = useRef<number | undefined>(undefined);
   const noticeTimer = useRef<number | undefined>(undefined);
-  const replay = useMemo(() => buildReplay(events), [events]);
+  const receiverUtcOffsetMinutes = effectiveUtcOffsetMinutes(preferences);
+  const durationScale = animationDurationScale(preferences.animationSpeed);
+  const replay = useMemo(() => buildReplay(events, receiverUtcOffsetMinutes), [events, receiverUtcOffsetMinutes]);
+  const motionStyle = useMemo(() => ({
+    '--pet-breathe-duration': `${Math.round(3_600 * durationScale)}ms`,
+    '--pet-type-duration': `${Math.round(1_100 * durationScale)}ms`,
+    '--pet-read-duration': `${Math.round(3_100 * durationScale)}ms`,
+    '--pet-meeting-duration': `${Math.round(2_500 * durationScale)}ms`,
+    '--pet-video-duration': `${Math.round(2_900 * durationScale)}ms`,
+    '--pet-browse-duration': `${Math.round(3_200 * durationScale)}ms`,
+    '--pet-rest-duration': `${Math.round(4_300 * durationScale)}ms`,
+    '--pet-idle-duration': `${Math.round(3_800 * durationScale)}ms`,
+    '--pet-keyboard-duration': `${Math.round(520 * durationScale)}ms`,
+    '--pet-pointer-duration': `${Math.round(900 * durationScale)}ms`,
+    '--interaction-duration': `${Math.round(1_900 * durationScale)}ms`
+  }) as CSSProperties, [durationScale]);
+
+  const runUpdateCheck = useCallback(async () => {
+    setUpdateState({ kind: 'checking', message: '正在检查…' });
+    try {
+      const result = await checkForUpdate();
+      setUpdateState(result.available
+        ? { kind: 'available', message: `发现新版本 ${result.manifest.version}`, downloadUrl: result.manifest.downloadUrl }
+        : { kind: 'current', message: `已是最新版 ${result.currentVersion}` });
+    } catch {
+      setUpdateState({ kind: 'error', message: '暂时无法检查，请稍后再试' });
+    }
+  }, []);
 
   useEffect(() => { void listEvents().then(setEvents); }, []);
   useEffect(() => {
@@ -64,13 +99,15 @@ export default function App() {
     return () => { stopped = true; window.clearTimeout(timer); };
   }, []);
   useEffect(() => { window.localStorage.setItem('mewlink.cupStyle', cupStyle); }, [cupStyle]);
+  useEffect(() => { savePreferences(preferences); }, [preferences]);
+  useEffect(() => { if (preferences.autoUpdate) void runUpdateCheck(); }, [preferences.autoUpdate, runUpdateCheck]);
   useEffect(() => {
     if (!playing || !replay.length) return;
     const timer = window.setInterval(() => {
       setFrame(current => current + 1 >= replay.length ? (setPlaying(false), 0) : current + 1);
-    }, 1_200);
+    }, Math.round(2_200 * durationScale));
     return () => clearInterval(timer);
-  }, [playing, replay.length]);
+  }, [durationScale, playing, replay.length]);
   useEffect(() => () => {
     window.clearTimeout(clickTimer.current);
     window.clearTimeout(gestureTimer.current);
@@ -83,8 +120,8 @@ export default function App() {
     setGesture(action);
     setGestureCup(selectedCup);
     setNotice(message);
-    gestureTimer.current = window.setTimeout(() => setGesture(undefined), 1_400);
-    noticeTimer.current = window.setTimeout(() => setNotice('单击拥抱 · 双击喝水'), 2_200);
+    gestureTimer.current = window.setTimeout(() => setGesture(undefined), Math.round(1_900 * durationScale));
+    noticeTimer.current = window.setTimeout(() => setNotice('单击拥抱 · 双击喝水'), Math.round(2_800 * durationScale));
   }
 
   async function send(action: InteractionKind) {
@@ -122,7 +159,27 @@ export default function App() {
     setCupStyle(next);
     window.clearTimeout(noticeTimer.current);
     setNotice(`已换成${cupOptions[next].label}`);
-    noticeTimer.current = window.setTimeout(() => setNotice('单击拥抱 · 双击喝水'), 2_200);
+    noticeTimer.current = window.setTimeout(() => setNotice('单击拥抱 · 双击喝水'), Math.round(2_800 * durationScale));
+  }
+
+  async function shareFeedback() {
+    const message = feedback.trim();
+    if (!message) return;
+    const shareText = `MewLink 反馈\n\n${message}`;
+    try {
+      if (navigator.share) {
+        await navigator.share({ title: 'MewLink 反馈', text: shareText });
+        setFeedbackStatus('谢谢，反馈已分享');
+      } else if (navigator.clipboard?.writeText) {
+        await navigator.clipboard.writeText(shareText);
+        setFeedbackStatus('反馈已复制，可以粘贴发送');
+      } else {
+        setFeedbackStatus('请复制上面的反馈内容');
+      }
+    } catch (error) {
+      if (error instanceof DOMException && error.name === 'AbortError') return;
+      setFeedbackStatus('暂时无法打开分享，请稍后再试');
+    }
   }
 
   const current = playing ? replay[frame] : undefined;
@@ -131,8 +188,8 @@ export default function App() {
   const displayedCup = gesture ? gestureCup : (current?.cupStyle ?? cupStyle);
 
   return (
-    <main className="desktop-pet">
-      <section className="pet-zone" aria-label="MewLink 双人桌面宠物">
+    <main className="desktop-pet" style={motionStyle}>
+      <section className={`pet-zone ${settingsOpen ? 'settings-open' : ''}`} aria-label="MewLink 双人桌面宠物">
         <div className="hover-ui">
           <div className="status-row" aria-live="polite">
             <div className="status-pill self-status">
@@ -157,6 +214,10 @@ export default function App() {
                 回放
               </button>
             )}
+            <button className="settings-action" type="button" onClick={() => setSettingsOpen(true)}>
+              <span aria-hidden="true">⚙</span>
+              设置
+            </button>
           </div>
         </div>
 
@@ -179,6 +240,17 @@ export default function App() {
           {displayedGesture && <span className={`interaction-sprite ${displayedGesture} ${displayedCup}`} aria-hidden="true" />}
         </div>
         <div className="shortcut-hint" aria-live="polite">{notice}</div>
+        {settingsOpen && <SettingsPanel
+          preferences={preferences}
+          updateState={updateState}
+          feedback={feedback}
+          feedbackStatus={feedbackStatus}
+          onChange={setPreferences}
+          onCheckUpdate={() => { void runUpdateCheck(); }}
+          onFeedbackChange={value => { setFeedback(value); setFeedbackStatus(''); }}
+          onShareFeedback={() => { void shareFeedback(); }}
+          onClose={() => setSettingsOpen(false)}
+        />}
       </section>
     </main>
   );

@@ -6,37 +6,37 @@
   display: block;
   width: var(--cell);
   height: var(--cell);
-  background-image: url('/pets/activity-sprites-v2.png');
+  background-image: url('/pets/activity-sprites-v3.png');
   background-repeat: no-repeat;
   background-size: calc(var(--cell) * 3) calc(var(--cell) * 2);
   filter: drop-shadow(0 13px 10px rgba(86, 45, 67, .16));
   transform-origin: 52% 88%;
-  animation: pet-breathe 2.8s ease-in-out infinite;
+  animation: pet-breathe var(--pet-breathe-duration, 3600ms) ease-in-out infinite;
 }
 
 .pet-sprite.partner-sprite {
-  background-image: url('/pets/partner-activity-sprites-v2.png');
+  background-image: url('/pets/partner-activity-sprites-v3.png');
 }
 
-.pet-sprite.coding { background-position: 0 0; animation: pet-type 720ms ease-in-out infinite; }
-.pet-sprite.reading { background-position: calc(var(--cell) * -1) 0; animation: pet-read 2.4s ease-in-out infinite; }
-.pet-sprite.meeting { background-position: calc(var(--cell) * -2) 0; animation: pet-nod 1.8s ease-in-out infinite; }
-.pet-sprite.video { background-position: 0 calc(var(--cell) * -1); animation: pet-watch 2.2s ease-in-out infinite; }
-.pet-sprite.browsing { background-position: calc(var(--cell) * -1) calc(var(--cell) * -1); animation: pet-search 2.5s ease-in-out infinite; }
-.pet-sprite.rest { background-position: calc(var(--cell) * -2) calc(var(--cell) * -1); animation: pet-sleep 3.3s ease-in-out infinite; }
+.pet-sprite.coding { background-position: 0 0; animation: pet-type var(--pet-type-duration, 1100ms) ease-in-out infinite; }
+.pet-sprite.reading { background-position: calc(var(--cell) * -1) 0; animation: pet-read var(--pet-read-duration, 3100ms) ease-in-out infinite; }
+.pet-sprite.meeting { background-position: calc(var(--cell) * -2) 0; animation: pet-nod var(--pet-meeting-duration, 2500ms) ease-in-out infinite; }
+.pet-sprite.video { background-position: 0 calc(var(--cell) * -1); animation: pet-watch var(--pet-video-duration, 2900ms) ease-in-out infinite; }
+.pet-sprite.browsing { background-position: calc(var(--cell) * -1) calc(var(--cell) * -1); animation: pet-search var(--pet-browse-duration, 3200ms) ease-in-out infinite; }
+.pet-sprite.rest { background-position: calc(var(--cell) * -2) calc(var(--cell) * -1); animation: pet-sleep var(--pet-rest-duration, 4300ms) ease-in-out infinite; }
 
 .pet-sprite.idle {
-  background-image: url('/pets/activity-sprites-v2.png');
+  background-image: url('/pets/activity-sprites-v3.png');
   background-position: calc(var(--cell) * -2) calc(var(--cell) * -1);
   background-size: calc(var(--cell) * 3) calc(var(--cell) * 2);
-  animation: pet-idle 2.9s ease-in-out infinite;
+  animation: pet-idle var(--pet-idle-duration, 3800ms) ease-in-out infinite;
 }
 
 .pet-sprite.partner-sprite.idle {
-  background-image: url('/pets/partner-activity-sprites-v2.png');
+  background-image: url('/pets/partner-activity-sprites-v3.png');
   background-position: calc(var(--cell) * -2) calc(var(--cell) * -1);
   background-size: calc(var(--cell) * 3) calc(var(--cell) * 2);
-  animation: pet-idle 2.9s ease-in-out infinite;
+  animation: pet-idle var(--pet-idle-duration, 3800ms) ease-in-out infinite;
 }
 
 .pet-sprite.replaying { filter: drop-shadow(0 13px 10px rgba(86, 45, 67, .16)) saturate(1.08); }
@@ -44,11 +44,11 @@
 .pet-sprite.input-keyboard.coding,
 .pet-sprite.input-keyboard.reading,
 .pet-sprite.input-keyboard.browsing {
-  animation: pet-type 260ms ease-in-out infinite;
+  animation: pet-type var(--pet-keyboard-duration, 520ms) ease-in-out infinite;
 }
 
 .pet-sprite.input-pointer {
-  animation: pet-pointer 560ms ease-in-out infinite;
+  animation: pet-pointer var(--pet-pointer-duration, 900ms) ease-in-out infinite;
 }
 
 .interaction-sprite {
@@ -67,10 +67,10 @@
   pointer-events: none;
 }
 
-.interaction-sprite.hug { background-position: 0 0; animation: interaction-hug 1.4s ease-in-out both; }
-.interaction-sprite.water.ceramic { background-position: calc(var(--interaction-cell) * -1) 0; animation: interaction-drink 1.4s ease-in-out both; }
-.interaction-sprite.water.tumbler { background-position: 0 calc(var(--interaction-cell) * -1); animation: interaction-drink 1.4s ease-in-out both; }
-.interaction-sprite.water.bottle { background-position: calc(var(--interaction-cell) * -1) calc(var(--interaction-cell) * -1); animation: interaction-drink 1.4s ease-in-out both; }
+.interaction-sprite.hug { background-position: 0 0; animation: interaction-hug var(--interaction-duration, 1900ms) ease-in-out both; }
+.interaction-sprite.water.ceramic { background-position: calc(var(--interaction-cell) * -1) 0; animation: interaction-drink var(--interaction-duration, 1900ms) ease-in-out both; }
+.interaction-sprite.water.tumbler { background-position: 0 calc(var(--interaction-cell) * -1); animation: interaction-drink var(--interaction-duration, 1900ms) ease-in-out both; }
+.interaction-sprite.water.bottle { background-position: calc(var(--interaction-cell) * -1) calc(var(--interaction-cell) * -1); animation: interaction-drink var(--interaction-duration, 1900ms) ease-in-out both; }
 
 @keyframes pet-breathe {
   50% { transform: translateY(-4px) scale(1.015); }

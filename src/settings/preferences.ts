@@ -1,0 +1,72 @@
+import { localUtcOffsetMinutes, normalizeUtcOffsetMinutes } from '../platform/clock';
+
+export const animationSpeeds = ['calm', 'natural', 'lively'] as const;
+export type AnimationSpeed = (typeof animationSpeeds)[number];
+export type TimezoneMode = 'auto' | 'manual';
+
+export interface Preferences {
+  autoUpdate: boolean;
+  timezoneMode: TimezoneMode;
+  manualUtcOffsetMinutes: number;
+  animationSpeed: AnimationSpeed;
+}
+
+type StorageLike = Pick<Storage, 'getItem' | 'setItem'>;
+const STORAGE_KEY = 'mewlink.preferences.v1';
+
+export function defaultPreferences(): Preferences {
+  return {
+    autoUpdate: true,
+    timezoneMode: 'auto',
+    manualUtcOffsetMinutes: localUtcOffsetMinutes(),
+    animationSpeed: 'calm'
+  };
+}
+
+export function loadPreferences(storage?: StorageLike): Preferences {
+  const defaults = defaultPreferences();
+  const source = storage ?? (typeof localStorage === 'undefined' ? undefined : localStorage);
+  if (!source) return defaults;
+
+  try {
+    const parsed: unknown = JSON.parse(source.getItem(STORAGE_KEY) ?? 'null');
+    if (!parsed || typeof parsed !== 'object') return defaults;
+    const value = parsed as Partial<Preferences>;
+    return {
+      autoUpdate: typeof value.autoUpdate === 'boolean' ? value.autoUpdate : defaults.autoUpdate,
+      timezoneMode: value.timezoneMode === 'manual' ? 'manual' : 'auto',
+      manualUtcOffsetMinutes: typeof value.manualUtcOffsetMinutes === 'number'
+        ? normalizeUtcOffsetMinutes(value.manualUtcOffsetMinutes)
+        : defaults.manualUtcOffsetMinutes,
+      animationSpeed: animationSpeeds.includes(value.animationSpeed as AnimationSpeed)
+        ? value.animationSpeed as AnimationSpeed
+        : defaults.animationSpeed
+    };
+  } catch {
+    return defaults;
+  }
+}
+
+export function savePreferences(preferences: Preferences, storage?: StorageLike) {
+  const destination = storage ?? (typeof localStorage === 'undefined' ? undefined : localStorage);
+  destination?.setItem(STORAGE_KEY, JSON.stringify(preferences));
+}
+
+export function effectiveUtcOffsetMinutes(preferences: Preferences, now = new Date()): number {
+  return preferences.timezoneMode === 'manual'
+    ? normalizeUtcOffsetMinutes(preferences.manualUtcOffsetMinutes)
+    : localUtcOffsetMinutes(now);
+}
+
+export function animationDurationScale(speed: AnimationSpeed): number {
+  return { calm: 1, natural: 0.78, lively: 0.58 }[speed];
+}
+
+export function formatUtcOffset(offsetMinutes: number): string {
+  const normalized = normalizeUtcOffsetMinutes(offsetMinutes);
+  const sign = normalized < 0 ? '−' : '+';
+  const absolute = Math.abs(normalized);
+  const hours = String(Math.floor(absolute / 60)).padStart(2, '0');
+  const minutes = String(absolute % 60).padStart(2, '0');
+  return `UTC${sign}${hours}:${minutes}`;
+}
