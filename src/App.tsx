@@ -96,19 +96,25 @@ export default function App() {
   }
 
   const current = playing ? replay[frame] : undefined;
-  const displayedActivity = current?.activity ?? activity;
+  const partnerActivity = current?.activity ?? 'rest';
   const displayedGesture = gesture ?? current?.interaction;
 
   return (
     <main className="desktop-pet">
-      <section className="pet-zone" aria-label="MewLink 桌面宠物">
+      <section className="pet-zone" aria-label="MewLink 双人桌面宠物">
         <div className="hover-ui">
-          <div className="status-pill" aria-live="polite">
-            <span>{current?.icon ?? '●'}</span>
-            <span className="status-copy">
-              <b>{current?.label ?? statusText[displayedActivity]}</b>
-              {current?.clockLabel && <small>{current.clockLabel}</small>}
-            </span>
+          <div className="status-row" aria-live="polite">
+            <div className="status-pill self-status">
+              <span>●</span>
+              <span className="status-copy"><b>我 · {statusText[activity]}</b></span>
+            </div>
+            <div className="status-pill partner-status">
+              <span>{current?.icon ?? '○'}</span>
+              <span className="status-copy">
+                <b>TA · {current?.label ?? '等待同步'}</b>
+                {current?.clockLabel && <small>{current.clockLabel}</small>}
+              </span>
+            </div>
           </div>
           <div className="quick-actions" aria-label="给 TA 一个小动作">
             {interactions.map(item => (
@@ -127,20 +133,27 @@ export default function App() {
         </div>
 
         <div className="drag-handle" data-tauri-drag-region aria-label="拖动桌宠">•••</div>
-        <button
-          className="pet-hitbox"
-          type="button"
-          aria-label={`${statusText[displayedActivity]}。单击发送拥抱，双击提醒喝水`}
-          onClick={handlePetClick}
-          onDoubleClick={handlePetDoubleClick}
-        >
-          <span className={`pet-sprite ${displayedActivity} ${playing ? 'replaying' : ''}`} aria-hidden="true" />
+        <div className={`pet-pair ${displayedGesture === 'hug' ? 'hugging' : ''}`}>
+          <div className="pet-avatar self-pet" aria-label={`我的宠物：${statusText[activity]}`}>
+            <span className="identity-badge">我</span>
+            <span className={`pet-sprite ${activity}`} aria-hidden="true" />
+          </div>
+          <button
+            className="pet-avatar partner-pet"
+            type="button"
+            aria-label={`TA 的宠物：${current?.label ?? '等待同步'}。单击发送拥抱，双击提醒喝水`}
+            onClick={handlePetClick}
+            onDoubleClick={handlePetDoubleClick}
+          >
+            <span className="identity-badge">TA</span>
+            <span className={`pet-sprite partner-sprite ${partnerActivity} ${playing ? 'replaying' : ''}`} aria-hidden="true" />
+          </button>
           {displayedGesture && (
             <span className={`gesture-burst ${displayedGesture}`} aria-hidden="true">
               {displayedGesture === 'hug' ? '♥' : '💧'}
             </span>
           )}
-        </button>
+        </div>
         <div className="shortcut-hint" aria-live="polite">{notice}</div>
       </section>
     </main>

@@ -42,12 +42,19 @@ button { font: inherit; }
   display: grid;
   justify-items: center;
   gap: 7px;
-  width: max-content;
+  width: min(100% - 24px, 430px);
   opacity: 0;
   pointer-events: none;
   transform: translate(-50%, 10px) scale(.94);
   transform-origin: 50% 100%;
   transition: opacity 150ms ease, transform 180ms cubic-bezier(.2, .8, .2, 1);
+}
+
+.status-row {
+  display: flex;
+  justify-content: center;
+  gap: 6px;
+  width: 100%;
 }
 
 .pet-zone:hover .hover-ui,
@@ -95,6 +102,9 @@ button { font: inherit; }
   font-weight: 550;
   white-space: nowrap;
 }
+
+.self-status > span:first-child { color: #d986a5; }
+.partner-status > span:first-child { color: #8173c6; }
 
 .quick-actions {
   display: flex;
@@ -146,25 +156,80 @@ button { font: inherit; }
 .pet-zone:hover .drag-handle { opacity: 1; }
 .drag-handle:active { cursor: grabbing; }
 
-.pet-hitbox {
+.pet-pair {
   position: absolute;
   z-index: 2;
-  right: 4px;
+  left: 0;
+  right: 0;
   bottom: 0;
-  width: 276px;
-  height: 246px;
+  height: 238px;
+}
+
+.pet-avatar {
+  position: absolute;
+  bottom: 0;
+  width: 228px;
+  height: 226px;
   padding: 0;
   border: 0;
   outline: 0;
   background: transparent;
-  cursor: pointer;
   -webkit-tap-highlight-color: transparent;
+}
+
+.self-pet {
+  z-index: 1;
+  left: 0;
+  pointer-events: none;
+}
+
+.partner-pet {
+  z-index: 2;
+  right: 0;
+  cursor: pointer;
+}
+
+.partner-pet:focus-visible {
+  outline: 3px solid rgba(129, 115, 198, .35);
+  outline-offset: -15px;
+  border-radius: 50%;
+}
+
+.identity-badge {
+  position: absolute;
+  z-index: 4;
+  top: 13px;
+  left: 50%;
+  min-width: 29px;
+  padding: 5px 8px;
+  border: 1px solid rgba(111, 64, 89, .12);
+  border-radius: 999px;
+  background: rgba(255, 250, 247, .94);
+  box-shadow: 0 6px 16px rgba(69, 36, 55, .12);
+  color: #a45876;
+  font-size: 9px;
+  font-weight: 850;
+  text-align: center;
+  transform: translateX(-50%);
+}
+
+.partner-pet .identity-badge { color: #6656ac; }
+
+.pet-pair.hugging .self-pet { animation: pair-hug-left 1.25s ease-in-out both; }
+.pet-pair.hugging .partner-pet { animation: pair-hug-right 1.25s ease-in-out both; }
+
+@keyframes pair-hug-left {
+  35%, 68% { transform: translateX(22px) rotate(2deg); }
+}
+
+@keyframes pair-hug-right {
+  35%, 68% { transform: translateX(-22px) rotate(-2deg); }
 }
 
 .shortcut-hint {
   position: absolute;
   z-index: 6;
-  right: 24px;
+  left: 50%;
   bottom: 8px;
   padding: 5px 9px;
   border-radius: 999px;
@@ -173,14 +238,14 @@ button { font: inherit; }
   white-space: nowrap;
   opacity: 0;
   pointer-events: none;
-  transform: translateY(5px);
+  transform: translate(-50%, 5px);
   transition: opacity 150ms ease, transform 150ms ease;
 }
 
 .pet-zone:hover .shortcut-hint,
 .pet-zone:focus-within .shortcut-hint {
   opacity: 1;
-  transform: translateY(0);
+  transform: translate(-50%, 0);
 }
 
 @media (prefers-reduced-motion: reduce) {

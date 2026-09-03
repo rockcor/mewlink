@@ -1,7 +1,7 @@
 .pet-sprite {
-  --cell: 250px;
+  --cell: 218px;
   position: absolute;
-  right: 6px;
+  left: 5px;
   bottom: -2px;
   display: block;
   width: var(--cell);
@@ -13,6 +13,10 @@
   clip-path: inset(0 14px 0 0);
   transform-origin: 52% 88%;
   animation: pet-breathe 2.8s ease-in-out infinite;
+}
+
+.pet-sprite.partner-sprite {
+  background-image: url('/pets/partner-activity-sprites-v1.png');
 }
 
 .pet-sprite.coding { background-position: 0 0; animation: pet-type 720ms ease-in-out infinite; }
@@ -30,13 +34,21 @@
   animation: pet-idle 2.9s ease-in-out infinite;
 }
 
+.pet-sprite.partner-sprite.idle {
+  background-image: url('/pets/partner-activity-sprites-v1.png');
+  background-position: calc(var(--cell) * -2) calc(var(--cell) * -1);
+  background-size: calc(var(--cell) * 3) calc(var(--cell) * 2);
+  clip-path: inset(0 14px 0 0);
+  animation: pet-idle 2.9s ease-in-out infinite;
+}
+
 .pet-sprite.replaying { filter: drop-shadow(0 13px 10px rgba(86, 45, 67, .16)) saturate(1.08); }
 
 .gesture-burst {
   position: absolute;
   z-index: 4;
-  top: 85px;
-  right: 24px;
+  top: 65px;
+  left: calc(50% - 29px);
   display: grid;
   place-items: center;
   width: 58px;
