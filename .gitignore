@@ -9,3 +9,5 @@ src-tauri/target
 *.tsbuildinfo
 /vite.config.js
 /vite.config.d.ts
+/src-tauri/icons/android/
+/src-tauri/icons/ios/

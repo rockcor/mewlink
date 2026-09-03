@@ -77,9 +77,9 @@ type PlainEvent = {
 
 ## 10. 桌面权限与平台差异
 
-macOS：透明无边框 NSWindow、`alwaysOnTop`，可选点击穿透；空闲时间可用 IOKit，锁屏用分布式通知/CGSession；读取前台进程通常无需屏幕录制权限。若未来读取窗口标题或会议麦克风态，必须单独解释并请求辅助功能/麦克风权限，MVP 不请求。登录启动需用户显式开启。
+macOS：透明无边框 NSWindow、`alwaysOnTop`，可选点击穿透；空闲秒数通过 Core Graphics 的会话级事件计时读取，锁屏状态通过 CGSession 会话字典读取。两者都不读取输入内容、窗口标题或屏幕像素。若未来读取窗口标题或会议麦克风态，必须单独解释并请求辅助功能/麦克风权限，MVP 不请求。登录启动需用户显式开启。
 
-Windows：透明无边框 WebView2 窗口；空闲用 `GetLastInputInfo`，锁屏用 `WTSRegisterSessionNotification`/`WTSQuerySessionInformation`，前台进程用 `GetForegroundWindow` + PID。避免 UIAccess、键盘钩子和屏幕捕获。安装器需 WebView2 检测、代码签名及 SmartScreen 声誉建设。
+Windows：透明无边框 WebView2 窗口；空闲用 `GetLastInputInfo`，锁屏通过输入桌面的可切换状态保守判断（锁屏或安全桌面都视为 `rest`），前台进程用 `GetForegroundWindow` + PID。避免 UIAccess、键盘钩子和屏幕捕获。安装器需 WebView2 检测、代码签名及 SmartScreen 声誉建设。
 
 共同要求：权限按需请求，可在设置页逐项关闭；分类器在 Rust 端暴露最小枚举，不向 WebView 传进程名。Linux 仅为开发 fallback，不在 MVP 支持范围。
 

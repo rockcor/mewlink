@@ -1,1 +1,3 @@
-fn main() { mewlink_lib::run(); }
+fn main() {
+    mewlink_lib::run();
+}

@@ -15,3 +15,6 @@ tauri-build = { version = "2", features = [] }
 [dependencies]
 serde = { version = "1", features = ["derive"] }
 tauri = { version = "2", features = ["macos-private-api"] }
+
+[target.'cfg(target_os = "windows")'.dependencies]
+windows-sys = { version = "0.61", features = ["Win32_System_StationsAndDesktops", "Win32_System_SystemInformation", "Win32_UI_Input_KeyboardAndMouse"] }
