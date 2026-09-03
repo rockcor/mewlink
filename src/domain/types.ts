@@ -1,4 +1,4 @@
-export const activityKinds = ['coding', 'reading', 'meeting', 'browsing', 'idle', 'rest'] as const;
+export const activityKinds = ['coding', 'reading', 'meeting', 'video', 'browsing', 'idle', 'rest'] as const;
 export type ActivityKind = (typeof activityKinds)[number];
 export const interactionKinds = ['water', 'hug'] as const;
 export type InteractionKind = (typeof interactionKinds)[number];

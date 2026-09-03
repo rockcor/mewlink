@@ -1,40 +1,109 @@
-.pet {
-  width: 176px;
-  height: 144px;
-  position: relative;
+.pet-sprite {
+  --cell: 250px;
+  position: absolute;
+  right: 6px;
+  bottom: -2px;
+  display: block;
+  width: var(--cell);
+  height: var(--cell);
+  background-image: url('/pets/activity-sprites-v1.png');
+  background-repeat: no-repeat;
+  background-size: calc(var(--cell) * 3) calc(var(--cell) * 2);
+  filter: drop-shadow(0 13px 10px rgba(86, 45, 67, .16));
+  clip-path: inset(0 14px 0 0);
+  transform-origin: 52% 88%;
+  animation: pet-breathe 2.8s ease-in-out infinite;
+}
+
+.pet-sprite.coding { background-position: 0 0; animation: pet-type 720ms ease-in-out infinite; }
+.pet-sprite.reading { background-position: calc(var(--cell) * -1) 0; animation: pet-read 2.4s ease-in-out infinite; }
+.pet-sprite.meeting { background-position: calc(var(--cell) * -2) 0; animation: pet-nod 1.8s ease-in-out infinite; }
+.pet-sprite.video { background-position: 0 calc(var(--cell) * -1); animation: pet-watch 2.2s ease-in-out infinite; }
+.pet-sprite.browsing { background-position: calc(var(--cell) * -1) calc(var(--cell) * -1); animation: pet-search 2.5s ease-in-out infinite; }
+.pet-sprite.rest { background-position: calc(var(--cell) * -2) calc(var(--cell) * -1); animation: pet-sleep 3.3s ease-in-out infinite; }
+
+.pet-sprite.idle {
+  background-image: url('/mewlink-pet.png');
+  background-position: center;
+  background-size: contain;
+  clip-path: none;
+  animation: pet-idle 2.9s ease-in-out infinite;
+}
+
+.pet-sprite.replaying { filter: drop-shadow(0 13px 10px rgba(86, 45, 67, .16)) saturate(1.08); }
+
+.gesture-burst {
+  position: absolute;
+  z-index: 4;
+  top: 85px;
+  right: 24px;
   display: grid;
   place-items: center;
-  animation: breathe 2.6s ease-in-out infinite;
-  filter: drop-shadow(0 12px 10px rgba(93, 55, 78, 0.15));
+  width: 58px;
+  height: 58px;
+  border-radius: 50%;
+  background: rgba(255, 249, 249, .88);
+  box-shadow: 0 8px 24px rgba(95, 43, 67, .18);
+  font-size: 31px;
+  pointer-events: none;
 }
 
-.pet img {
-  width: 100%;
-  height: 100%;
-  object-fit: contain;
+.gesture-burst.hug {
+  color: #e7739d;
+  animation: hug-pop 1.4s ease-out both;
 }
 
-.pet-prop {
-  position: absolute;
-  left: 50%;
-  bottom: 0;
-  transform: translateX(-50%);
-  background: #73646d;
-  color: white;
-  padding: 2px 11px;
-  border-radius: 6px;
-  font-size: 13px;
+.gesture-burst.water { animation: water-drop 1.4s ease-out both; }
+
+@keyframes pet-breathe {
+  50% { transform: translateY(-4px) scale(1.015); }
 }
 
-.pet.meeting .pet-prop,
-.pet.rest .pet-prop {
-  left: auto;
-  right: 0;
-  top: 6px;
-  bottom: auto;
-  background: white;
-  color: #76546a;
-  font-size: 18px;
+@keyframes pet-type {
+  0%, 100% { transform: translateY(0) rotate(-.5deg); }
+  50% { transform: translateY(-2px) rotate(.5deg); }
 }
 
-.pet.performing { animation: hop 0.65s ease-in-out infinite; }
+@keyframes pet-read {
+  0%, 100% { transform: rotate(-1deg); }
+  50% { transform: translateY(-3px) rotate(1deg); }
+}
+
+@keyframes pet-nod {
+  0%, 100% { transform: rotate(0); }
+  45% { transform: translateY(2px) rotate(1.4deg); }
+}
+
+@keyframes pet-watch {
+  0%, 100% { transform: scale(1); }
+  50% { transform: translateY(-2px) scale(1.018); }
+}
+
+@keyframes pet-search {
+  0%, 100% { transform: translateX(-2px) rotate(-1deg); }
+  50% { transform: translateX(3px) rotate(1deg); }
+}
+
+@keyframes pet-sleep {
+  0%, 100% { transform: scale(1); }
+  50% { transform: translateY(2px) scale(.985, 1.015); }
+}
+
+@keyframes pet-idle {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-5px); }
+}
+
+@keyframes hug-pop {
+  0% { opacity: 0; transform: translateY(14px) scale(.4) rotate(-12deg); }
+  28% { opacity: 1; transform: translateY(0) scale(1.16) rotate(5deg); }
+  70% { opacity: 1; transform: translateY(-7px) scale(1); }
+  100% { opacity: 0; transform: translateY(-24px) scale(.72); }
+}
+
+@keyframes water-drop {
+  0% { opacity: 0; transform: translateY(-18px) scale(.65); }
+  28% { opacity: 1; transform: translateY(0) scale(1.12); }
+  68% { opacity: 1; transform: translateY(4px) scale(1); }
+  100% { opacity: 0; transform: translateY(18px) scale(.74); }
+}

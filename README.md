@@ -1,6 +1,6 @@
 # MewLink
 
-一个隐私优先的情侣卡通桌宠原型。原创宠物会在桌面上表达伴侣的轻互动，并把本机活动压缩成 `coding / reading / meeting / browsing / idle / rest`；原始窗口标题、应用内容和屏幕图像不离开设备。
+一个隐私优先的情侣卡通桌宠原型。原创宠物会在桌面上表达伴侣的轻互动，并把本机活动压缩成 `coding / reading / meeting / video / browsing / idle / rest`；原始窗口标题、应用内容和屏幕图像不离开设备。
 
 > **Developer preview:** 当前版本的网络传输、设备绑定和生产级 E2EE 尚未完成，请勿用于敏感通信。详见 [SECURITY.md](SECURITY.md) 与 [PRIVACY.md](PRIVACY.md)。
 

@@ -1,4 +1,5 @@
 use serde::Serialize;
+use tauri::{Manager, PhysicalPosition};
 
 #[derive(Debug, PartialEq, Eq, Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -176,6 +177,21 @@ fn presence_signal() -> PresenceSignal {
 pub fn run() {
     tauri::Builder::default()
         .invoke_handler(tauri::generate_handler![presence_signal])
+        .setup(|app| {
+            if let Some(window) = app.get_webview_window("main") {
+                if let Some(monitor) = window.current_monitor()? {
+                    let work_area = monitor.work_area();
+                    let window_size = window.outer_size()?;
+                    let margin = 16;
+                    let right = work_area.position.x + work_area.size.width as i32;
+                    let bottom = work_area.position.y + work_area.size.height as i32;
+                    let x = (right - window_size.width as i32 - margin).max(work_area.position.x);
+                    let y = (bottom - window_size.height as i32 - margin).max(work_area.position.y);
+                    window.set_position(PhysicalPosition::new(x, y))?;
+                }
+            }
+            Ok(())
+        })
         .run(tauri::generate_context!())
         .expect("error while running MewLink");
 }
