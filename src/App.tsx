@@ -6,6 +6,7 @@ import { listEvents, putEvent } from './storage/events';
 import { LoopbackTransport } from './services/mockTransport';
 import { buildReplay } from './services/replay';
 import './styles.css';
+import './pet.css';
 
 const transport = new LoopbackTransport();
 const interactions: { kind: InteractionKind; icon: string; label: string }[] = [
@@ -33,7 +34,7 @@ export default function App() {
   const current = playing ? replay[frame] : undefined;
   return <main className="shell">
     <header data-tauri-drag-region><span className="brand">MEWLINK</span><span className="secure">◉ 本地隐私模式</span></header>
-    <section className="stage"><div className={`cat ${activity} ${current ? 'performing' : ''}`} aria-label={`桌面猫，${statusText[activity]}`}><i className="ear left"/><i className="ear right"/><div className="face"><b className="eye left"/><b className="eye right"/><b className="nose">⌄</b></div><i className="tail"/></div><div className="bubble">{current ? `${current.icon} ${current.label}` : statusText[activity]}<small>{current ? new Date(current.at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '只分享粗粒度状态'}</small></div></section>
+    <section className="stage"><div className={`pet ${activity} ${current ? 'performing' : ''}`} aria-label={`桌面宠物，${statusText[activity]}`}><img src="/mewlink-pet.png" alt="MewLink 原创卡通桌宠"/><span className="pet-prop" aria-hidden="true">{activity === 'meeting' ? '♫' : activity === 'rest' ? '💤' : '⌨'}</span></div><div className="bubble">{current ? `${current.icon} ${current.label}` : statusText[activity]}<small>{current ? new Date(current.at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '只分享粗粒度状态'}</small></div></section>
     <section className="card"><div className="section-title"><span>给 TA 一个小动作</span><small>端到端加密 mock</small></div><div className="actions">{interactions.map(item => <button key={item.kind} onClick={() => void send(item.kind)}><span>{item.icon}</span>{item.label}</button>)}</div></section>
     <section className="card timeline"><div className="section-title"><span>今天的足迹</span><button className="text-button" onClick={() => void addStatusSnapshot()}>+ 状态片段</button></div>{replay.length ? <div className="event-list">{replay.slice(-4).map(item => <div key={item.id}><span>{item.icon}</span><p>{item.label}<small>{new Date(item.at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</small></p></div>)}</div> : <p className="empty">互动会安静地留在这里，稍后快速回放。</p>}<button className="replay" disabled={!replay.length} onClick={() => { setFrame(0); setPlaying(true); }}>▶ {playing ? '正在回放…' : `快速回放 ${replay.length} 个片段`}</button></section>
     <footer><label><input type="checkbox" checked={focusMode} onChange={e => setFocusMode(e.target.checked)}/> 专注时缓存</label><label><input type="checkbox" checked={muted} onChange={e => setMuted(e.target.checked)}/> 静音</label><span>{events.filter(e => e.status === 'cached').length} 条待回放</span></footer>
