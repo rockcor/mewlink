@@ -10,8 +10,8 @@ import './pet.css';
 
 const transport = new LoopbackTransport();
 const interactions: { kind: InteractionKind; icon: string; label: string }[] = [
-  { kind: 'water', icon: '💧', label: '喝水' }, { kind: 'break', icon: '🌿', label: '休息' }, { kind: 'meal', icon: '🍚', label: '吃饭' },
-  { kind: 'cheer', icon: '🎉', label: '加油' }, { kind: 'hug', icon: '🫂', label: '抱抱' }, { kind: 'goodnight', icon: '🌙', label: '晚安' }
+  { kind: 'water', icon: '💧', label: '提醒喝水' },
+  { kind: 'hug', icon: '🫂', label: '拥抱' }
 ];
 const statusText: Record<ActivityKind, string> = { coding: '在写代码', reading: '在阅读', meeting: '在开会', browsing: '在浏览', idle: '暂时离开', rest: '休息中' };
 
