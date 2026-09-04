@@ -2,8 +2,10 @@ import { invoke } from '@tauri-apps/api/core';
 import type { ActivityKind } from '../domain/types';
 
 export type InputKind = 'keyboard' | 'pointer' | 'none';
+export type InputMotion = InputKind | 'both';
 export interface PresenceSignal { idleSeconds: number; locked: boolean; appClass?: 'editor' | 'reader' | 'meeting' | 'media' | 'browser' | 'unknown'; inputKind?: InputKind }
 export interface InputSignal { keyboardSequence: number; pointerSequence: number; recentKind: InputKind }
+export interface InputChanges { keyboard: boolean; pointer: boolean }
 export interface ActivityProbe { sample(): Promise<PresenceSignal> }
 export interface InputProbe { sample(): Promise<InputSignal> }
 
@@ -23,17 +25,18 @@ export const nextSampleDelay = (signal: PresenceSignal) => {
   return 500;
 };
 
-export const visualInputForActivity = (activity: ActivityKind, inputKind: InputKind): InputKind =>
-  activity === 'coding' ? inputKind : 'none';
-
-export const inputKindForSequenceChange = (previous: InputSignal, current: InputSignal): InputKind => {
-  const keyboardChanged = current.keyboardSequence !== previous.keyboardSequence;
-  const pointerChanged = current.pointerSequence !== previous.pointerSequence;
-  if (keyboardChanged && pointerChanged) return current.recentKind === 'none' ? 'keyboard' : current.recentKind;
-  if (keyboardChanged) return 'keyboard';
-  if (pointerChanged) return 'pointer';
+export const visualInputForActivity = (activity: ActivityKind, keyboard: boolean, pointer: boolean): InputMotion => {
+  if (activity !== 'coding') return 'none';
+  if (keyboard && pointer) return 'both';
+  if (keyboard) return 'keyboard';
+  if (pointer) return 'pointer';
   return 'none';
 };
+
+export const inputChangesForSequence = (previous: InputSignal, current: InputSignal): InputChanges => ({
+  keyboard: current.keyboardSequence !== previous.keyboardSequence,
+  pointer: current.pointerSequence !== previous.pointerSequence,
+});
 
 class TauriProbe implements ActivityProbe { async sample() { return invoke<PresenceSignal>('presence_signal'); } }
 class TauriInputProbe implements InputProbe { async sample() { return invoke<InputSignal>('input_signal'); } }

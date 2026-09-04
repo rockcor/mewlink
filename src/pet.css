@@ -48,101 +48,59 @@
 
 .pet-sprite.replaying { filter: drop-shadow(0 13px 10px rgba(86, 45, 67, .16)) saturate(1.08); }
 
-.pet-sprite.input-keyboard {
-  opacity: 0;
-}
-
-.pet-sprite.input-pointer {
-  opacity: 0;
-}
-
-.input-action {
-  --input-cell: 226px;
+.workstation-action {
+  --workstation-width: 252px;
+  --workstation-height: 199px;
+  --workstation-sheet-width: 597px;
+  --workstation-sheet-height: 398px;
+  --workstation-rest-x: -23.32px;
+  --workstation-active-x: -321.82px;
   position: absolute;
   z-index: 3;
-  left: 1px;
+  left: 4px;
   bottom: 0;
-  display: none;
-  width: var(--input-cell);
-  height: var(--input-cell);
+  display: block;
+  width: var(--workstation-width);
+  height: var(--workstation-height);
   pointer-events: none;
 }
 
-.input-action-frame {
+.workstation-motion,
+.workstation-face-lock {
   position: absolute;
   inset: 0;
-  background-image: url('/pets/input-action-sprites-v1.png');
+  background-image: url('/pets/workstation-input-sprites-v3.png');
   background-repeat: no-repeat;
-  background-size: calc(var(--input-cell) * 2) calc(var(--input-cell) * 2);
+  background-size: var(--workstation-sheet-width) var(--workstation-sheet-height);
   filter: drop-shadow(0 13px 10px rgba(86, 45, 67, .16));
+  transform: none;
 }
 
-.input-action-base {
-  position: absolute;
-  inset: 0;
-  display: none;
-  background-image: url('/pets/input-action-sprites-v1.png');
-  background-repeat: no-repeat;
-  background-size: calc(var(--input-cell) * 2) calc(var(--input-cell) * 2);
-  filter: drop-shadow(0 13px 10px rgba(86, 45, 67, .16));
+.workstation-action.input-none .workstation-motion {
+  background-position: var(--workstation-rest-x) 0;
+}
+.workstation-action.input-keyboard .workstation-motion {
+  background-position: var(--workstation-active-x) 0;
+}
+.workstation-action.input-pointer .workstation-motion {
+  background-position: var(--workstation-rest-x) -199px;
+}
+.workstation-action.input-both .workstation-motion {
+  background-position: var(--workstation-active-x) -199px;
 }
 
-.input-action.keyboard,
-.input-action.pointer { display: block; }
-.input-action.keyboard .input-action-base,
-.input-action.pointer .input-action-base {
-  display: block;
-}
-.input-action.keyboard .input-action-base {
-  background-position: 0 0;
-  -webkit-mask:
-    linear-gradient(#000 0 0) 0 0 / 100% 128px no-repeat,
-    linear-gradient(#000 0 0) 0 128px / 18px 68px no-repeat,
-    linear-gradient(#000 0 0) 166px 128px / 60px 68px no-repeat,
-    linear-gradient(#000 0 0) 0 196px / 100% 30px no-repeat;
-  mask:
-    linear-gradient(#000 0 0) 0 0 / 100% 128px no-repeat,
-    linear-gradient(#000 0 0) 0 128px / 18px 68px no-repeat,
-    linear-gradient(#000 0 0) 166px 128px / 60px 68px no-repeat,
-    linear-gradient(#000 0 0) 0 196px / 100% 30px no-repeat;
-}
-.input-action.pointer .input-action-base {
-  background-position: 0 calc(var(--input-cell) * -1);
-  -webkit-mask:
-    linear-gradient(#000 0 0) 0 0 / 100% 128px no-repeat,
-    linear-gradient(#000 0 0) 0 128px / 24px 74px no-repeat,
-    linear-gradient(#000 0 0) 134px 128px / 92px 74px no-repeat,
-    linear-gradient(#000 0 0) 0 202px / 100% 24px no-repeat;
-  mask:
-    linear-gradient(#000 0 0) 0 0 / 100% 128px no-repeat,
-    linear-gradient(#000 0 0) 0 128px / 24px 74px no-repeat,
-    linear-gradient(#000 0 0) 134px 128px / 92px 74px no-repeat,
-    linear-gradient(#000 0 0) 0 202px / 100% 24px no-repeat;
-}
-.input-action-frame.keyboard.beat-0 { background-position: 0 0; }
-.input-action-frame.keyboard.beat-1 { background-position: calc(var(--input-cell) * -1 + 16px) 0; }
-.input-action-frame.pointer.beat-0 { background-position: 0 calc(var(--input-cell) * -1); }
-.input-action-frame.pointer.beat-1 { background-position: calc(var(--input-cell) * -1 + 16px) calc(var(--input-cell) * -1); }
-.input-action-frame.current { z-index: 2; animation: input-frame-in 190ms ease-out both; }
-.input-action-frame.previous { z-index: 1; animation: input-frame-out 190ms ease-out both; }
-.input-action-frame.keyboard {
-  clip-path: inset(128px 60px 30px 18px);
+/* Lock the ears, face and head to one immutable frame. Input swaps only the two forearm area below it. */
+.workstation-face-lock {
+  z-index: 2;
+  background-position: var(--workstation-rest-x) 0;
+  clip-path: inset(0 0 40% 0);
   filter: none;
 }
-.input-action-frame.pointer {
-  clip-path: inset(128px 92px 24px 24px);
-  filter: none;
-}
-.input-action-frame.keyboard.current,
-.input-action-frame.pointer.current {
-  opacity: 1;
-  animation: none;
-}
-.input-action-frame.keyboard.previous,
-.input-action-frame.pointer.previous { display: none; }
-.pet-pair.interacting .input-action { display: none; }
 
-.pet-sprite.state-entering { animation: activity-state-in var(--activity-transition-duration, 1080ms) linear both; }
+.pet-pair.interacting .workstation-action { display: none; }
+
+.pet-sprite.state-entering,
+.workstation-action.state-entering { animation: activity-state-in var(--activity-transition-duration, 1080ms) linear both; }
 .pet-sprite.state-leaving { z-index: 1; animation: activity-state-out var(--activity-transition-duration, 1080ms) linear both; }
 
 .activity-transition {
@@ -183,16 +141,6 @@
 .activity-transition-frame.phase-two { animation: transition-phase-two var(--activity-transition-duration, 1080ms) linear both; }
 .activity-transition-frame.phase-three { animation: transition-phase-three var(--activity-transition-duration, 1080ms) linear both; }
 .activity-transition-frame.phase-four { animation: transition-phase-four var(--activity-transition-duration, 1080ms) linear both; }
-
-@keyframes input-frame-in {
-  from { opacity: .18; transform: translateY(4px) scale(.985); }
-  to { opacity: 1; transform: translateY(0) scale(1); }
-}
-
-@keyframes input-frame-out {
-  from { opacity: 1; transform: translateY(0) scale(1); }
-  to { opacity: 0; transform: translateY(-3px) scale(1.01); }
-}
 
 @keyframes activity-state-in {
   0%, 76% { opacity: 0; transform: translateY(5px) scale(.985); }

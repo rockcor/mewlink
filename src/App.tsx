@@ -15,7 +15,7 @@ import {
   savePairing,
   type PairingState,
 } from './pairing/pairing';
-import { activityProbe, classify, inputKindForSequenceChange, inputProbe, nextSampleDelay, visualInputForActivity, type InputKind, type InputSignal } from './platform/activity';
+import { activityProbe, classify, inputChangesForSequence, inputProbe, nextSampleDelay, visualInputForActivity, type InputSignal } from './platform/activity';
 import { localUtcOffsetMinutes } from './platform/clock';
 import { registerPairCreator, registerPairJoiner, sendEncryptedEvent, syncEncryptedEvents } from './services/relayTransport';
 import { checkForUpdate } from './services/update';
@@ -53,8 +53,8 @@ function ActivityTransitionFrames({
 
 export default function App() {
   const [activity, setActivity] = useState<ActivityKind>('browsing');
-  const [inputKind, setInputKind] = useState<InputKind>('none');
-  const [inputBeat, setInputBeat] = useState(0);
+  const [keyboardPressed, setKeyboardPressed] = useState(false);
+  const [pointerPressed, setPointerPressed] = useState(false);
   const [previousSelfActivity, setPreviousSelfActivity] = useState<ActivityKind>();
   const [previousPartnerActivity, setPreviousPartnerActivity] = useState<ActivityKind>();
   const [events, setEvents] = useState<StoredEvent[]>([]);
@@ -95,7 +95,7 @@ export default function App() {
   );
   const current = playing ? replay[frame] : undefined;
   const partnerActivity = current?.activity ?? 'rest';
-  const visualInputKind = visualInputForActivity(activity, inputKind);
+  const visualInputKind = visualInputForActivity(activity, keyboardPressed, pointerPressed);
   const defaultNotice = connected ? text.shortcut : text.soloShortcut;
   const motionStyle = useMemo(() => ({
     '--pet-scale': String(preferences.petScalePercent / 100),
@@ -213,19 +213,24 @@ export default function App() {
   }, []);
   useEffect(() => {
     let timer: number | undefined;
-    let releaseTimer: number | undefined;
+    let keyboardReleaseTimer: number | undefined;
+    let pointerReleaseTimer: number | undefined;
     let stopped = false;
     let previous: InputSignal | undefined;
     const sample = async () => {
       const signal = await inputProbe.sample();
       if (stopped) return;
       if (previous) {
-        const nextInputKind = inputKindForSequenceChange(previous, signal);
-        if (nextInputKind !== 'none') {
-          setInputKind(nextInputKind);
-          setInputBeat(currentBeat => currentBeat + 1);
-          window.clearTimeout(releaseTimer);
-          releaseTimer = window.setTimeout(() => setInputKind('none'), nextInputKind === 'keyboard' ? 90 : 70);
+        const changes = inputChangesForSequence(previous, signal);
+        if (changes.keyboard) {
+          setKeyboardPressed(current => !current);
+          window.clearTimeout(keyboardReleaseTimer);
+          keyboardReleaseTimer = window.setTimeout(() => setKeyboardPressed(false), 110);
+        }
+        if (changes.pointer) {
+          setPointerPressed(current => !current);
+          window.clearTimeout(pointerReleaseTimer);
+          pointerReleaseTimer = window.setTimeout(() => setPointerPressed(false), 80);
         }
       }
       previous = signal;
@@ -235,7 +240,8 @@ export default function App() {
     return () => {
       stopped = true;
       window.clearTimeout(timer);
-      window.clearTimeout(releaseTimer);
+      window.clearTimeout(keyboardReleaseTimer);
+      window.clearTimeout(pointerReleaseTimer);
     };
   }, []);
   useEffect(() => { window.localStorage.setItem('mewlink.cupStyle', cupStyle); }, [cupStyle]);
@@ -421,7 +427,7 @@ export default function App() {
           <div className="status-row" aria-live="polite">
             <div className="status-pill self-status">
               <span>●</span>
-              <span className="status-copy"><b>{text.me} · {text.status[activity]}</b>{text.input[inputKind] && <small>{text.input[inputKind]}</small>}</span>
+              <span className="status-copy"><b>{text.me} · {text.status[activity]}</b>{text.input[visualInputKind] && <small>{text.input[visualInputKind]}</small>}</span>
             </div>
             {connected && <div className="status-pill partner-status">
               <span>{current?.icon ?? '○'}</span>
@@ -454,14 +460,16 @@ export default function App() {
         <div className={`pet-pair ${connected ? 'paired' : 'solo'} ${displayedGesture ? 'interacting' : ''}`}>
           <div className="pet-avatar self-pet" aria-label={text.myPet(text.status[activity])} onPointerDown={startPetDrag}>
             <span className="identity-badge">{text.me}</span>
-            {previousSelfActivity && visualInputKind === 'none' && <span className={`pet-sprite state-leaving ${previousSelfActivity}`} aria-hidden="true" />}
-            <span className={`pet-sprite ${previousSelfActivity && visualInputKind === 'none' ? 'state-entering' : ''} ${activity} input-${visualInputKind}`} aria-hidden="true" />
-            <span className={`input-action ${visualInputKind}`} aria-hidden="true">
-              <i className="input-action-base" />
-              <i key={`${visualInputKind}-${inputBeat}`} className={`input-action-frame current ${visualInputKind} beat-${inputBeat % 2}`}/>
-              <i key={`${visualInputKind}-${inputBeat - 1}`} className={`input-action-frame previous ${visualInputKind} beat-${(inputBeat + 1) % 2}`}/>
-            </span>
-            {previousSelfActivity && visualInputKind === 'none' && <ActivityTransitionFrames key={`self-${previousSelfActivity}-${activity}`} from={previousSelfActivity} to={activity} character="self" />}
+            {previousSelfActivity && activity !== 'coding' && <span className={`pet-sprite state-leaving ${previousSelfActivity}`} aria-hidden="true" />}
+            {activity === 'coding' ? (
+              <span className={`workstation-action input-${visualInputKind} ${previousSelfActivity ? 'state-entering' : ''}`} aria-hidden="true">
+                <i className="workstation-motion" />
+                <i className="workstation-face-lock" />
+              </span>
+            ) : (
+              <span className={`pet-sprite ${previousSelfActivity ? 'state-entering' : ''} ${activity}`} aria-hidden="true" />
+            )}
+            {previousSelfActivity && <ActivityTransitionFrames key={`self-${previousSelfActivity}-${activity}`} from={previousSelfActivity} to={activity} character="self" />}
           </div>
           {connected && <button
             className="pet-avatar partner-pet"

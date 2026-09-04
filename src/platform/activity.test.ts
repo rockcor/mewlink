@@ -1,4 +1,4 @@
-import { classify, inputKindForSequenceChange, nextSampleDelay, visualInputForActivity } from './activity';
+import { classify, inputChangesForSequence, nextSampleDelay, visualInputForActivity } from './activity';
 import { describe, expect, it } from 'vitest';
 describe('privacy-first activity classification', () => {
   it('treats lock as rest regardless of app', () => expect(classify({ locked: true, idleSeconds: 0, appClass: 'editor' })).toBe('rest'));
@@ -7,9 +7,9 @@ describe('privacy-first activity classification', () => {
   it('maps local media activity to video', () => expect(classify({ locked: false, idleSeconds: 1, appClass: 'media' })).toBe('video'));
   it('keeps a foreground browser in the browsing state without input', () => expect(classify({ locked: false, idleSeconds: 1, appClass: 'browser', inputKind: 'none' })).toBe('browsing'));
   it('keeps the browsing screen visible while mouse or keyboard input is detected', () => {
-    expect(visualInputForActivity('browsing', 'keyboard')).toBe('none');
-    expect(visualInputForActivity('browsing', 'pointer')).toBe('none');
-    expect(visualInputForActivity('coding', 'keyboard')).toBe('keyboard');
+    expect(visualInputForActivity('browsing', true, false)).toBe('none');
+    expect(visualInputForActivity('browsing', false, true)).toBe('none');
+    expect(visualInputForActivity('coding', true, false)).toBe('keyboard');
   });
   it('polls active input quickly and rests slowly', () => {
     expect(nextSampleDelay({ locked: false, idleSeconds: 1, appClass: 'editor' })).toBe(500);
@@ -19,12 +19,13 @@ describe('privacy-first activity classification', () => {
   });
   it('advances a hand only when a real input sequence changes', () => {
     const baseline = { keyboardSequence: 41, pointerSequence: 12, recentKind: 'none' as const };
-    expect(inputKindForSequenceChange(baseline, { ...baseline })).toBe('none');
-    expect(inputKindForSequenceChange(baseline, { ...baseline, keyboardSequence: 42, recentKind: 'keyboard' })).toBe('keyboard');
-    expect(inputKindForSequenceChange(baseline, { ...baseline, pointerSequence: 13, recentKind: 'pointer' })).toBe('pointer');
+    expect(inputChangesForSequence(baseline, { ...baseline })).toEqual({ keyboard: false, pointer: false });
+    expect(inputChangesForSequence(baseline, { ...baseline, keyboardSequence: 42, recentKind: 'keyboard' })).toEqual({ keyboard: true, pointer: false });
+    expect(inputChangesForSequence(baseline, { ...baseline, pointerSequence: 13, recentKind: 'pointer' })).toEqual({ keyboard: false, pointer: true });
   });
-  it('uses the latest physical input when keyboard and pointer both advance', () => {
+  it('keeps keyboard and pointer changes independent when both advance', () => {
     const baseline = { keyboardSequence: 2, pointerSequence: 8, recentKind: 'none' as const };
-    expect(inputKindForSequenceChange(baseline, { keyboardSequence: 3, pointerSequence: 9, recentKind: 'pointer' })).toBe('pointer');
+    expect(inputChangesForSequence(baseline, { keyboardSequence: 3, pointerSequence: 9, recentKind: 'pointer' })).toEqual({ keyboard: true, pointer: true });
+    expect(visualInputForActivity('coding', true, true)).toBe('both');
   });
 });
