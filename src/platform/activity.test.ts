@@ -1,4 +1,4 @@
-import { classify, inputChangesForSequence, nextSampleDelay, visualInputForActivity } from './activity';
+import { classify, inputChangesForSequence, nextSampleDelay, POINTER_ANIMATION_INTERVAL_MS, shouldAnimatePointer, visualInputForActivity } from './activity';
 import { describe, expect, it } from 'vitest';
 describe('privacy-first activity classification', () => {
   it('treats lock as rest regardless of app', () => expect(classify({ locked: true, idleSeconds: 0, appClass: 'editor' })).toBe('rest'));
@@ -27,5 +27,10 @@ describe('privacy-first activity classification', () => {
     const baseline = { keyboardSequence: 2, pointerSequence: 8, recentKind: 'none' as const };
     expect(inputChangesForSequence(baseline, { keyboardSequence: 3, pointerSequence: 9, recentKind: 'pointer' })).toEqual({ keyboard: true, pointer: true });
     expect(visualInputForActivity('coding', true, true)).toBe('both');
+  });
+  it('coalesces dense pointer movement into a calmer hand rhythm', () => {
+    expect(shouldAnimatePointer(Number.NEGATIVE_INFINITY, 1)).toBe(true);
+    expect(shouldAnimatePointer(1_000, 1_000 + POINTER_ANIMATION_INTERVAL_MS - 1)).toBe(false);
+    expect(shouldAnimatePointer(1_000, 1_000 + POINTER_ANIMATION_INTERVAL_MS)).toBe(true);
   });
 });

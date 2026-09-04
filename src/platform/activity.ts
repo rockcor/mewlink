@@ -9,6 +9,12 @@ export interface InputChanges { keyboard: boolean; pointer: boolean }
 export interface ActivityProbe { sample(): Promise<PresenceSignal> }
 export interface InputProbe { sample(): Promise<InputSignal> }
 
+export const POINTER_ANIMATION_INTERVAL_MS = 90;
+export const POINTER_ANIMATION_HOLD_MS = 65;
+
+export const shouldAnimatePointer = (lastAnimationAt: number, now: number) =>
+  now - lastAnimationAt >= POINTER_ANIMATION_INTERVAL_MS;
+
 export const classify = (signal: PresenceSignal): ActivityKind => {
   if (signal.locked || signal.idleSeconds >= 600) return 'rest';
   if (signal.idleSeconds >= 120) return 'idle';

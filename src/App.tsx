@@ -15,7 +15,7 @@ import {
   savePairing,
   type PairingState,
 } from './pairing/pairing';
-import { activityProbe, classify, inputChangesForSequence, inputProbe, nextSampleDelay, visualInputForActivity, type InputSignal } from './platform/activity';
+import { activityProbe, classify, inputChangesForSequence, inputProbe, nextSampleDelay, POINTER_ANIMATION_HOLD_MS, shouldAnimatePointer, visualInputForActivity, type InputSignal } from './platform/activity';
 import { localUtcOffsetMinutes } from './platform/clock';
 import { registerPairCreator, registerPairJoiner, sendEncryptedEvent, syncEncryptedEvents } from './services/relayTransport';
 import { checkForUpdate } from './services/update';
@@ -215,6 +215,7 @@ export default function App() {
     let timer: number | undefined;
     let keyboardReleaseTimer: number | undefined;
     let pointerReleaseTimer: number | undefined;
+    let lastPointerAnimationAt = Number.NEGATIVE_INFINITY;
     let stopped = false;
     let previous: InputSignal | undefined;
     const sample = async () => {
@@ -227,10 +228,12 @@ export default function App() {
           window.clearTimeout(keyboardReleaseTimer);
           keyboardReleaseTimer = window.setTimeout(() => setKeyboardPressed(false), 110);
         }
-        if (changes.pointer) {
-          setPointerPressed(current => !current);
+        const now = performance.now();
+        if (changes.pointer && shouldAnimatePointer(lastPointerAnimationAt, now)) {
+          lastPointerAnimationAt = now;
+          setPointerPressed(true);
           window.clearTimeout(pointerReleaseTimer);
-          pointerReleaseTimer = window.setTimeout(() => setPointerPressed(false), 80);
+          pointerReleaseTimer = window.setTimeout(() => setPointerPressed(false), POINTER_ANIMATION_HOLD_MS);
         }
       }
       previous = signal;
