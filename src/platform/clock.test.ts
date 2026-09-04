@@ -19,4 +19,8 @@ describe('privacy-preserving replay clock', () => {
   it('keeps legacy events replayable when the sender offset is missing', () => {
     expect(replayClock('2026-09-03T06:30:00.000Z', undefined, 480).label).toBe('你这里 14:30');
   });
+
+  it('renders both clocks in English when English is selected', () => {
+    expect(replayClock('2026-09-03T06:30:00.000Z', -420, 480, 'en').label).toBe('Partner 09/02 23:30 → You 09/03 14:30');
+  });
 });

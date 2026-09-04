@@ -3,6 +3,8 @@ import { localUtcOffsetMinutes, normalizeUtcOffsetMinutes } from '../platform/cl
 export const animationSpeeds = ['calm', 'natural', 'lively'] as const;
 export type AnimationSpeed = (typeof animationSpeeds)[number];
 export type TimezoneMode = 'auto' | 'manual' | 'off';
+export const languages = ['zh', 'en'] as const;
+export type Language = (typeof languages)[number];
 
 export interface Preferences {
   autoUpdate: boolean;
@@ -10,10 +12,15 @@ export interface Preferences {
   timezoneMode: TimezoneMode;
   manualUtcOffsetMinutes: number;
   animationSpeed: AnimationSpeed;
+  language: Language;
 }
 
 type StorageLike = Pick<Storage, 'getItem' | 'setItem'>;
 const STORAGE_KEY = 'mewlink.preferences.v1';
+
+function systemLanguage(): Language {
+  return typeof navigator !== 'undefined' && navigator.language.toLowerCase().startsWith('zh') ? 'zh' : 'en';
+}
 
 export function defaultPreferences(): Preferences {
   return {
@@ -21,7 +28,8 @@ export function defaultPreferences(): Preferences {
     replayEnabled: true,
     timezoneMode: 'auto',
     manualUtcOffsetMinutes: localUtcOffsetMinutes(),
-    animationSpeed: 'calm'
+    animationSpeed: 'calm',
+    language: systemLanguage()
   };
 }
 
@@ -43,7 +51,8 @@ export function loadPreferences(storage?: StorageLike): Preferences {
         : defaults.manualUtcOffsetMinutes,
       animationSpeed: animationSpeeds.includes(value.animationSpeed as AnimationSpeed)
         ? value.animationSpeed as AnimationSpeed
-        : defaults.animationSpeed
+        : defaults.animationSpeed,
+      language: languages.includes(value.language as Language) ? value.language as Language : defaults.language
     };
   } catch {
     return defaults;

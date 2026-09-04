@@ -13,31 +13,16 @@ import {
   savePairing,
   type PairingState,
 } from './pairing/pairing';
-import { activityProbe, classify, nextSampleDelay, type InputKind } from './platform/activity';
+import { activityProbe, classify, nextSampleDelay, visualInputForActivity, type InputKind } from './platform/activity';
 import { localUtcOffsetMinutes } from './platform/clock';
 import { registerPairCreator, registerPairJoiner, sendEncryptedEvent, syncEncryptedEvents } from './services/relayTransport';
 import { checkForUpdate } from './services/update';
 import { listEvents, putEvent } from './storage/events';
 import { buildReplay } from './services/replay';
 import { animationDurationScale, effectiveUtcOffsetMinutes, loadPreferences, savePreferences } from './settings/preferences';
+import { appCopy } from './i18n';
 import './styles.css';
 import './pet.css';
-
-const cupOptions: Record<CupStyle, { label: string; shortLabel: string }> = {
-  ceramic: { label: '樱粉陶瓷杯', shortLabel: '陶瓷杯' },
-  tumbler: { label: '天空随行杯', shortLabel: '随行杯' },
-  bottle: { label: '薄荷运动瓶', shortLabel: '运动瓶' }
-};
-const inputText: Record<InputKind, string> = { keyboard: '键盘输入 · 手部同步', pointer: '鼠标/触控板 · 手部同步', none: '' };
-const statusText: Record<ActivityKind, string> = {
-  coding: '在写代码',
-  reading: '在阅读',
-  meeting: '在开会',
-  video: '在看视频',
-  browsing: '在浏览',
-  idle: '暂时离开',
-  rest: '休息中'
-};
 
 const transitionPose = (activity: ActivityKind) => activity === 'idle' ? 'rest' : activity;
 
@@ -75,7 +60,8 @@ export default function App() {
   const [gestureCup, setGestureCup] = useState<CupStyle>('ceramic');
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [preferences, setPreferences] = useState(loadPreferences);
-  const [updateState, setUpdateState] = useState<UpdateViewState>({ kind: 'idle', message: '尚未检查更新' });
+  const text = appCopy[preferences.language];
+  const [updateState, setUpdateState] = useState<UpdateViewState>({ kind: 'idle', message: text.updateUnchecked });
   const [feedback, setFeedback] = useState('');
   const [feedbackStatus, setFeedbackStatus] = useState('');
   const [pairing, setPairing] = useState<PairingState | undefined>(() => loadPairing());
@@ -86,7 +72,7 @@ export default function App() {
     const saved = window.localStorage.getItem('mewlink.cupStyle');
     return cupStyles.includes(saved as CupStyle) ? saved as CupStyle : 'ceramic';
   });
-  const [notice, setNotice] = useState('单击拥抱 · 双击喝水');
+  const [notice, setNotice] = useState(text.shortcut);
   const clickTimer = useRef<number | undefined>(undefined);
   const gestureTimer = useRef<number | undefined>(undefined);
   const noticeTimer = useRef<number | undefined>(undefined);
@@ -99,11 +85,12 @@ export default function App() {
   const inviteCode = pairing && !pairing.partnerDeviceId ? pairingInviteCode(pairing) : '';
   const durationScale = animationDurationScale(preferences.animationSpeed);
   const replay = useMemo(
-    () => preferences.replayEnabled ? buildReplay(events, receiverUtcOffsetMinutes, preferences.timezoneMode !== 'off') : [],
-    [events, preferences.replayEnabled, preferences.timezoneMode, receiverUtcOffsetMinutes]
+    () => preferences.replayEnabled ? buildReplay(events, receiverUtcOffsetMinutes, preferences.timezoneMode !== 'off', preferences.language) : [],
+    [events, preferences.language, preferences.replayEnabled, preferences.timezoneMode, receiverUtcOffsetMinutes]
   );
   const current = playing ? replay[frame] : undefined;
   const partnerActivity = current?.activity ?? 'rest';
+  const visualInputKind = visualInputForActivity(activity, inputKind);
   const motionStyle = useMemo(() => ({
     '--pet-breathe-duration': `${Math.round(3_600 * durationScale)}ms`,
     '--pet-type-duration': `${Math.round(1_100 * durationScale)}ms`,
@@ -118,16 +105,16 @@ export default function App() {
   }) as CSSProperties, [durationScale]);
 
   const runUpdateCheck = useCallback(async () => {
-    setUpdateState({ kind: 'checking', message: '正在检查…' });
+    setUpdateState({ kind: 'checking', message: text.updateChecking });
     try {
       const result = await checkForUpdate();
       setUpdateState(result.available
-        ? { kind: 'available', message: `发现新版本 ${result.manifest.version}`, downloadUrl: result.manifest.downloadUrl }
-        : { kind: 'current', message: `已是最新版 ${result.currentVersion}` });
+        ? { kind: 'available', message: text.updateAvailable(result.manifest.version), downloadUrl: result.manifest.downloadUrl }
+        : { kind: 'current', message: text.updateCurrent(result.currentVersion) });
     } catch {
-      setUpdateState({ kind: 'error', message: '暂时无法检查，请稍后再试' });
+      setUpdateState({ kind: 'error', message: text.updateError });
     }
-  }, []);
+  }, [text]);
 
   const persistPairing = useCallback((next: PairingState) => {
     pairingRef.current = next;
@@ -160,7 +147,7 @@ export default function App() {
         if (result.state.partnerDeviceId !== active.partnerDeviceId || result.state.relayCursor !== active.relayCursor || result.received.length) {
           persistPairing(result.state);
         }
-        setPairingStatus(result.state.partnerDeviceId ? '已连接，可以互相发送拥抱和喝水' : '等待 TA 粘贴邀请码');
+        setPairingStatus(result.state.partnerDeviceId ? text.connected : text.waitingForInvite);
         for (const stored of result.received) {
           await putEvent(stored);
           setEvents(currentEvents => currentEvents.some(item => item.event.id === stored.event.id) ? currentEvents : [...currentEvents, stored]);
@@ -170,7 +157,7 @@ export default function App() {
           }
         }
       } catch {
-        if (!stopped) setPairingStatus('暂时无法连接，稍后会自动重试');
+        if (!stopped) setPairingStatus(text.connectionRetry);
       } finally {
         running = false;
       }
@@ -178,7 +165,7 @@ export default function App() {
     void sync();
     const timer = window.setInterval(() => { void sync(); }, 2_500);
     return () => { stopped = true; window.clearInterval(timer); };
-  }, [pairing?.relationshipId, pairing?.deviceId, persistPairing]);
+  }, [pairing?.relationshipId, pairing?.deviceId, persistPairing, text]);
   useEffect(() => {
     let timer: number | undefined;
     let stopped = false;
@@ -200,6 +187,11 @@ export default function App() {
   }, []);
   useEffect(() => { window.localStorage.setItem('mewlink.cupStyle', cupStyle); }, [cupStyle]);
   useEffect(() => { savePreferences(preferences); }, [preferences]);
+  useEffect(() => {
+    setNotice(text.shortcut);
+    setUpdateState(currentState => currentState.kind === 'idle' ? { ...currentState, message: text.updateUnchecked } : currentState);
+    setPairingStatus(currentStatus => currentStatus ? (pairingRef.current?.partnerDeviceId ? text.connected : pairingRef.current ? text.waitingForInvite : '') : currentStatus);
+  }, [text]);
   useEffect(() => { if (preferences.autoUpdate) void runUpdateCheck(); }, [preferences.autoUpdate, runUpdateCheck]);
   useEffect(() => { if (!preferences.replayEnabled) { setPlaying(false); setFrame(0); } }, [preferences.replayEnabled]);
   useEffect(() => {
@@ -238,44 +230,44 @@ export default function App() {
     setGestureCup(selectedCup);
     setNotice(message);
     gestureTimer.current = window.setTimeout(() => setGesture(undefined), Math.round(1_900 * durationScale));
-    noticeTimer.current = window.setTimeout(() => setNotice('单击拥抱 · 双击喝水'), Math.round(2_800 * durationScale));
+    noticeTimer.current = window.setTimeout(() => setNotice(text.shortcut), Math.round(2_800 * durationScale));
   }
 
   incomingInteractionRef.current = (action, selectedCup = 'ceramic') => {
-    showGesture(action, action === 'hug' ? 'TA 送来一个拥抱' : 'TA 提醒你喝水', selectedCup);
+    showGesture(action, action === 'hug' ? text.incomingHug : text.incomingWater, selectedCup);
   };
 
   async function createPairing() {
-    setPairingStatus('正在生成邀请码…');
+    setPairingStatus(text.creatingInvite);
     try {
       const next = await createPairingState();
       await registerPairCreator(next);
       persistPairing(next);
-      setPairingStatus('等待 TA 粘贴邀请码');
+      setPairingStatus(text.waitingForInvite);
     } catch {
-      setPairingStatus('暂时无法生成，请稍后再试');
+      setPairingStatus(text.createInviteError);
     }
   }
 
   async function joinPairing() {
-    setPairingStatus('正在连接…');
+    setPairingStatus(text.connecting);
     try {
       const next = joinPairingState(joinCode);
       await registerPairJoiner(next);
       persistPairing(next);
       setJoinCode('');
-      setPairingStatus('已连接，可以互相发送拥抱和喝水');
-    } catch (error) {
-      setPairingStatus(error instanceof Error ? error.message : '暂时无法连接');
+      setPairingStatus(text.connected);
+    } catch {
+      setPairingStatus(text.connectError);
     }
   }
 
   async function copyInvite() {
     try {
       await navigator.clipboard.writeText(inviteCode);
-      setPairingStatus('邀请码已复制，请私下发给 TA');
+      setPairingStatus(text.inviteCopied);
     } catch {
-      setPairingStatus('复制失败，请手动选择邀请码');
+      setPairingStatus(text.inviteCopyError);
     }
   }
 
@@ -283,7 +275,7 @@ export default function App() {
     clearPairing();
     pairingRef.current = undefined;
     setPairing(undefined);
-    setPairingStatus('已解除连接');
+    setPairingStatus(text.disconnected);
     setJoinCode('');
   }
 
@@ -291,7 +283,7 @@ export default function App() {
     const active = pairingRef.current;
     if (!active) {
       setSettingsOpen(true);
-      setPairingStatus('先连接 TA，才能送出互动');
+      setPairingStatus(text.pairFirst);
       return;
     }
     const event: PlainEvent = {
@@ -309,9 +301,9 @@ export default function App() {
       persistPairing(result.state);
       await putEvent(result.stored);
       setEvents(currentEvents => [...currentEvents, result.stored]);
-      showGesture(action, action === 'hug' ? '拥抱已送出' : `${cupOptions[cupStyle].label}已送出`, cupStyle);
-    } catch (error) {
-      setNotice(error instanceof Error ? error.message : '暂时没有送出去');
+      showGesture(action, action === 'hug' ? text.hugSent : text.cupSent(text.cups[cupStyle].label), cupStyle);
+    } catch {
+      setNotice(text.sendError);
     }
   }
 
@@ -329,27 +321,27 @@ export default function App() {
     const next = cupStyles[(cupStyles.indexOf(cupStyle) + 1) % cupStyles.length];
     setCupStyle(next);
     window.clearTimeout(noticeTimer.current);
-    setNotice(`已换成${cupOptions[next].label}`);
-    noticeTimer.current = window.setTimeout(() => setNotice('单击拥抱 · 双击喝水'), Math.round(2_800 * durationScale));
+    setNotice(text.cupChanged(text.cups[next].label));
+    noticeTimer.current = window.setTimeout(() => setNotice(text.shortcut), Math.round(2_800 * durationScale));
   }
 
   async function shareFeedback() {
     const message = feedback.trim();
     if (!message) return;
-    const shareText = `MewLink 反馈\n\n${message}`;
+    const shareText = `${text.feedbackTitle}\n\n${message}`;
     try {
       if (navigator.share) {
-        await navigator.share({ title: 'MewLink 反馈', text: shareText });
-        setFeedbackStatus('谢谢，反馈已分享');
+        await navigator.share({ title: text.feedbackTitle, text: shareText });
+        setFeedbackStatus(text.feedbackShared);
       } else if (navigator.clipboard?.writeText) {
         await navigator.clipboard.writeText(shareText);
-        setFeedbackStatus('反馈已复制，可以粘贴发送');
+        setFeedbackStatus(text.feedbackCopied);
       } else {
-        setFeedbackStatus('请复制上面的反馈内容');
+        setFeedbackStatus(text.feedbackCopy);
       }
     } catch (error) {
       if (error instanceof DOMException && error.name === 'AbortError') return;
-      setFeedbackStatus('暂时无法打开分享，请稍后再试');
+      setFeedbackStatus(text.feedbackError);
     }
   }
 
@@ -358,54 +350,55 @@ export default function App() {
 
   return (
     <main className="desktop-pet" style={motionStyle}>
-      <section className={`pet-zone ${settingsOpen ? 'settings-open' : ''}`} aria-label="MewLink 双人桌面宠物">
+      <section className={`pet-zone ${settingsOpen ? 'settings-open' : ''}`} aria-label={text.petZone} lang={preferences.language === 'zh' ? 'zh-CN' : 'en'}>
         <div className="hover-ui">
           <div className="status-row" aria-live="polite">
             <div className="status-pill self-status">
               <span>●</span>
-              <span className="status-copy"><b>我 · {statusText[activity]}</b>{inputText[inputKind] && <small>{inputText[inputKind]}</small>}</span>
+              <span className="status-copy"><b>{text.me} · {text.status[activity]}</b>{text.input[inputKind] && <small>{text.input[inputKind]}</small>}</span>
             </div>
             <div className="status-pill partner-status">
               <span>{current?.icon ?? '○'}</span>
               <span className="status-copy">
-                <b>TA · {current?.label ?? '等待同步'}</b>
+                <b>{preferences.language === 'zh' ? 'TA' : 'Partner'} · {current?.label ?? text.partnerWaiting}</b>
                 {current?.clockLabel && <small>{current.clockLabel}</small>}
               </span>
             </div>
           </div>
-          <div className="quick-actions" aria-label="给 TA 一个小动作">
-            <button type="button" onClick={() => { void send('hug'); }}><span aria-hidden="true">🫂</span>拥抱</button>
-            <button type="button" onClick={() => { void send('water'); }}><span className={`cup-symbol ${cupStyle}`} aria-hidden="true" />喝水</button>
-            <button className="cup-switch" type="button" onClick={cycleCup} title={cupOptions[cupStyle].label}><span className={`cup-symbol ${cupStyle}`} aria-hidden="true" />换杯<small>{cupOptions[cupStyle].shortLabel}</small></button>
+          <div className="quick-actions" aria-label={text.actionsAria}>
+            <button type="button" onClick={() => { void send('hug'); }}><span aria-hidden="true">🫂</span>{text.hug}</button>
+            <button type="button" onClick={() => { void send('water'); }}><span className={`cup-symbol ${cupStyle}`} aria-hidden="true" />{text.water}</button>
+            <button className="cup-switch" type="button" onClick={cycleCup} title={text.cups[cupStyle].label}><span className={`cup-symbol ${cupStyle}`} aria-hidden="true" />{text.changeCup}<small>{text.cups[cupStyle].shortLabel}</small></button>
             {replay.length > 0 && (
               <button className="replay-action" type="button" onClick={() => { setFrame(0); setPlaying(true); }}>
                 <span aria-hidden="true">▶</span>
-                回放
+                {text.replay}
               </button>
             )}
             <button className="settings-action" type="button" onClick={() => setSettingsOpen(true)}>
               <span aria-hidden="true">⚙</span>
-              设置
+              {text.settings}
             </button>
           </div>
         </div>
 
-        <div className="drag-handle" data-tauri-drag-region aria-label="拖动桌宠">•••</div>
+        <div className="drag-handle" data-tauri-drag-region aria-label={text.drag}>•••</div>
         <div className={`pet-pair ${displayedGesture ? 'interacting' : ''}`}>
-          <div className="pet-avatar self-pet" aria-label={`我的宠物：${statusText[activity]}`}>
-            <span className="identity-badge">我</span>
-            {previousSelfActivity && <span className={`pet-sprite state-leaving ${previousSelfActivity}`} aria-hidden="true" />}
-            <span className={`pet-sprite ${previousSelfActivity ? 'state-entering' : ''} ${activity} input-${inputKind}`} aria-hidden="true" />
-            <span className={`input-action ${inputKind}`} aria-hidden="true">
-              <i key={`${inputKind}-${inputBeat}`} className={`input-action-frame current ${inputKind} beat-${inputBeat % 2}`}/>
-              <i key={`${inputKind}-${inputBeat - 1}`} className={`input-action-frame previous ${inputKind} beat-${(inputBeat + 1) % 2}`}/>
+          <div className="pet-avatar self-pet" aria-label={text.myPet(text.status[activity])}>
+            <span className="identity-badge">{text.me}</span>
+            {previousSelfActivity && visualInputKind === 'none' && <span className={`pet-sprite state-leaving ${previousSelfActivity}`} aria-hidden="true" />}
+            <span className={`pet-sprite ${previousSelfActivity && visualInputKind === 'none' ? 'state-entering' : ''} ${activity} input-${visualInputKind}`} aria-hidden="true" />
+            <span className={`input-action ${visualInputKind}`} aria-hidden="true">
+              <i className="input-action-base" />
+              <i key={`${visualInputKind}-${inputBeat}`} className={`input-action-frame current ${visualInputKind} beat-${inputBeat % 2}`}/>
+              <i key={`${visualInputKind}-${inputBeat - 1}`} className={`input-action-frame previous ${visualInputKind} beat-${(inputBeat + 1) % 2}`}/>
             </span>
-            {previousSelfActivity && <ActivityTransitionFrames key={`self-${previousSelfActivity}-${activity}`} from={previousSelfActivity} to={activity} character="self" />}
+            {previousSelfActivity && visualInputKind === 'none' && <ActivityTransitionFrames key={`self-${previousSelfActivity}-${activity}`} from={previousSelfActivity} to={activity} character="self" />}
           </div>
           <button
             className="pet-avatar partner-pet"
             type="button"
-            aria-label={`TA 的宠物：${current?.label ?? '等待同步'}。单击发送拥抱，双击提醒喝水`}
+            aria-label={text.partnerPet(current?.label ?? text.partnerWaiting)}
             onClick={handlePetClick}
             onDoubleClick={handlePetDoubleClick}
           >

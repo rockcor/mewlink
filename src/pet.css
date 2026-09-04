@@ -77,14 +77,69 @@
   filter: drop-shadow(0 13px 10px rgba(86, 45, 67, .16));
 }
 
+.input-action-base {
+  position: absolute;
+  inset: 0;
+  display: none;
+  background-image: url('/pets/input-action-sprites-v1.png');
+  background-repeat: no-repeat;
+  background-size: calc(var(--input-cell) * 2) calc(var(--input-cell) * 2);
+  filter: drop-shadow(0 13px 10px rgba(86, 45, 67, .16));
+}
+
 .input-action.keyboard,
 .input-action.pointer { display: block; }
+.input-action.keyboard .input-action-base,
+.input-action.pointer .input-action-base {
+  display: block;
+}
+.input-action.keyboard .input-action-base {
+  background-position: 0 0;
+  -webkit-mask:
+    linear-gradient(#000 0 0) 0 0 / 100% 128px no-repeat,
+    linear-gradient(#000 0 0) 0 128px / 18px 68px no-repeat,
+    linear-gradient(#000 0 0) 166px 128px / 60px 68px no-repeat,
+    linear-gradient(#000 0 0) 0 196px / 100% 30px no-repeat;
+  mask:
+    linear-gradient(#000 0 0) 0 0 / 100% 128px no-repeat,
+    linear-gradient(#000 0 0) 0 128px / 18px 68px no-repeat,
+    linear-gradient(#000 0 0) 166px 128px / 60px 68px no-repeat,
+    linear-gradient(#000 0 0) 0 196px / 100% 30px no-repeat;
+}
+.input-action.pointer .input-action-base {
+  background-position: 0 calc(var(--input-cell) * -1);
+  -webkit-mask:
+    linear-gradient(#000 0 0) 0 0 / 100% 128px no-repeat,
+    linear-gradient(#000 0 0) 0 128px / 24px 74px no-repeat,
+    linear-gradient(#000 0 0) 134px 128px / 92px 74px no-repeat,
+    linear-gradient(#000 0 0) 0 202px / 100% 24px no-repeat;
+  mask:
+    linear-gradient(#000 0 0) 0 0 / 100% 128px no-repeat,
+    linear-gradient(#000 0 0) 0 128px / 24px 74px no-repeat,
+    linear-gradient(#000 0 0) 134px 128px / 92px 74px no-repeat,
+    linear-gradient(#000 0 0) 0 202px / 100% 24px no-repeat;
+}
 .input-action-frame.keyboard.beat-0 { background-position: 0 0; }
-.input-action-frame.keyboard.beat-1 { background-position: calc(var(--input-cell) * -1) 0; }
+.input-action-frame.keyboard.beat-1 { background-position: calc(var(--input-cell) * -1 + 16px) 0; }
 .input-action-frame.pointer.beat-0 { background-position: 0 calc(var(--input-cell) * -1); }
-.input-action-frame.pointer.beat-1 { background-position: calc(var(--input-cell) * -1) calc(var(--input-cell) * -1); }
+.input-action-frame.pointer.beat-1 { background-position: calc(var(--input-cell) * -1 + 16px) calc(var(--input-cell) * -1); }
 .input-action-frame.current { z-index: 2; animation: input-frame-in 190ms ease-out both; }
 .input-action-frame.previous { z-index: 1; animation: input-frame-out 190ms ease-out both; }
+.input-action-frame.keyboard {
+  clip-path: inset(128px 60px 30px 18px);
+  filter: none;
+}
+.input-action-frame.pointer {
+  clip-path: inset(128px 92px 24px 24px);
+  filter: none;
+}
+.input-action-frame.keyboard.current,
+.input-action-frame.pointer.current {
+  opacity: 1;
+  animation: none;
+}
+.input-action-frame.keyboard.previous,
+.input-action-frame.pointer.previous { display: none; }
 .pet-pair.interacting .input-action { display: none; }
 
 .pet-sprite.state-entering { animation: activity-state-in var(--activity-transition-duration, 1080ms) linear both; }
@@ -231,11 +286,6 @@
 @keyframes pet-idle {
   0%, 100% { transform: translateY(0); }
   50% { transform: translateY(-5px); }
-}
-
-@keyframes pet-pointer {
-  0%, 100% { transform: translateX(-3px) rotate(-1deg); }
-  50% { transform: translateX(4px) translateY(-2px) rotate(1deg); }
 }
 
 @keyframes interaction-hug {

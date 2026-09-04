@@ -28,12 +28,13 @@ function offsetDateParts(iso: string, offsetMinutes: number) {
 export function replayClock(
   createdAt: string,
   senderUtcOffsetMinutes?: number,
-  receiverUtcOffsetMinutes = localUtcOffsetMinutes(new Date(createdAt))
+  receiverUtcOffsetMinutes = localUtcOffsetMinutes(new Date(createdAt)),
+  language: 'zh' | 'en' = 'zh'
 ): ReplayClock {
   const receiverOffset = normalizeUtcOffsetMinutes(receiverUtcOffsetMinutes);
   const receiver = offsetDateParts(createdAt, receiverOffset);
   if (senderUtcOffsetMinutes === undefined) {
-    return { receiverUtcOffsetMinutes: receiverOffset, label: `你这里 ${receiver.time}` };
+    return { receiverUtcOffsetMinutes: receiverOffset, label: language === 'zh' ? `你这里 ${receiver.time}` : `Your time ${receiver.time}` };
   }
 
   const senderOffset = normalizeUtcOffsetMinutes(senderUtcOffsetMinutes);
@@ -43,8 +44,8 @@ export function replayClock(
     senderUtcOffsetMinutes: senderOffset,
     receiverUtcOffsetMinutes: receiverOffset,
     offsetDeltaMinutes: receiverOffset - senderOffset,
-    label: sameDate
-      ? `TA ${sender.time} → 你 ${receiver.time}`
-      : `TA ${sender.date} ${sender.time} → 你 ${receiver.date} ${receiver.time}`
+    label: language === 'zh'
+      ? (sameDate ? `TA ${sender.time} → 你 ${receiver.time}` : `TA ${sender.date} ${sender.time} → 你 ${receiver.date} ${receiver.time}`)
+      : (sameDate ? `Partner ${sender.time} → You ${receiver.time}` : `Partner ${sender.date} ${sender.time} → You ${receiver.date} ${receiver.time}`)
   };
 }

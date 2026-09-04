@@ -17,11 +17,12 @@ describe('desktop preferences', () => {
 
   it('persists replay, manual timezone, and update preferences', () => {
     const storage = memoryStorage();
-    savePreferences({ autoUpdate: false, replayEnabled: false, timezoneMode: 'manual', manualUtcOffsetMinutes: 330, animationSpeed: 'natural' }, storage);
+    savePreferences({ autoUpdate: false, replayEnabled: false, timezoneMode: 'manual', manualUtcOffsetMinutes: 330, animationSpeed: 'natural', language: 'en' }, storage);
     const saved = loadPreferences(storage);
     expect(effectiveUtcOffsetMinutes(saved)).toBe(330);
     expect(saved.autoUpdate).toBe(false);
     expect(saved.replayEnabled).toBe(false);
+    expect(saved.language).toBe('en');
     expect(formatUtcOffset(saved.manualUtcOffsetMinutes)).toBe('UTC+05:30');
   });
 
@@ -32,7 +33,7 @@ describe('desktop preferences', () => {
 
   it('lets people turn automatic timezone detection off', () => {
     const storage = memoryStorage();
-    savePreferences({ autoUpdate: true, replayEnabled: true, timezoneMode: 'off', manualUtcOffsetMinutes: 0, animationSpeed: 'calm' }, storage);
+    savePreferences({ autoUpdate: true, replayEnabled: true, timezoneMode: 'off', manualUtcOffsetMinutes: 0, animationSpeed: 'calm', language: 'zh' }, storage);
     expect(loadPreferences(storage).timezoneMode).toBe('off');
   });
 

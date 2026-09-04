@@ -21,6 +21,9 @@ export const nextSampleDelay = (signal: PresenceSignal) => {
   return 500;
 };
 
+export const visualInputForActivity = (activity: ActivityKind, inputKind: InputKind): InputKind =>
+  activity === 'coding' ? inputKind : 'none';
+
 class TauriProbe implements ActivityProbe { async sample() { return invoke<PresenceSignal>('presence_signal'); } }
 class DemoProbe implements ActivityProbe {
   private lastInput = Date.now();
