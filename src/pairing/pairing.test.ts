@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { createPairingState, joinPairingState, loadPairing, pairingInviteCode, savePairing } from './pairing';
+import { clearPairing, createPairingState, joinPairingState, loadPairing, pairingInviteCode, savePairing } from './pairing';
 
 function memoryStorage() {
   let value: string | null = null;
@@ -25,5 +25,12 @@ describe('macOS test pairing', () => {
     const state = await createPairingState();
     savePairing(state, storage);
     expect(loadPairing(storage)?.deviceId).toBe(state.deviceId);
+  });
+
+  it('returns to standalone mode as soon as pairing is cleared', async () => {
+    const storage = memoryStorage();
+    savePairing(await createPairingState(), storage);
+    clearPairing(storage);
+    expect(loadPairing(storage)).toBeUndefined();
   });
 });

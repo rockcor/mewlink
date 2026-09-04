@@ -1,4 +1,6 @@
-import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties, type PointerEvent as ReactPointerEvent } from 'react';
+import { PhysicalPosition } from '@tauri-apps/api/dpi';
+import { getCurrentWindow } from '@tauri-apps/api/window';
 import { v4 as uuid } from 'uuid';
 import { SettingsPanel, type UpdateViewState } from './components/SettingsPanel';
 import type { ActivityKind, CupStyle, InteractionKind, InteractionPayload, PlainEvent, StoredEvent } from './domain/types';
@@ -25,6 +27,8 @@ import './styles.css';
 import './pet.css';
 
 const transitionPose = (activity: ActivityKind) => activity === 'idle' ? 'rest' : activity;
+const windowPositionKey = 'mewlink.windowPosition.v1';
+const isTauriWindow = typeof window !== 'undefined' && '__TAURI_INTERNALS__' in window;
 
 function ActivityTransitionFrames({
   from,
@@ -65,6 +69,7 @@ export default function App() {
   const [feedback, setFeedback] = useState('');
   const [feedbackStatus, setFeedbackStatus] = useState('');
   const [pairing, setPairing] = useState<PairingState | undefined>(() => loadPairing());
+  const connected = Boolean(pairing?.partnerDeviceId);
   const [pairingStatus, setPairingStatus] = useState('');
   const [joinCode, setJoinCode] = useState('');
   const [safetyCode, setSafetyCode] = useState('');
@@ -72,7 +77,7 @@ export default function App() {
     const saved = window.localStorage.getItem('mewlink.cupStyle');
     return cupStyles.includes(saved as CupStyle) ? saved as CupStyle : 'ceramic';
   });
-  const [notice, setNotice] = useState(text.shortcut);
+  const [notice, setNotice] = useState(() => pairing?.partnerDeviceId ? text.shortcut : text.soloShortcut);
   const clickTimer = useRef<number | undefined>(undefined);
   const gestureTimer = useRef<number | undefined>(undefined);
   const noticeTimer = useRef<number | undefined>(undefined);
@@ -91,7 +96,9 @@ export default function App() {
   const current = playing ? replay[frame] : undefined;
   const partnerActivity = current?.activity ?? 'rest';
   const visualInputKind = visualInputForActivity(activity, inputKind);
+  const defaultNotice = connected ? text.shortcut : text.soloShortcut;
   const motionStyle = useMemo(() => ({
+    '--pet-scale': String(preferences.petScalePercent / 100),
     '--pet-breathe-duration': `${Math.round(3_600 * durationScale)}ms`,
     '--pet-read-duration': `${Math.round(3_100 * durationScale)}ms`,
     '--pet-meeting-duration': `${Math.round(2_500 * durationScale)}ms`,
@@ -101,7 +108,7 @@ export default function App() {
     '--pet-idle-duration': `${Math.round(3_800 * durationScale)}ms`,
     '--interaction-duration': `${Math.round(1_900 * durationScale)}ms`,
     '--activity-transition-duration': `${Math.round(1_080 * durationScale)}ms`
-  }) as CSSProperties, [durationScale]);
+  }) as CSSProperties, [durationScale, preferences.petScalePercent]);
 
   const runUpdateCheck = useCallback(async () => {
     setUpdateState({ kind: 'checking', message: text.updateChecking });
@@ -122,6 +129,29 @@ export default function App() {
   }, []);
 
   useEffect(() => { void listEvents().then(setEvents); }, []);
+  useEffect(() => {
+    if (!isTauriWindow) return;
+    const appWindow = getCurrentWindow();
+    let active = true;
+    let unlisten: (() => void) | undefined;
+    const setup = async () => {
+      try {
+        const saved = JSON.parse(window.localStorage.getItem(windowPositionKey) ?? 'null') as { x?: unknown; y?: unknown } | null;
+        if (saved && typeof saved.x === 'number' && Number.isFinite(saved.x) && typeof saved.y === 'number' && Number.isFinite(saved.y)) {
+          await appWindow.setPosition(new PhysicalPosition(saved.x, saved.y));
+        }
+        const stopListening = await appWindow.onMoved(({ payload }) => {
+          window.localStorage.setItem(windowPositionKey, JSON.stringify({ x: payload.x, y: payload.y }));
+        });
+        if (active) unlisten = stopListening;
+        else stopListening();
+      } catch {
+        // The native window can still be dragged if restoring its last position fails.
+      }
+    };
+    void setup();
+    return () => { active = false; unlisten?.(); };
+  }, []);
   useEffect(() => {
     if (!pairing) {
       setSafetyCode('');
@@ -211,10 +241,16 @@ export default function App() {
   useEffect(() => { window.localStorage.setItem('mewlink.cupStyle', cupStyle); }, [cupStyle]);
   useEffect(() => { savePreferences(preferences); }, [preferences]);
   useEffect(() => {
-    setNotice(text.shortcut);
+    setNotice(defaultNotice);
     setUpdateState(currentState => currentState.kind === 'idle' ? { ...currentState, message: text.updateUnchecked } : currentState);
     setPairingStatus(currentStatus => currentStatus ? (pairingRef.current?.partnerDeviceId ? text.connected : pairingRef.current ? text.waitingForInvite : '') : currentStatus);
-  }, [text]);
+  }, [defaultNotice, text]);
+  useEffect(() => {
+    if (connected) return;
+    setPlaying(false);
+    setFrame(0);
+    setGesture(undefined);
+  }, [connected]);
   useEffect(() => { if (preferences.autoUpdate) void runUpdateCheck(); }, [preferences.autoUpdate, runUpdateCheck]);
   useEffect(() => { if (!preferences.replayEnabled) { setPlaying(false); setFrame(0); } }, [preferences.replayEnabled]);
   useEffect(() => {
@@ -253,7 +289,7 @@ export default function App() {
     setGestureCup(selectedCup);
     setNotice(message);
     gestureTimer.current = window.setTimeout(() => setGesture(undefined), Math.round(1_900 * durationScale));
-    noticeTimer.current = window.setTimeout(() => setNotice(text.shortcut), Math.round(2_800 * durationScale));
+    noticeTimer.current = window.setTimeout(() => setNotice(defaultNotice), Math.round(2_800 * durationScale));
   }
 
   incomingInteractionRef.current = (action, selectedCup = 'ceramic') => {
@@ -300,11 +336,12 @@ export default function App() {
     setPairing(undefined);
     setPairingStatus(text.disconnected);
     setJoinCode('');
+    setNotice(text.soloShortcut);
   }
 
   async function send(action: InteractionKind) {
     const active = pairingRef.current;
-    if (!active) {
+    if (!active?.partnerDeviceId) {
       setSettingsOpen(true);
       setPairingStatus(text.pairFirst);
       return;
@@ -345,7 +382,13 @@ export default function App() {
     setCupStyle(next);
     window.clearTimeout(noticeTimer.current);
     setNotice(text.cupChanged(text.cups[next].label));
-    noticeTimer.current = window.setTimeout(() => setNotice(text.shortcut), Math.round(2_800 * durationScale));
+    noticeTimer.current = window.setTimeout(() => setNotice(defaultNotice), Math.round(2_800 * durationScale));
+  }
+
+  function startPetDrag(event: ReactPointerEvent<HTMLDivElement>) {
+    if (event.button !== 0 || !isTauriWindow) return;
+    event.preventDefault();
+    void getCurrentWindow().startDragging();
   }
 
   async function shareFeedback() {
@@ -368,31 +411,33 @@ export default function App() {
     }
   }
 
-  const displayedGesture = gesture ?? current?.interaction;
+  const displayedGesture = connected ? (gesture ?? current?.interaction) : undefined;
   const displayedCup = gesture ? gestureCup : (current?.cupStyle ?? cupStyle);
 
   return (
     <main className="desktop-pet" style={motionStyle}>
-      <section className={`pet-zone ${settingsOpen ? 'settings-open' : ''}`} aria-label={text.petZone} lang={preferences.language === 'zh' ? 'zh-CN' : 'en'}>
+      <section className={`pet-zone ${settingsOpen ? 'settings-open' : ''}`} aria-label={connected ? text.petZone : text.soloPetZone} lang={preferences.language === 'zh' ? 'zh-CN' : 'en'}>
         <div className="hover-ui">
           <div className="status-row" aria-live="polite">
             <div className="status-pill self-status">
               <span>●</span>
               <span className="status-copy"><b>{text.me} · {text.status[activity]}</b>{text.input[inputKind] && <small>{text.input[inputKind]}</small>}</span>
             </div>
-            <div className="status-pill partner-status">
+            {connected && <div className="status-pill partner-status">
               <span>{current?.icon ?? '○'}</span>
               <span className="status-copy">
                 <b>{preferences.language === 'zh' ? 'TA' : 'Partner'} · {current?.label ?? text.partnerWaiting}</b>
                 {current?.clockLabel && <small>{current.clockLabel}</small>}
               </span>
-            </div>
+            </div>}
           </div>
           <div className="quick-actions" aria-label={text.actionsAria}>
-            <button type="button" onClick={() => { void send('hug'); }}><span aria-hidden="true">🫂</span>{text.hug}</button>
-            <button type="button" onClick={() => { void send('water'); }}><span className={`cup-symbol ${cupStyle}`} aria-hidden="true" />{text.water}</button>
-            <button className="cup-switch" type="button" onClick={cycleCup} title={text.cups[cupStyle].label}><span className={`cup-symbol ${cupStyle}`} aria-hidden="true" />{text.changeCup}<small>{text.cups[cupStyle].shortLabel}</small></button>
-            {replay.length > 0 && (
+            {connected && <>
+              <button type="button" onClick={() => { void send('hug'); }}><span aria-hidden="true">🫂</span>{text.hug}</button>
+              <button type="button" onClick={() => { void send('water'); }}><span className={`cup-symbol ${cupStyle}`} aria-hidden="true" />{text.water}</button>
+              <button className="cup-switch" type="button" onClick={cycleCup} title={text.cups[cupStyle].label}><span className={`cup-symbol ${cupStyle}`} aria-hidden="true" />{text.changeCup}<small>{text.cups[cupStyle].shortLabel}</small></button>
+            </>}
+            {connected && replay.length > 0 && (
               <button className="replay-action" type="button" onClick={() => { setFrame(0); setPlaying(true); }}>
                 <span aria-hidden="true">▶</span>
                 {text.replay}
@@ -406,8 +451,8 @@ export default function App() {
         </div>
 
         <div className="drag-handle" data-tauri-drag-region aria-label={text.drag}>•••</div>
-        <div className={`pet-pair ${displayedGesture ? 'interacting' : ''}`}>
-          <div className="pet-avatar self-pet" aria-label={text.myPet(text.status[activity])}>
+        <div className={`pet-pair ${connected ? 'paired' : 'solo'} ${displayedGesture ? 'interacting' : ''}`}>
+          <div className="pet-avatar self-pet" aria-label={text.myPet(text.status[activity])} onPointerDown={startPetDrag}>
             <span className="identity-badge">{text.me}</span>
             {previousSelfActivity && visualInputKind === 'none' && <span className={`pet-sprite state-leaving ${previousSelfActivity}`} aria-hidden="true" />}
             <span className={`pet-sprite ${previousSelfActivity && visualInputKind === 'none' ? 'state-entering' : ''} ${activity} input-${visualInputKind}`} aria-hidden="true" />
@@ -418,7 +463,7 @@ export default function App() {
             </span>
             {previousSelfActivity && visualInputKind === 'none' && <ActivityTransitionFrames key={`self-${previousSelfActivity}-${activity}`} from={previousSelfActivity} to={activity} character="self" />}
           </div>
-          <button
+          {connected && <button
             className="pet-avatar partner-pet"
             type="button"
             aria-label={text.partnerPet(current?.label ?? text.partnerWaiting)}
@@ -429,7 +474,7 @@ export default function App() {
             {previousPartnerActivity && <span className={`pet-sprite partner-sprite state-leaving ${previousPartnerActivity}`} aria-hidden="true" />}
             <span className={`pet-sprite partner-sprite ${previousPartnerActivity ? 'state-entering' : ''} ${partnerActivity} ${playing ? 'replaying' : ''}`} aria-hidden="true" />
             {previousPartnerActivity && <ActivityTransitionFrames key={`partner-${previousPartnerActivity}-${partnerActivity}`} from={previousPartnerActivity} to={partnerActivity} character="partner" />}
-          </button>
+          </button>}
           {displayedGesture && <span className={`interaction-sprite ${displayedGesture} ${displayedCup}`} aria-hidden="true" />}
         </div>
         <div className="shortcut-hint" aria-live="polite">{notice}</div>

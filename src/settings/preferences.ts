@@ -12,6 +12,7 @@ export interface Preferences {
   timezoneMode: TimezoneMode;
   manualUtcOffsetMinutes: number;
   animationSpeed: AnimationSpeed;
+  petScalePercent: number;
   language: Language;
 }
 
@@ -29,8 +30,14 @@ export function defaultPreferences(): Preferences {
     timezoneMode: 'auto',
     manualUtcOffsetMinutes: localUtcOffsetMinutes(),
     animationSpeed: 'calm',
+    petScalePercent: 100,
     language: systemLanguage()
   };
+}
+
+export function normalizePetScalePercent(value: number): number {
+  if (!Number.isFinite(value)) return 100;
+  return Math.min(100, Math.max(70, Math.round(value / 5) * 5));
 }
 
 export function loadPreferences(storage?: StorageLike): Preferences {
@@ -52,6 +59,9 @@ export function loadPreferences(storage?: StorageLike): Preferences {
       animationSpeed: animationSpeeds.includes(value.animationSpeed as AnimationSpeed)
         ? value.animationSpeed as AnimationSpeed
         : defaults.animationSpeed,
+      petScalePercent: typeof value.petScalePercent === 'number'
+        ? normalizePetScalePercent(value.petScalePercent)
+        : defaults.petScalePercent,
       language: languages.includes(value.language as Language) ? value.language as Language : defaults.language
     };
   } catch {

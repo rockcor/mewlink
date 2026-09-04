@@ -1,1 +1,1 @@
-{"$schema":"../gen/schemas/desktop-schema.json","identifier":"default","description":"Minimal main-window permissions","windows":["main"],"permissions":["core:default","core:window:allow-start-dragging"]}
+{"$schema":"../gen/schemas/desktop-schema.json","identifier":"default","description":"Minimal main-window permissions","windows":["main"],"permissions":["core:default","core:window:allow-start-dragging","core:window:allow-set-position"]}

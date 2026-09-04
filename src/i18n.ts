@@ -35,6 +35,7 @@ interface AppCopy {
   feedbackCopy: string;
   feedbackError: string;
   petZone: string;
+  soloPetZone: string;
   me: string;
   partnerWaiting: string;
   actionsAria: string;
@@ -46,6 +47,7 @@ interface AppCopy {
   drag: string;
   myPet: (status: string) => string;
   partnerPet: (status: string) => string;
+  soloShortcut: string;
 }
 
 export const appCopy: Record<Language, AppCopy> = {
@@ -58,7 +60,7 @@ export const appCopy: Record<Language, AppCopy> = {
     incomingHug: 'TA 送来一个拥抱', incomingWater: 'TA 提醒你喝水', creatingInvite: '正在生成邀请码…', createInviteError: '暂时无法生成，请稍后再试', connecting: '正在连接…', connectError: '邀请码无效、已过期或暂时无法连接',
     inviteCopied: '邀请码已复制，请私下发给 TA', inviteCopyError: '复制失败，请手动选择邀请码', disconnected: '已解除连接', pairFirst: '先连接 TA，才能送出互动', hugSent: '拥抱已送出', cupSent: name => `${name}已送出`, sendError: '暂时没有送出去', cupChanged: name => `已换成${name}`,
     feedbackTitle: 'MewLink 反馈', feedbackShared: '谢谢，反馈已分享', feedbackCopied: '反馈已复制，可以粘贴发送', feedbackCopy: '请复制上面的反馈内容', feedbackError: '暂时无法打开分享，请稍后再试',
-    petZone: 'MewLink 双人桌面宠物', me: '我', partnerWaiting: '等待同步', actionsAria: '给 TA 一个小动作', hug: '拥抱', water: '喝水', changeCup: '换杯', replay: '回放', settings: '设置', drag: '拖动桌宠', myPet: status => `我的宠物：${status}`, partnerPet: status => `TA 的宠物：${status}。单击发送拥抱，双击提醒喝水`,
+    petZone: 'MewLink 双人桌面宠物', soloPetZone: 'MewLink 桌面宠物', me: '我', partnerWaiting: '等待同步', actionsAria: '给 TA 一个小动作', hug: '拥抱', water: '喝水', changeCup: '换杯', replay: '回放', settings: '设置', drag: '按住自己的宠物拖动位置', myPet: status => `我的宠物：${status}。按住可拖动位置`, partnerPet: status => `TA 的宠物：${status}。单击发送拥抱，双击提醒喝水`, soloShortcut: '按住宠物拖动 · 悬停打开设置',
   },
   en: {
     cups: { ceramic: { label: 'Blush ceramic mug', shortLabel: 'Ceramic' }, tumbler: { label: 'Sky tumbler', shortLabel: 'Tumbler' }, bottle: { label: 'Mint sports bottle', shortLabel: 'Bottle' } },
@@ -69,6 +71,6 @@ export const appCopy: Record<Language, AppCopy> = {
     incomingHug: 'Your partner sent a hug', incomingWater: 'Your partner reminded you to drink water', creatingInvite: 'Creating an invite…', createInviteError: 'Unable to create an invite. Try again later.', connecting: 'Connecting…', connectError: 'The invite is invalid, expired, or unavailable right now',
     inviteCopied: 'Invite copied — send it privately to your partner', inviteCopyError: 'Copy failed. Select the invite manually.', disconnected: 'Disconnected', pairFirst: 'Connect your partner before sending an interaction', hugSent: 'Hug sent', cupSent: name => `${name} sent`, sendError: 'Unable to send right now', cupChanged: name => `Changed to ${name}`,
     feedbackTitle: 'MewLink feedback', feedbackShared: 'Thank you — feedback shared', feedbackCopied: 'Feedback copied and ready to paste', feedbackCopy: 'Copy the feedback above to share it', feedbackError: 'Unable to open sharing right now. Try again later.',
-    petZone: 'MewLink desktop companions', me: 'You', partnerWaiting: 'Waiting to sync', actionsAria: 'Send your partner a small gesture', hug: 'Hug', water: 'Water', changeCup: 'Cup', replay: 'Replay', settings: 'Settings', drag: 'Move companions', myPet: status => `Your companion: ${status}`, partnerPet: status => `Partner companion: ${status}. Click to hug, double-click to remind them to drink water.`,
+    petZone: 'MewLink desktop companions', soloPetZone: 'MewLink desktop companion', me: 'You', partnerWaiting: 'Waiting to sync', actionsAria: 'Send your partner a small gesture', hug: 'Hug', water: 'Water', changeCup: 'Cup', replay: 'Replay', settings: 'Settings', drag: 'Hold your companion to move it', myPet: status => `Your companion: ${status}. Hold to move it.`, partnerPet: status => `Partner companion: ${status}. Click to hug, double-click to remind them to drink water.`, soloShortcut: 'Hold to move · Hover for Settings',
   },
 };

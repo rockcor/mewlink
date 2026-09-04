@@ -35,23 +35,25 @@ interface SettingsPanelProps {
 const copy = {
   zh: {
     settings: '设置', close: '关闭设置', language: '语言', languageNote: '选择应用显示语言',
-    connect: '连接 TA', connectNote: '一台 Mac 生成邀请码，另一台粘贴连接', connected: '已连接', waiting: '等待中',
+    connect: '连接 TA', connectNote: '可单独使用；连接后两只宠物会同时出现', connected: '已连接', waiting: '等待中',
     createInvite: '生成邀请码', or: '或', pasteInvite: '粘贴 TA 发来的邀请码', invite: '邀请码', connectAction: '连接', myInvite: '我的邀请码', copyInvite: '复制邀请码', cancel: '取消',
-    petsConnected: '两只宠物已经连在一起', compareNumber: '请和 TA 核对下方号码', disconnect: '解除', safetyNumber: '核对号码',
+    petsConnected: '两只宠物已经连在一起', compareNumber: '请和 TA 核对下方号码', disconnect: '解除绑定', safetyNumber: '核对号码',
     replay: '时差重放', replayNote: '两人连接后自动识别时差，上线时重放错过的片刻',
     update: '自动更新', updateNote: '启动时检查，有新版本就提醒你', goUpdate: '前往更新', checkNow: '立即检查',
     timezone: '时区', timezoneNote: '自动识别双方时差，可随时关闭', auto: '自动', manual: '手动', off: '关闭', me: '你', partnerPending: 'TA · 连接后识别', step: '每格 15 分钟', hideClocks: '重放中不显示双方时间', manualAria: '手动时区 UTC 偏移',
+    petSize: '宠物大小', petSizeNote: '拖动滑块调整桌面上的显示大小', petSizeAria: '宠物大小',
     speed: '动画速度', speedNote: '默认采用更从容的节奏', speedAria: '动画速度', speeds: { calm: '舒缓', natural: '自然', lively: '活泼' },
     feedback: '意见反馈', feedbackNote: '告诉我们哪里还不够自然', feedbackPlaceholder: '写下你的感受或建议…', feedbackAria: '反馈内容', sendFeedback: '发送反馈',
   },
   en: {
     settings: 'Settings', close: 'Close settings', language: 'Language', languageNote: 'Choose the language used in the app',
-    connect: 'Connect your partner', connectNote: 'Create an invite on one Mac and paste it on the other', connected: 'Connected', waiting: 'Waiting',
+    connect: 'Connect your partner', connectNote: 'Use it solo, or pair to show both companions together', connected: 'Connected', waiting: 'Waiting',
     createInvite: 'Create invite', or: 'or', pasteInvite: "Paste your partner's invite", invite: 'Invite code', connectAction: 'Connect', myInvite: 'My invite', copyInvite: 'Copy invite', cancel: 'Cancel',
-    petsConnected: 'Your two companions are connected', compareNumber: 'Compare the number below with your partner', disconnect: 'Disconnect', safetyNumber: 'Safety number',
+    petsConnected: 'Your two companions are connected', compareNumber: 'Compare the number below with your partner', disconnect: 'Unpair', safetyNumber: 'Safety number',
     replay: 'Time-zone replay', replayNote: 'Detects your time difference and replays moments you missed',
     update: 'Automatic updates', updateNote: 'Check at launch and let you know when an update is ready', goUpdate: 'Get update', checkNow: 'Check now',
     timezone: 'Time zone', timezoneNote: 'Detect your time difference automatically or turn it off', auto: 'Auto', manual: 'Manual', off: 'Off', me: 'You', partnerPending: 'Partner · after pairing', step: '15-minute steps', hideClocks: 'Hide both local times during replay', manualAria: 'Manual UTC offset',
+    petSize: 'Companion size', petSizeNote: 'Adjust how large the companions appear on your desktop', petSizeAria: 'Companion size',
     speed: 'Animation speed', speedNote: 'A calmer pace is selected by default', speedAria: 'Animation speed', speeds: { calm: 'Calm', natural: 'Natural', lively: 'Lively' },
     feedback: 'Feedback', feedbackNote: 'Tell us what could feel more natural', feedbackPlaceholder: 'Share a thought or suggestion…', feedbackAria: 'Feedback message', sendFeedback: 'Send feedback',
   },
@@ -136,6 +138,15 @@ export function SettingsPanel({
           {preferences.timezoneMode === 'auto' && <div className="timezone-detected"><span>{text.me} · {formatUtcOffset(localUtcOffsetMinutes)}</span><i>↔</i><span>{partnerUtcOffsetMinutes === undefined ? text.partnerPending : `${preferences.language === 'zh' ? 'TA' : 'Partner'} · ${formatUtcOffset(partnerUtcOffsetMinutes)}`}</span></div>}
           {preferences.timezoneMode === 'manual' && <label className="timezone-slider"><span>{formatUtcOffset(preferences.manualUtcOffsetMinutes)}</span><input type="range" min="-720" max="840" step="15" value={preferences.manualUtcOffsetMinutes} onChange={event => patchPreferences({ manualUtcOffsetMinutes: Number(event.target.value) })} aria-label={text.manualAria}/><small>{text.step}</small></label>}
           {preferences.timezoneMode === 'off' && <div className="timezone-detected timezone-off"><span>{text.hideClocks}</span></div>}
+        </article>
+
+        <article className="setting-block">
+          <div className="setting-title"><div><b>{text.petSize}</b><small>{text.petSizeNote}</small></div><output>{preferences.petScalePercent}%</output></div>
+          <label className="pet-size-slider">
+            <span>70%</span>
+            <input type="range" min="70" max="100" step="5" value={preferences.petScalePercent} onChange={event => patchPreferences({ petScalePercent: Number(event.target.value) })} aria-label={text.petSizeAria}/>
+            <span>100%</span>
+          </label>
         </article>
 
         <article className="setting-block">

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { animationDurationScale, effectiveUtcOffsetMinutes, formatUtcOffset, loadPreferences, savePreferences } from './preferences';
+import { animationDurationScale, effectiveUtcOffsetMinutes, formatUtcOffset, loadPreferences, normalizePetScalePercent, savePreferences } from './preferences';
 
 function memoryStorage(initial?: string) {
   let value = initial ?? null;
@@ -17,11 +17,12 @@ describe('desktop preferences', () => {
 
   it('persists replay, manual timezone, and update preferences', () => {
     const storage = memoryStorage();
-    savePreferences({ autoUpdate: false, replayEnabled: false, timezoneMode: 'manual', manualUtcOffsetMinutes: 330, animationSpeed: 'natural', language: 'en' }, storage);
+    savePreferences({ autoUpdate: false, replayEnabled: false, timezoneMode: 'manual', manualUtcOffsetMinutes: 330, animationSpeed: 'natural', petScalePercent: 85, language: 'en' }, storage);
     const saved = loadPreferences(storage);
     expect(effectiveUtcOffsetMinutes(saved)).toBe(330);
     expect(saved.autoUpdate).toBe(false);
     expect(saved.replayEnabled).toBe(false);
+    expect(saved.petScalePercent).toBe(85);
     expect(saved.language).toBe('en');
     expect(formatUtcOffset(saved.manualUtcOffsetMinutes)).toBe('UTC+05:30');
   });
@@ -33,8 +34,14 @@ describe('desktop preferences', () => {
 
   it('lets people turn automatic timezone detection off', () => {
     const storage = memoryStorage();
-    savePreferences({ autoUpdate: true, replayEnabled: true, timezoneMode: 'off', manualUtcOffsetMinutes: 0, animationSpeed: 'calm', language: 'zh' }, storage);
+    savePreferences({ autoUpdate: true, replayEnabled: true, timezoneMode: 'off', manualUtcOffsetMinutes: 0, animationSpeed: 'calm', petScalePercent: 100, language: 'zh' }, storage);
     expect(loadPreferences(storage).timezoneMode).toBe('off');
+  });
+
+  it('keeps pet scaling inside the supported visual range', () => {
+    expect(normalizePetScalePercent(82)).toBe(80);
+    expect(normalizePetScalePercent(30)).toBe(70);
+    expect(normalizePetScalePercent(140)).toBe(100);
   });
 
   it('falls back safely when stored data is malformed', () => {
