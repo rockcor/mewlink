@@ -1,4 +1,4 @@
-import { classify, nextSampleDelay, visualInputForActivity } from './activity';
+import { classify, inputKindForSequenceChange, nextSampleDelay, visualInputForActivity } from './activity';
 import { describe, expect, it } from 'vitest';
 describe('privacy-first activity classification', () => {
   it('treats lock as rest regardless of app', () => expect(classify({ locked: true, idleSeconds: 0, appClass: 'editor' })).toBe('rest'));
@@ -16,5 +16,15 @@ describe('privacy-first activity classification', () => {
     expect(nextSampleDelay({ locked: false, idleSeconds: 0, appClass: 'editor', inputKind: 'keyboard' })).toBe(260);
     expect(nextSampleDelay({ locked: false, idleSeconds: 200, appClass: 'editor' })).toBe(900);
     expect(nextSampleDelay({ locked: true, idleSeconds: 0, appClass: 'editor' })).toBe(5_000);
+  });
+  it('advances a hand only when a real input sequence changes', () => {
+    const baseline = { keyboardSequence: 41, pointerSequence: 12, recentKind: 'none' as const };
+    expect(inputKindForSequenceChange(baseline, { ...baseline })).toBe('none');
+    expect(inputKindForSequenceChange(baseline, { ...baseline, keyboardSequence: 42, recentKind: 'keyboard' })).toBe('keyboard');
+    expect(inputKindForSequenceChange(baseline, { ...baseline, pointerSequence: 13, recentKind: 'pointer' })).toBe('pointer');
+  });
+  it('uses the latest physical input when keyboard and pointer both advance', () => {
+    const baseline = { keyboardSequence: 2, pointerSequence: 8, recentKind: 'none' as const };
+    expect(inputKindForSequenceChange(baseline, { keyboardSequence: 3, pointerSequence: 9, recentKind: 'pointer' })).toBe('pointer');
   });
 });

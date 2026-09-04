@@ -7,7 +7,14 @@ struct PresenceSignal {
     idle_seconds: u64,
     locked: bool,
     app_class: &'static str,
-    input_kind: &'static str,
+}
+
+#[derive(Debug, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "camelCase")]
+struct InputSignal {
+    keyboard_sequence: u64,
+    pointer_sequence: u64,
+    recent_kind: &'static str,
 }
 
 fn classify_foreground_app(value: &str) -> &'static str {
@@ -69,7 +76,7 @@ fn classify_foreground_app(value: &str) -> &'static str {
 
 #[cfg(target_os = "macos")]
 mod platform {
-    use super::{classify_foreground_app, PresenceSignal};
+    use super::{classify_foreground_app, InputSignal, PresenceSignal};
     use objc2_app_kit::NSWorkspace;
     use std::ffi::{c_char, c_void};
 
@@ -81,7 +88,6 @@ mod platform {
     const LEFT_MOUSE_DRAGGED: u32 = 6;
     const RIGHT_MOUSE_DRAGGED: u32 = 7;
     const KEY_DOWN: u32 = 10;
-    const KEY_UP: u32 = 11;
     const FLAGS_CHANGED: u32 = 12;
     const SCROLL_WHEEL: u32 = 22;
     const OTHER_MOUSE_DOWN: u32 = 25;
@@ -93,6 +99,7 @@ mod platform {
     #[link(name = "ApplicationServices", kind = "framework")]
     unsafe extern "C" {
         fn CGEventSourceSecondsSinceLastEventType(state_id: i32, event_type: u32) -> f64;
+        fn CGEventSourceCounterForEventType(state_id: i32, event_type: u32) -> u32;
         fn CGSessionCopyCurrentDictionary() -> *const c_void;
     }
 
@@ -120,7 +127,25 @@ mod platform {
             idle_seconds: finite_seconds(idle),
             locked: session_is_locked(),
             app_class: foreground_app_class(),
-            input_kind: recent_input_kind(),
+        }
+    }
+
+    pub(super) fn input_sample() -> InputSignal {
+        // Only monotonic event counts and recency cross into the webview. Key values,
+        // pointer coordinates, window titles, and gesture content are never read.
+        InputSignal {
+            keyboard_sequence: event_count(&[KEY_DOWN, FLAGS_CHANGED]),
+            pointer_sequence: event_count(&[
+                LEFT_MOUSE_DOWN,
+                RIGHT_MOUSE_DOWN,
+                MOUSE_MOVED,
+                LEFT_MOUSE_DRAGGED,
+                RIGHT_MOUSE_DRAGGED,
+                SCROLL_WHEEL,
+                OTHER_MOUSE_DOWN,
+                OTHER_MOUSE_DRAGGED,
+            ]),
+            recent_kind: recent_input_kind(),
         }
     }
 
@@ -152,9 +177,21 @@ mod platform {
             .fold(f64::INFINITY, f64::min)
     }
 
+    fn event_count(events: &[u32]) -> u64 {
+        events
+            .iter()
+            .map(|event| unsafe {
+                u64::from(CGEventSourceCounterForEventType(
+                    COMBINED_SESSION_STATE,
+                    *event,
+                ))
+            })
+            .sum()
+    }
+
     fn recent_input_kind() -> &'static str {
         // Only event timing is read. Key values, pointer coordinates, and gesture content are not.
-        let keyboard = most_recent(&[KEY_DOWN, KEY_UP, FLAGS_CHANGED]);
+        let keyboard = most_recent(&[KEY_DOWN, FLAGS_CHANGED]);
         let pointer = most_recent(&[
             LEFT_MOUSE_DOWN,
             RIGHT_MOUSE_DOWN,
@@ -229,15 +266,20 @@ mod platform {
                 ["editor", "reader", "meeting", "media", "browser", "unknown"]
                     .contains(&signal.app_class)
             );
-            assert!(["keyboard", "pointer", "none"].contains(&signal.input_kind));
             assert!(signal.idle_seconds < u64::MAX);
+        }
+
+        #[test]
+        fn reads_only_coarse_input_counters() {
+            let signal = input_sample();
+            assert!(["keyboard", "pointer", "none"].contains(&signal.recent_kind));
         }
     }
 }
 
 #[cfg(target_os = "windows")]
 mod platform {
-    use super::{classify_foreground_app, PresenceSignal};
+    use super::{classify_foreground_app, InputSignal, PresenceSignal};
     use std::mem::size_of;
     use std::sync::atomic::{AtomicU64, Ordering};
     use windows_sys::Win32::Foundation::{CloseHandle, POINT};
@@ -248,21 +290,43 @@ mod platform {
     use windows_sys::Win32::System::Threading::{
         OpenProcess, QueryFullProcessImageNameW, PROCESS_QUERY_LIMITED_INFORMATION,
     };
-    use windows_sys::Win32::UI::Input::KeyboardAndMouse::{GetLastInputInfo, LASTINPUTINFO};
+    use windows_sys::Win32::UI::Input::KeyboardAndMouse::{
+        GetAsyncKeyState, GetLastInputInfo, LASTINPUTINFO, VK_LBUTTON, VK_MBUTTON, VK_RBUTTON,
+    };
     use windows_sys::Win32::UI::WindowsAndMessaging::{
         GetCursorPos, GetForegroundWindow, GetWindowThreadProcessId,
     };
 
     static LAST_CURSOR: AtomicU64 = AtomicU64::new(u64::MAX);
     static LAST_INPUT_TICK: AtomicU64 = AtomicU64::new(u64::MAX);
+    static KEYBOARD_SEQUENCE: AtomicU64 = AtomicU64::new(0);
+    static POINTER_SEQUENCE: AtomicU64 = AtomicU64::new(0);
 
     pub(super) fn sample() -> PresenceSignal {
-        let (idle_seconds, input_tick) = input_state();
+        let (idle_seconds, _) = input_state();
         PresenceSignal {
             idle_seconds,
             locked: session_is_locked(),
             app_class: foreground_app_class(),
-            input_kind: recent_input_kind(input_tick, idle_seconds),
+        }
+    }
+
+    pub(super) fn input_sample() -> InputSignal {
+        let (idle_seconds, input_tick) = input_state();
+        let recent_kind = recent_input_kind(input_tick, idle_seconds);
+        match recent_kind {
+            "keyboard" => {
+                KEYBOARD_SEQUENCE.fetch_add(1, Ordering::Relaxed);
+            }
+            "pointer" => {
+                POINTER_SEQUENCE.fetch_add(1, Ordering::Relaxed);
+            }
+            _ => {}
+        }
+        InputSignal {
+            keyboard_sequence: KEYBOARD_SEQUENCE.load(Ordering::Relaxed),
+            pointer_sequence: POINTER_SEQUENCE.load(Ordering::Relaxed),
+            recent_kind,
         }
     }
 
@@ -304,10 +368,17 @@ mod platform {
         };
         let previous_cursor = LAST_CURSOR.swap(packed_cursor, Ordering::Relaxed);
         let previous_tick = LAST_INPUT_TICK.swap(input_tick, Ordering::Relaxed);
+        let pointer_button_down = unsafe {
+            GetAsyncKeyState(VK_LBUTTON as i32) < 0
+                || GetAsyncKeyState(VK_RBUTTON as i32) < 0
+                || GetAsyncKeyState(VK_MBUTTON as i32) < 0
+        };
         if packed_cursor != u64::MAX
             && previous_cursor != u64::MAX
             && packed_cursor != previous_cursor
         {
+            "pointer"
+        } else if previous_tick != u64::MAX && input_tick != previous_tick && pointer_button_down {
             "pointer"
         } else if previous_tick != u64::MAX && input_tick != previous_tick {
             // A fresh non-pointer event is treated as keyboard/trackpad activity; content is unknown.
@@ -348,14 +419,21 @@ mod platform {
 
 #[cfg(not(any(target_os = "macos", target_os = "windows")))]
 mod platform {
-    use super::PresenceSignal;
+    use super::{InputSignal, PresenceSignal};
 
     pub(super) fn sample() -> PresenceSignal {
         PresenceSignal {
             idle_seconds: 0,
             locked: false,
             app_class: "unknown",
-            input_kind: "none",
+        }
+    }
+
+    pub(super) fn input_sample() -> InputSignal {
+        InputSignal {
+            keyboard_sequence: 0,
+            pointer_sequence: 0,
+            recent_kind: "none",
         }
     }
 }
@@ -383,10 +461,15 @@ fn presence_signal() -> PresenceSignal {
     platform::sample()
 }
 
+#[tauri::command]
+fn input_signal() -> InputSignal {
+    platform::input_sample()
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
-        .invoke_handler(tauri::generate_handler![presence_signal])
+        .invoke_handler(tauri::generate_handler![presence_signal, input_signal])
         .setup(|app| {
             if let Some(window) = app.get_webview_window("main") {
                 if let Some(monitor) = window.current_monitor()? {

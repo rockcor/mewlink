@@ -13,7 +13,7 @@ import {
   savePairing,
   type PairingState,
 } from './pairing/pairing';
-import { activityProbe, classify, nextSampleDelay, visualInputForActivity, type InputKind } from './platform/activity';
+import { activityProbe, classify, inputKindForSequenceChange, inputProbe, nextSampleDelay, visualInputForActivity, type InputKind, type InputSignal } from './platform/activity';
 import { localUtcOffsetMinutes } from './platform/clock';
 import { registerPairCreator, registerPairJoiner, sendEncryptedEvent, syncEncryptedEvents } from './services/relayTransport';
 import { checkForUpdate } from './services/update';
@@ -93,7 +93,6 @@ export default function App() {
   const visualInputKind = visualInputForActivity(activity, inputKind);
   const motionStyle = useMemo(() => ({
     '--pet-breathe-duration': `${Math.round(3_600 * durationScale)}ms`,
-    '--pet-type-duration': `${Math.round(1_100 * durationScale)}ms`,
     '--pet-read-duration': `${Math.round(3_100 * durationScale)}ms`,
     '--pet-meeting-duration': `${Math.round(2_500 * durationScale)}ms`,
     '--pet-video-duration': `${Math.round(2_900 * durationScale)}ms`,
@@ -172,9 +171,6 @@ export default function App() {
     const sample = async () => {
       const signal = await activityProbe.sample();
       if (stopped) return;
-      const nextInputKind = signal.inputKind ?? 'none';
-      setInputKind(currentInput => currentInput === nextInputKind ? currentInput : nextInputKind);
-      if (nextInputKind !== 'none') setInputBeat(currentBeat => currentBeat + 1);
       setActivity(currentActivity => {
         if (!signal.locked && signal.idleSeconds < 120 && signal.appClass === 'unknown') return currentActivity;
         const next = classify(signal);
@@ -184,6 +180,33 @@ export default function App() {
     };
     void sample();
     return () => { stopped = true; window.clearTimeout(timer); };
+  }, []);
+  useEffect(() => {
+    let timer: number | undefined;
+    let releaseTimer: number | undefined;
+    let stopped = false;
+    let previous: InputSignal | undefined;
+    const sample = async () => {
+      const signal = await inputProbe.sample();
+      if (stopped) return;
+      if (previous) {
+        const nextInputKind = inputKindForSequenceChange(previous, signal);
+        if (nextInputKind !== 'none') {
+          setInputKind(nextInputKind);
+          setInputBeat(currentBeat => currentBeat + 1);
+          window.clearTimeout(releaseTimer);
+          releaseTimer = window.setTimeout(() => setInputKind('none'), nextInputKind === 'keyboard' ? 90 : 70);
+        }
+      }
+      previous = signal;
+      timer = window.setTimeout(() => { void sample(); }, 16);
+    };
+    void sample();
+    return () => {
+      stopped = true;
+      window.clearTimeout(timer);
+      window.clearTimeout(releaseTimer);
+    };
   }, []);
   useEffect(() => { window.localStorage.setItem('mewlink.cupStyle', cupStyle); }, [cupStyle]);
   useEffect(() => { savePreferences(preferences); }, [preferences]);
