@@ -82,6 +82,12 @@ local function cup(image, x, y, style, steamPhase)
   fill(image, x + 15, y - 17 + shift, 3, 10, white)
 end
 
+-- All scenes share the same bottom anchor. Rest the received drink on that
+-- surface at the viewer-right edge: beside the work mouse, never in mid-air.
+local function placedCup(image, style, steamPhase)
+  cup(image, 350, 209, style, steamPhase)
+end
+
 local function incomingArm(image, progress)
   if progress == 0 then return end
   local length = progress == 1 and 29 or 48
@@ -118,15 +124,15 @@ for state, baseName in pairs(states) do
       if state == "work" then
         if frame == 2 then incomingArm(image, 1); cup(image, 333, 151, style, frame); face(image, "surprised") end
         if frame == 3 then incomingArm(image, 2); cup(image, 306, 154, style, frame); face(image, "happy") end
-        if frame == 4 then cup(image, 338, 177, style, frame); face(image, "happy") end
+        if frame == 4 then placedCup(image, style, frame); face(image, "happy") end
       elseif state == "rest" then
         if frame == 2 then incomingArm(image, 1); cup(image, 342, 170, style, frame) end
         if frame == 3 then incomingArm(image, 2); cup(image, 325, 177, style, frame) end
-        if frame == 4 then cup(image, 337, 187, style, frame) end
+        if frame == 4 then placedCup(image, style, frame) end
       else
         if frame == 2 then incomingArm(image, 1); cup(image, 339, 163, style, frame) end
         if frame == 3 then incomingArm(image, 2); cup(image, 316, 169, style, frame) end
-        if frame == 4 then cup(image, 340, 184, style, frame) end
+        if frame == 4 then placedCup(image, style, frame) end
       end
       save(image, "water_" .. state .. "_" .. style .. "_" .. frame)
     end
@@ -136,7 +142,7 @@ end
 for _, style in ipairs(cupStyles) do
   for frame = 1, 4 do
     local image = load("input_none")
-    cup(image, frame == 1 and 338 or 292, frame == 1 and 177 or 145, style, frame)
+    if frame < 4 then placedCup(image, style, frame) end
     if frame == 2 then face(image, "surprised") end
     if frame == 3 then face(image, "happy") end
     if frame == 4 then face(image, "happy") end

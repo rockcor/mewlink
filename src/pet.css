@@ -146,23 +146,24 @@
 .waiting-cup {
   position: absolute;
   z-index: 4;
-  bottom: 39px;
-  width: 20px;
-  height: 25px;
-  border: 3px solid #54173e;
-  border-radius: 3px 3px 7px 7px;
+  bottom: 28px;
+  box-sizing: border-box;
+  width: 16px;
+  height: 18px;
+  border: 2px solid #54173e;
+  border-radius: 2px 2px 5px 5px;
   background: #ef91ad;
   filter: drop-shadow(0 5px 5px rgba(86, 45, 67, .16));
 }
-.waiting-cup.target-self { left: 155px; }
-.waiting-cup.target-partner { right: 32px; }
-.waiting-cup::after { content: ''; position: absolute; top: 4px; right: -10px; width: 8px; height: 10px; border: 3px solid #54173e; border-left: 0; border-radius: 0 8px 8px 0; }
-.waiting-cup.tumbler { height: 29px; background: #9dc8ed; }
-.waiting-cup.bottle { width: 15px; height: 30px; border-radius: 5px; background: #9edbcf; }
+.waiting-cup.target-self { left: 208px; }
+.waiting-cup.target-partner { right: 1px; }
+.waiting-cup::after { content: ''; position: absolute; top: 3px; right: -7px; width: 5px; height: 7px; border: 2px solid #54173e; border-left: 0; border-radius: 0 6px 6px 0; }
+.waiting-cup.tumbler { height: 19px; background: #9dc8ed; }
+.waiting-cup.bottle { width: 13px; height: 20px; border-radius: 4px; background: #9edbcf; }
 .waiting-cup.bottle::after { display: none; }
-.waiting-cup i { position: absolute; top: -16px; width: 3px; height: 11px; border-radius: 50%; background: rgba(255,255,255,.9); animation: cup-steam 1800ms ease-in-out infinite alternate; }
-.waiting-cup i:first-child { left: 4px; }
-.waiting-cup i:last-child { left: 11px; animation-delay: -900ms; }
+.waiting-cup i { position: absolute; top: -11px; width: 2px; height: 8px; border-radius: 50%; background: rgba(255,255,255,.9); animation: cup-steam 1800ms ease-in-out infinite alternate; }
+.waiting-cup i:first-child { left: 3px; }
+.waiting-cup i:last-child { left: 9px; animation-delay: -900ms; }
 @keyframes cup-steam { from { opacity: .25; transform: translateY(3px); } to { opacity: .9; transform: translateY(-2px); } }
 
 @media (prefers-reduced-motion: reduce) {
