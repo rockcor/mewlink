@@ -255,7 +255,7 @@ button { font: inherit; }
 
 .partner-pet .identity-badge { color: #6656ac; }
 
-.pet-pair.interacting .pet-avatar { opacity: 0; transition: opacity 100ms ease; }
+.pet-pair.interacting .pet-avatar { filter: saturate(1.08) brightness(1.03); }
 
 .shortcut-hint {
   position: absolute;

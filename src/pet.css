@@ -1,138 +1,53 @@
 .pet-sprite {
-  --cell: 218px;
+  --frame-width: 230px;
+  --frame-height: 153px;
   position: absolute;
-  left: 5px;
-  bottom: -2px;
+  left: -2px;
+  bottom: 6px;
   display: block;
-  width: var(--cell);
-  height: var(--cell);
-  background-image: url('/pets/activity-sprites-v3.png');
+  width: var(--frame-width);
+  height: var(--frame-height);
+  background-image: url('/pets/canonical-pet-scenes.png');
   background-repeat: no-repeat;
-  background-size: calc(var(--cell) * 3) calc(var(--cell) * 2);
+  background-size: calc(var(--frame-width) * 2) calc(var(--frame-height) * 2);
   filter: drop-shadow(0 13px 10px rgba(86, 45, 67, .16));
-  transform-origin: 52% 88%;
+  transform-origin: 50% 88%;
   animation: pet-breathe var(--pet-breathe-duration, 3600ms) ease-in-out infinite;
 }
 
 .pet-sprite.partner-sprite {
-  background-image: url('/pets/partner-activity-sprites-v3.png');
-  width: calc(var(--cell) + 14px);
+  background-image: url('/pets/canonical-pet-scenes.png');
 }
 
-.pet-sprite.coding { background-position: 0 0; animation: pet-breathe var(--pet-breathe-duration, 3600ms) ease-in-out infinite; }
-.pet-sprite.reading { background-position: calc(var(--cell) * -1) 0; animation: pet-read var(--pet-read-duration, 3100ms) ease-in-out infinite; }
-.pet-sprite.meeting { background-position: calc(var(--cell) * -2) 0; animation: pet-nod var(--pet-meeting-duration, 2500ms) ease-in-out infinite; }
-.pet-sprite.video { background-position: 0 calc(var(--cell) * -1); animation: pet-watch var(--pet-video-duration, 2900ms) ease-in-out infinite; }
-.pet-sprite.browsing { background-position: calc(var(--cell) * -1) calc(var(--cell) * -1); animation: pet-search var(--pet-browse-duration, 3200ms) ease-in-out infinite; }
-.pet-sprite.rest { background-position: calc(var(--cell) * -2) calc(var(--cell) * -1); animation: pet-sleep var(--pet-rest-duration, 4300ms) ease-in-out infinite; }
+.pet-sprite.video,
+.pet-sprite.rest,
+.pet-sprite.idle { background-position: 0 0; }
+.pet-sprite.coding,
+.pet-sprite.browsing { background-position: calc(var(--frame-width) * -1) 0; }
+.pet-sprite.reading { background-position: 0 calc(var(--frame-height) * -1); }
+.pet-sprite.meeting { background-position: calc(var(--frame-width) * -1) calc(var(--frame-height) * -1); }
 
-/* Give the partner artwork a little transparent room before each sprite cell. */
-.pet-sprite.partner-sprite.reading { background-position: calc(var(--cell) * -1 + 14px) 0; }
-.pet-sprite.partner-sprite.meeting { background-position: calc(var(--cell) * -2 + 14px) 0; }
-.pet-sprite.partner-sprite.browsing { background-position: calc(var(--cell) * -1 + 14px) calc(var(--cell) * -1); }
-.pet-sprite.partner-sprite.rest { background-position: calc(var(--cell) * -2 + 14px) calc(var(--cell) * -1); }
+.pet-sprite.coding { animation: pet-breathe var(--pet-breathe-duration, 3600ms) ease-in-out infinite; }
+.pet-sprite.reading { animation: pet-read var(--pet-read-duration, 3100ms) ease-in-out infinite; }
+.pet-sprite.meeting { animation: pet-nod var(--pet-meeting-duration, 2500ms) ease-in-out infinite; }
+.pet-sprite.video { animation: pet-watch var(--pet-video-duration, 2900ms) ease-in-out infinite; }
+.pet-sprite.browsing { animation: pet-search var(--pet-browse-duration, 3200ms) ease-in-out infinite; }
+.pet-sprite.rest { animation: pet-sleep var(--pet-rest-duration, 4300ms) ease-in-out infinite; }
 
 .pet-sprite.idle {
-  background-image: url('/pets/activity-sprites-v3.png');
-  background-position: calc(var(--cell) * -2) calc(var(--cell) * -1);
-  background-size: calc(var(--cell) * 3) calc(var(--cell) * 2);
+  background-image: url('/pets/canonical-pet-scenes.png');
   animation: pet-idle var(--pet-idle-duration, 3800ms) ease-in-out infinite;
 }
 
 .pet-sprite.partner-sprite.idle {
-  background-image: url('/pets/partner-activity-sprites-v3.png');
-  background-position: calc(var(--cell) * -2 + 14px) calc(var(--cell) * -1);
-  background-size: calc(var(--cell) * 3) calc(var(--cell) * 2);
+  background-image: url('/pets/canonical-pet-scenes.png');
   animation: pet-idle var(--pet-idle-duration, 3800ms) ease-in-out infinite;
 }
 
 .pet-sprite.replaying { filter: drop-shadow(0 13px 10px rgba(86, 45, 67, .16)) saturate(1.08); }
 
-.workstation-action {
-  --workstation-width: 252px;
-  --workstation-height: 192px;
-  --workstation-sheet-width: 576px;
-  --workstation-sheet-height: 384px;
-  --workstation-rest-x: -18px;
-  --workstation-active-x: -306px;
-  position: absolute;
-  z-index: 3;
-  left: 4px;
-  bottom: 0;
-  display: block;
-  width: var(--workstation-width);
-  height: var(--workstation-height);
-  pointer-events: none;
-}
-
-.workstation-motion {
-  position: absolute;
-  inset: 0;
-  background-image: url('/pets/workstation-input-sprites-v5.png');
-  background-repeat: no-repeat;
-  background-size: var(--workstation-sheet-width) var(--workstation-sheet-height);
-  image-rendering: pixelated;
-  filter: drop-shadow(0 13px 10px rgba(86, 45, 67, .16));
-  transform: none;
-}
-
-.workstation-action.input-none .workstation-motion {
-  background-position: var(--workstation-rest-x) 0;
-}
-.workstation-action.input-keyboard .workstation-motion {
-  background-position: var(--workstation-active-x) 0;
-}
-.workstation-action.input-pointer .workstation-motion {
-  background-position: var(--workstation-rest-x) -192px;
-}
-.workstation-action.input-both .workstation-motion {
-  background-position: var(--workstation-active-x) -192px;
-}
-
-.pet-pair.interacting .workstation-action { display: none; }
-
-.pet-sprite.state-entering,
-.workstation-action.state-entering { animation: activity-state-in var(--activity-transition-duration, 1080ms) linear both; }
+.pet-sprite.state-entering { animation: activity-state-in var(--activity-transition-duration, 1080ms) linear both; }
 .pet-sprite.state-leaving { z-index: 1; animation: activity-state-out var(--activity-transition-duration, 1080ms) linear both; }
-
-.activity-transition {
-  --transition-cell: 226px;
-  position: absolute;
-  z-index: 3;
-  left: 1px;
-  bottom: 0;
-  width: var(--transition-cell);
-  height: var(--transition-cell);
-  pointer-events: none;
-}
-
-.activity-transition-frame {
-  position: absolute;
-  inset: 0;
-  background-image: url('/pets/activity-transition-sprites-v1.png');
-  background-repeat: no-repeat;
-  background-size: calc(var(--transition-cell) * 4) calc(var(--transition-cell) * 3);
-  filter: drop-shadow(0 13px 10px rgba(86, 45, 67, .16));
-  opacity: 0;
-}
-
-.activity-transition.partner .activity-transition-frame { background-image: url('/pets/partner-activity-transition-sprites-v1.png'); }
-.activity-transition-frame.coding.frame-a { background-position: 0 0; }
-.activity-transition-frame.coding.frame-b { background-position: calc(var(--transition-cell) * -1) 0; }
-.activity-transition-frame.reading.frame-a { background-position: calc(var(--transition-cell) * -2) 0; }
-.activity-transition-frame.reading.frame-b { background-position: calc(var(--transition-cell) * -3) 0; }
-.activity-transition-frame.meeting.frame-a { background-position: 0 calc(var(--transition-cell) * -1); }
-.activity-transition-frame.meeting.frame-b { background-position: calc(var(--transition-cell) * -1) calc(var(--transition-cell) * -1); }
-.activity-transition-frame.video.frame-a { background-position: calc(var(--transition-cell) * -2) calc(var(--transition-cell) * -1); }
-.activity-transition-frame.video.frame-b { background-position: calc(var(--transition-cell) * -3) calc(var(--transition-cell) * -1); }
-.activity-transition-frame.browsing.frame-a { background-position: 0 calc(var(--transition-cell) * -2); }
-.activity-transition-frame.browsing.frame-b { background-position: calc(var(--transition-cell) * -1) calc(var(--transition-cell) * -2); }
-.activity-transition-frame.rest.frame-a { background-position: calc(var(--transition-cell) * -2) calc(var(--transition-cell) * -2); }
-.activity-transition-frame.rest.frame-b { background-position: calc(var(--transition-cell) * -3) calc(var(--transition-cell) * -2); }
-.activity-transition-frame.phase-one { animation: transition-phase-one var(--activity-transition-duration, 1080ms) linear both; }
-.activity-transition-frame.phase-two { animation: transition-phase-two var(--activity-transition-duration, 1080ms) linear both; }
-.activity-transition-frame.phase-three { animation: transition-phase-three var(--activity-transition-duration, 1080ms) linear both; }
-.activity-transition-frame.phase-four { animation: transition-phase-four var(--activity-transition-duration, 1080ms) linear both; }
 
 @keyframes activity-state-in {
   0%, 76% { opacity: 0; transform: translateY(5px) scale(.985); }
@@ -144,50 +59,6 @@
   24%, 100% { opacity: 0; transform: translateY(-2px) scale(1.01); }
 }
 
-@keyframes transition-phase-one {
-  0%, 5% { opacity: 0; transform: translateY(3px) scale(.99); }
-  10%, 28% { opacity: 1; transform: translateY(0) scale(1); }
-  38%, 100% { opacity: 0; transform: translateY(-2px) scale(1.01); }
-}
-
-@keyframes transition-phase-two {
-  0%, 24% { opacity: 0; transform: translateY(3px) scale(.99); }
-  32%, 50% { opacity: 1; transform: translateY(0) scale(1); }
-  60%, 100% { opacity: 0; transform: translateY(-2px) scale(1.01); }
-}
-
-@keyframes transition-phase-three {
-  0%, 46% { opacity: 0; transform: translateY(3px) scale(.99); }
-  54%, 72% { opacity: 1; transform: translateY(0) scale(1); }
-  82%, 100% { opacity: 0; transform: translateY(-2px) scale(1.01); }
-}
-
-@keyframes transition-phase-four {
-  0%, 68% { opacity: 0; transform: translateY(3px) scale(.99); }
-  76%, 90% { opacity: 1; transform: translateY(0) scale(1); }
-  100% { opacity: 0; transform: translateY(-1px) scale(1.005); }
-}
-
-.interaction-sprite {
-  --interaction-cell: 300px;
-  position: absolute;
-  z-index: 5;
-  left: calc(50% - var(--interaction-cell) / 2);
-  bottom: -26px;
-  width: var(--interaction-cell);
-  height: var(--interaction-cell);
-  background-image: url('/pets/couple-interactions-v1.png');
-  background-repeat: no-repeat;
-  background-size: calc(var(--interaction-cell) * 2) calc(var(--interaction-cell) * 2);
-  filter: drop-shadow(0 13px 10px rgba(86, 45, 67, .16));
-  transform-origin: 50% 78%;
-  pointer-events: none;
-}
-
-.interaction-sprite.hug { background-position: 0 0; animation: interaction-hug var(--interaction-duration, 1900ms) ease-in-out both; }
-.interaction-sprite.water.ceramic { background-position: calc(var(--interaction-cell) * -1) 0; animation: interaction-drink var(--interaction-duration, 1900ms) ease-in-out both; }
-.interaction-sprite.water.tumbler { background-position: 0 calc(var(--interaction-cell) * -1); animation: interaction-drink var(--interaction-duration, 1900ms) ease-in-out both; }
-.interaction-sprite.water.bottle { background-position: calc(var(--interaction-cell) * -1) calc(var(--interaction-cell) * -1); animation: interaction-drink var(--interaction-duration, 1900ms) ease-in-out both; }
 
 @keyframes pet-breathe {
   50% { transform: translateY(-4px) scale(1.015); }
@@ -238,7 +109,6 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .activity-transition { display: none; }
   .pet-sprite.state-entering { animation: none; }
   .pet-sprite.state-leaving { display: none; }
 }
