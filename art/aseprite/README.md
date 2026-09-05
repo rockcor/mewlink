@@ -26,7 +26,9 @@ Open `activity-designs-v1.aseprite` to review the four 96 × 64 activity poses:
 4. `meeting`
 
 The original workstation companion silhouette is shared across all four poses,
-while each scene has its own face. Body/expression, headset/back props,
-complete arms, foreground props, and motion accents stay on separate layers.
+while each scene has its own clearly different face. Body/expression,
+headset/back props, complete arms, foreground props, the swappable snack item,
+and motion accents stay on separate layers. The video pose defaults to a chip
+and chip bag; future shop snacks replace only the snack layer.
 `build_activity_designs_v1.lua` regenerates the indexed-color source and exports
 the 8× two-column preview sheet `activity-designs-v1.png`.

@@ -127,34 +127,33 @@ local function drawCompanion(img,expression)
 
   -- Every expression uses the original face box and anchor points.
   if expression=="video-happy" then
-    -- Soft smiling eyes and a tiny open smile.
-    line(img,37,28,40,30,1,1);line(img,40,30,43,28,1,1)
-    line(img,53,28,56,30,1,1);line(img,56,30,59,28,1,1)
-    rect(img,47,33,3,1,1);pixel(img,48,34,1)
-    pixel(img,46,35,1);rect(img,47,36,3,1,1);pixel(img,50,35,1)
-    pixel(img,48,35,12)
+    -- Big closed-eye smile with an open pink mouth: clearly off-duty.
+    line(img,36,27,39,30,1,1);line(img,39,30,43,27,1,1)
+    line(img,53,27,57,30,1,1);line(img,57,30,60,27,1,1)
+    pixel(img,48,32,1)
+    fillEllipse(img,48,35,3,2,0,1);fillEllipse(img,48,35,1.5,1,0,12)
     fillEllipse(img,34,34,4,2,0,8);fillEllipse(img,62,34,4,2,0,8)
   elseif expression=="code-focus" then
-    -- Determined brows, bright eyes, confident little mouth.
-    line(img,37,22,42,21,1,1);line(img,54,21,59,22,1,1)
-    fillEllipse(img,40,28,2.5,3,0,1);fillEllipse(img,56,28,2.5,3,0,1)
-    pixel(img,39,27,14);pixel(img,55,27,14)
+    -- Low angled brows and narrowed eyes: concentrated, not angry.
+    line(img,36,22,42,24,1,1);line(img,54,24,60,22,1,1)
+    fillEllipse(img,40,29,2.5,2,0,1);fillEllipse(img,56,29,2.5,2,0,1)
+    pixel(img,39,28,14);pixel(img,55,28,14)
     rect(img,47,33,3,1,1);pixel(img,48,34,1)
-    pixel(img,46,36,1);line(img,47,37,50,36,1,1)
+    line(img,46,36,50,35,1,1)
     fillEllipse(img,34,33,4,2,0,12);fillEllipse(img,62,33,4,2,0,12)
   elseif expression=="paper-curious" then
-    -- One raised brow and sideways eyes for a thinking/reading face.
-    line(img,37,22,42,21,1,1);line(img,54,22,58,23,1,1)
-    fillEllipse(img,41,28,2.5,3,0,1);fillEllipse(img,57,28,2.5,3,0,1)
-    pixel(img,40,27,14);pixel(img,56,27,14)
-    rect(img,47,33,3,1,1);pixel(img,48,34,1)
-    pixel(img,47,36,1);pixel(img,48,37,1);pixel(img,49,36,1)
+    -- One open eye, one squint, raised brow, and a tiny thinking "o".
+    line(img,37,23,42,21,1,1);line(img,54,22,59,22,1,1)
+    fillEllipse(img,40,28,2.5,3,0,1);pixel(img,39,27,14)
+    line(img,54,29,59,29,1,1);pixel(img,57,28,1)
+    rect(img,47,32,3,1,1);pixel(img,48,33,1)
+    pixel(img,47,35,1);pixel(img,49,35,1);pixel(img,48,34,1);pixel(img,48,36,1)
     fillEllipse(img,34,33,4,2,0,12);fillEllipse(img,62,33,3,2,0,12)
   else
-    -- Meeting: alert and serious, without losing the cute proportions.
-    line(img,37,22,42,23,1,1);line(img,54,23,59,22,1,1)
-    fillEllipse(img,40,28,2.5,3,0,1);fillEllipse(img,56,28,2.5,3,0,1)
-    pixel(img,39,27,14);pixel(img,55,27,14)
+    -- Meeting: wide alert eyes, level brows, and a firm straight mouth.
+    line(img,36,22,42,22,1,1);line(img,54,22,60,22,1,1)
+    fillEllipse(img,40,28,3,3.5,0,1);fillEllipse(img,56,28,3,3.5,0,1)
+    pixel(img,39,27,14);pixel(img,55,27,14);pixel(img,41,29,2);pixel(img,57,29,2)
     rect(img,47,33,3,1,1);pixel(img,48,34,1)
     rect(img,46,36,5,1,1)
     fillEllipse(img,34,33,3,2,0,12);fillEllipse(img,62,33,3,2,0,12)
@@ -162,8 +161,10 @@ local function drawCompanion(img,expression)
 end
 
 local function drawVideoBack(img)
+  -- One paw props up the tablet; the other brings a snack to the mouth.
   curvedLimb(img,36,39,31,44,31,50,5)
-  curvedLimb(img,60,39,65,44,65,50,5)
+  curvedLimb(img,60,39,66,37,60,32,5)
+  ellipseWithOutline(img,59,31,5,4,-15,3)
 end
 
 local function drawVideoProp(img)
@@ -173,6 +174,16 @@ local function drawVideoProp(img)
   fillPolygon(img,{{44,43},{44,52},{52,47}},6)
   rect(img,31,42,2,2,16);rect(img,64,42,2,2,6)
   rect(img,42,56,12,1,2)
+end
+
+local function drawVideoSnack(img)
+  -- Default shop item: a golden chip and a small chip bag.
+  fillPolygon(img,{{51,34},{56,30},{57,36}},1)
+  fillPolygon(img,{{53,34},{56,32},{56,35}},15)
+  fillPolygon(img,{{73,41},{87,41},{89,58},{71,58}},1)
+  fillPolygon(img,{{75,43},{85,43},{87,56},{73,56}},13)
+  rect(img,75,45,10,2,15);rect(img,74,52,12,2,6)
+  fillEllipse(img,80,49,3,2,0,15)
 end
 
 local function drawCodeArms(img)
@@ -250,7 +261,8 @@ local body=sprite.layers[1];body.name="01 Workstation companion + expression"
 local back=sprite:newLayer();back.name="02 Headset + back props"
 local arms=sprite:newLayer();arms.name="03 Complete arms"
 local props=sprite:newLayer();props.name="04 Foreground props"
-local accents=sprite:newLayer();accents.name="05 Motion accents"
+local snack=sprite:newLayer();snack.name="05 Snack item (SWAPPABLE)"
+local accents=sprite:newLayer();accents.name="06 Motion accents"
 for frameNumber=2,4 do sprite:newEmptyFrame(frameNumber) end
 
 local states={
@@ -267,8 +279,9 @@ for frameNumber,state in ipairs(states) do
   local backImage=image()
   local armsImage=image()
   local propsImage=image()
+  local snackImage=image()
   if state.name=="video" then
-    drawVideoBack(armsImage);drawVideoProp(propsImage)
+    drawVideoBack(armsImage);drawVideoProp(propsImage);drawVideoSnack(snackImage)
   elseif state.name=="code" then
     drawCodeArms(armsImage);drawCodeProp(propsImage)
   elseif state.name=="paper" then
@@ -279,12 +292,13 @@ for frameNumber,state in ipairs(states) do
   sprite:newCel(back,frameNumber,backImage,Point(0,0))
   sprite:newCel(arms,frameNumber,armsImage,Point(0,0))
   sprite:newCel(props,frameNumber,propsImage,Point(0,0))
+  sprite:newCel(snack,frameNumber,snackImage,Point(0,0))
   local marks=image();drawAccents(marks,state.name)
   sprite:newCel(accents,frameNumber,marks,Point(0,0))
   local tag=sprite:newTag(frameNumber,frameNumber);tag.name=state.name
 end
 
-sprite.data="MewLink workstation companion activity poses | locked v5 silhouette | four scene-specific expressions | 96x64"
+sprite.data="MewLink workstation companion activity poses | locked v5 silhouette | four scene-specific expressions | swappable snack slot defaults to chips | 96x64"
 sprite:saveAs(output)
 app.activeSprite=sprite
 app.activeFrame=sprite.frames[1]
