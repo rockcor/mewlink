@@ -467,7 +467,6 @@ export default function App() {
             {activity === 'coding' ? (
               <span className={`workstation-action input-${visualInputKind} ${previousSelfActivity ? 'state-entering' : ''}`} aria-hidden="true">
                 <i className="workstation-motion" />
-                <i className="workstation-face-lock" />
               </span>
             ) : (
               <span className={`pet-sprite ${previousSelfActivity ? 'state-entering' : ''} ${activity}`} aria-hidden="true" />

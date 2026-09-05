@@ -50,11 +50,11 @@
 
 .workstation-action {
   --workstation-width: 252px;
-  --workstation-height: 199px;
-  --workstation-sheet-width: 597px;
-  --workstation-sheet-height: 398px;
-  --workstation-rest-x: -23.32px;
-  --workstation-active-x: -321.82px;
+  --workstation-height: 192px;
+  --workstation-sheet-width: 576px;
+  --workstation-sheet-height: 384px;
+  --workstation-rest-x: -18px;
+  --workstation-active-x: -306px;
   position: absolute;
   z-index: 3;
   left: 4px;
@@ -65,13 +65,13 @@
   pointer-events: none;
 }
 
-.workstation-motion,
-.workstation-face-lock {
+.workstation-motion {
   position: absolute;
   inset: 0;
-  background-image: url('/pets/workstation-input-sprites-v3.png');
+  background-image: url('/pets/workstation-input-sprites-v5.png');
   background-repeat: no-repeat;
   background-size: var(--workstation-sheet-width) var(--workstation-sheet-height);
+  image-rendering: pixelated;
   filter: drop-shadow(0 13px 10px rgba(86, 45, 67, .16));
   transform: none;
 }
@@ -83,18 +83,10 @@
   background-position: var(--workstation-active-x) 0;
 }
 .workstation-action.input-pointer .workstation-motion {
-  background-position: var(--workstation-rest-x) -199px;
+  background-position: var(--workstation-rest-x) -192px;
 }
 .workstation-action.input-both .workstation-motion {
-  background-position: var(--workstation-active-x) -199px;
-}
-
-/* Lock the ears, face and head to one immutable frame. Input swaps only the two forearm area below it. */
-.workstation-face-lock {
-  z-index: 2;
-  background-position: var(--workstation-rest-x) 0;
-  clip-path: inset(0 0 40% 0);
-  filter: none;
+  background-position: var(--workstation-active-x) -192px;
 }
 
 .pet-pair.interacting .workstation-action { display: none; }
