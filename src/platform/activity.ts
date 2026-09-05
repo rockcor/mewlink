@@ -9,8 +9,9 @@ export interface InputChanges { keyboard: boolean; pointer: boolean }
 export interface ActivityProbe { sample(): Promise<PresenceSignal> }
 export interface InputProbe { sample(): Promise<InputSignal> }
 
-export const POINTER_ANIMATION_INTERVAL_MS = 90;
-export const POINTER_ANIMATION_HOLD_MS = 65;
+export const POINTER_ANIMATION_INTERVAL_MS = 180;
+export const POINTER_ANIMATION_HOLD_MS = 110;
+export const POINTER_EVENTS_PER_ANIMATION = 4;
 
 export const shouldAnimatePointer = (lastAnimationAt: number, now: number) =>
   now - lastAnimationAt >= POINTER_ANIMATION_INTERVAL_MS;
@@ -49,6 +50,11 @@ export const inputChangesForSequence = (previous: InputSignal, current: InputSig
   keyboard: current.keyboardSequence !== previous.keyboardSequence,
   pointer: current.pointerSequence !== previous.pointerSequence,
 });
+
+export const pointerEventsForSequence = (previous: InputSignal, current: InputSignal) =>
+  current.pointerSequence >= previous.pointerSequence
+    ? current.pointerSequence - previous.pointerSequence
+    : 1;
 
 class TauriProbe implements ActivityProbe { async sample() { return invoke<PresenceSignal>('presence_signal'); } }
 class TauriInputProbe implements InputProbe { async sample() { return invoke<InputSignal>('input_signal'); } }

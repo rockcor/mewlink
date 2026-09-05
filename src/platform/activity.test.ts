@@ -1,4 +1,4 @@
-import { classify, inputChangesForSequence, nextSampleDelay, POINTER_ANIMATION_INTERVAL_MS, shouldAnimatePointer, visualInputForActivity, workVisualFor } from './activity';
+import { classify, inputChangesForSequence, nextSampleDelay, POINTER_ANIMATION_INTERVAL_MS, POINTER_EVENTS_PER_ANIMATION, pointerEventsForSequence, shouldAnimatePointer, visualInputForActivity, workVisualFor } from './activity';
 import { describe, expect, it } from 'vitest';
 describe('privacy-first activity classification', () => {
   it('treats lock as rest regardless of app', () => expect(classify({ locked: true, idleSeconds: 0, appClass: 'editor' })).toBe('rest'));
@@ -37,6 +37,8 @@ describe('privacy-first activity classification', () => {
     expect(visualInputForActivity('work', true, true)).toBe('both');
   });
   it('coalesces dense pointer movement into a calmer hand rhythm', () => {
+    const baseline = { keyboardSequence: 2, pointerSequence: 8, recentKind: 'none' as const };
+    expect(pointerEventsForSequence(baseline, { ...baseline, pointerSequence: 8 + POINTER_EVENTS_PER_ANIMATION })).toBe(POINTER_EVENTS_PER_ANIMATION);
     expect(shouldAnimatePointer(Number.NEGATIVE_INFINITY, 1)).toBe(true);
     expect(shouldAnimatePointer(1_000, 1_000 + POINTER_ANIMATION_INTERVAL_MS - 1)).toBe(false);
     expect(shouldAnimatePointer(1_000, 1_000 + POINTER_ANIMATION_INTERVAL_MS)).toBe(true);

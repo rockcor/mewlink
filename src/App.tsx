@@ -15,7 +15,7 @@ import {
   savePairing,
   type PairingState,
 } from './pairing/pairing';
-import { activityProbe, classify, inputChangesForSequence, inputProbe, nextSampleDelay, POINTER_ANIMATION_HOLD_MS, shouldAnimatePointer, visualInputForActivity, workVisualFor, type InputSignal } from './platform/activity';
+import { activityProbe, classify, inputChangesForSequence, inputProbe, nextSampleDelay, POINTER_ANIMATION_HOLD_MS, POINTER_EVENTS_PER_ANIMATION, pointerEventsForSequence, shouldAnimatePointer, visualInputForActivity, workVisualFor, type InputSignal } from './platform/activity';
 import { ACTIVITY_TRANSITION_MS, gestureFor, waterDrinkDelay, type GestureVariant } from './pet/interaction';
 import { localUtcOffsetMinutes } from './platform/clock';
 import { registerPairCreator, registerPairJoiner, sendEncryptedEvent, syncEncryptedEvents } from './services/relayTransport';
@@ -210,6 +210,8 @@ export default function App() {
     let keyboardReleaseTimer: number | undefined;
     let pointerReleaseTimer: number | undefined;
     let lastPointerAnimationAt = Number.NEGATIVE_INFINITY;
+    let pendingPointerEvents = 0;
+    let lastPointerEventAt = Number.NEGATIVE_INFINITY;
     let stopped = false;
     let previous: InputSignal | undefined;
     const sample = async () => {
@@ -223,7 +225,13 @@ export default function App() {
           keyboardReleaseTimer = window.setTimeout(() => setKeyboardPressed(false), 110);
         }
         const now = performance.now();
-        if (changes.pointer && shouldAnimatePointer(lastPointerAnimationAt, now)) {
+        if (changes.pointer) {
+          if (now - lastPointerEventAt > 260) pendingPointerEvents = 0;
+          pendingPointerEvents += pointerEventsForSequence(previous, signal);
+          lastPointerEventAt = now;
+        }
+        if (pendingPointerEvents >= POINTER_EVENTS_PER_ANIMATION && shouldAnimatePointer(lastPointerAnimationAt, now)) {
+          pendingPointerEvents = 0;
           lastPointerAnimationAt = now;
           setPointerPressed(true);
           window.clearTimeout(pointerReleaseTimer);
