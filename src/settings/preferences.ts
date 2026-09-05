@@ -1,3 +1,4 @@
+import { blanketStyles, type BlanketStyle } from '../domain/types';
 import { localUtcOffsetMinutes, normalizeUtcOffsetMinutes } from '../platform/clock';
 
 export const animationSpeeds = ['calm', 'natural', 'lively'] as const;
@@ -12,7 +13,9 @@ export interface Preferences {
   timezoneMode: TimezoneMode;
   manualUtcOffsetMinutes: number;
   animationSpeed: AnimationSpeed;
-  petScalePercent: number;
+  selfPetScalePercent: number;
+  partnerPetScalePercent: number;
+  blanketStyle: BlanketStyle;
   language: Language;
 }
 
@@ -30,14 +33,16 @@ export function defaultPreferences(): Preferences {
     timezoneMode: 'auto',
     manualUtcOffsetMinutes: localUtcOffsetMinutes(),
     animationSpeed: 'calm',
-    petScalePercent: 100,
+    selfPetScalePercent: 100,
+    partnerPetScalePercent: 100,
+    blanketStyle: 'blush',
     language: systemLanguage()
   };
 }
 
 export function normalizePetScalePercent(value: number): number {
   if (!Number.isFinite(value)) return 100;
-  return Math.min(100, Math.max(70, Math.round(value / 5) * 5));
+  return Math.min(110, Math.max(70, Math.round(value / 5) * 5));
 }
 
 export function loadPreferences(storage?: StorageLike): Preferences {
@@ -48,7 +53,8 @@ export function loadPreferences(storage?: StorageLike): Preferences {
   try {
     const parsed: unknown = JSON.parse(source.getItem(STORAGE_KEY) ?? 'null');
     if (!parsed || typeof parsed !== 'object') return defaults;
-    const value = parsed as Partial<Preferences>;
+    const value = parsed as Partial<Preferences> & { petScalePercent?: number };
+    const legacyScale = typeof value.petScalePercent === 'number' ? normalizePetScalePercent(value.petScalePercent) : undefined;
     return {
       autoUpdate: typeof value.autoUpdate === 'boolean' ? value.autoUpdate : defaults.autoUpdate,
       replayEnabled: typeof value.replayEnabled === 'boolean' ? value.replayEnabled : defaults.replayEnabled,
@@ -59,9 +65,13 @@ export function loadPreferences(storage?: StorageLike): Preferences {
       animationSpeed: animationSpeeds.includes(value.animationSpeed as AnimationSpeed)
         ? value.animationSpeed as AnimationSpeed
         : defaults.animationSpeed,
-      petScalePercent: typeof value.petScalePercent === 'number'
-        ? normalizePetScalePercent(value.petScalePercent)
-        : defaults.petScalePercent,
+      selfPetScalePercent: typeof value.selfPetScalePercent === 'number'
+        ? normalizePetScalePercent(value.selfPetScalePercent)
+        : legacyScale ?? defaults.selfPetScalePercent,
+      partnerPetScalePercent: typeof value.partnerPetScalePercent === 'number'
+        ? normalizePetScalePercent(value.partnerPetScalePercent)
+        : legacyScale ?? defaults.partnerPetScalePercent,
+      blanketStyle: blanketStyles.includes(value.blanketStyle as BlanketStyle) ? value.blanketStyle as BlanketStyle : defaults.blanketStyle,
       language: languages.includes(value.language as Language) ? value.language as Language : defaults.language
     };
   } catch {

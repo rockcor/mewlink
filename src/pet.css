@@ -13,59 +13,38 @@
   transform: none;
 }
 
-/* Four-frame Aseprite loops. No transform is applied to the whole pet. */
-.pet-sprite.video {
-  background-image: url('/pets/animations/video.png');
-  background-size: 400% 100%;
-  animation: sprite-loop-4 var(--pet-video-duration, 2900ms) linear infinite;
-}
-
-.pet-sprite.reading {
-  background-image: url('/pets/animations/reading.png');
-  background-size: 400% 100%;
-  animation: sprite-loop-4 var(--pet-read-duration, 3100ms) linear infinite;
-}
+/* The body stays fixed. Only the hand-specific source frame changes on real input. */
+.pet-sprite.work { background-size: 400% 100%; animation: none; }
+.pet-sprite.work-code { background-image: url('/pets/animations/work-code.png'); }
+.pet-sprite.work-document { background-image: url('/pets/animations/work-document.png'); }
+.pet-sprite.work-web { background-image: url('/pets/animations/work-web.png'); }
+.pet-sprite.work.input-none { background-position: 0 0; }
+.pet-sprite.work.input-keyboard { background-position: 33.333333% 0; }
+.pet-sprite.work.input-pointer { background-position: 66.666667% 0; }
+.pet-sprite.work.input-both { background-position: 100% 0; }
+.pet-sprite.partner-sprite.work { background-position: 0 0; }
 
 .pet-sprite.meeting {
   background-image: url('/pets/animations/meeting.png');
   background-size: 400% 100%;
   animation: sprite-loop-4 var(--pet-meeting-duration, 2500ms) linear infinite;
 }
-
-.pet-sprite.browsing {
-  background-image: url('/pets/animations/browsing.png');
+.pet-sprite.leisure {
+  background-image: url('/pets/animations/leisure.png');
   background-size: 400% 100%;
-  animation: sprite-loop-4 var(--pet-browse-duration, 3200ms) linear infinite;
+  animation: sprite-loop-4 var(--pet-video-duration, 2900ms) linear infinite;
 }
-
 .pet-sprite.idle {
   background-image: url('/pets/animations/idle.png');
   background-size: 400% 100%;
   animation: sprite-loop-4 var(--pet-idle-duration, 3800ms) linear infinite;
 }
-
 .pet-sprite.rest {
   background-image: url('/pets/animations/rest.png');
   background-size: 400% 100%;
   animation: sprite-loop-4 var(--pet-rest-duration, 4300ms) linear infinite;
 }
-
-/* Coding is driven by real input sequences, never by a fixed-rate loop. */
-.pet-sprite.coding {
-  background-image: url('/pets/animations/coding-input.png');
-  background-size: 400% 100%;
-  animation: none;
-}
-
-.pet-sprite.coding.input-none { background-position: 0 0; }
-.pet-sprite.coding.input-keyboard { background-position: 33.333333% 0; }
-.pet-sprite.coding.input-pointer { background-position: 66.666667% 0; }
-.pet-sprite.coding.input-both { background-position: 100% 0; }
-.pet-sprite.partner-sprite.coding { background-position: 0 0; }
-
-.pet-sprite.replaying {
-  filter: drop-shadow(0 13px 10px rgba(86, 45, 67, .16)) saturate(1.08);
-}
+.pet-sprite.replaying { filter: drop-shadow(0 13px 10px rgba(86, 45, 67, .16)) saturate(1.08); }
 
 @keyframes sprite-loop-4 {
   0%, 24.999% { background-position: 0 0; }
@@ -74,46 +53,40 @@
   75%, 100% { background-position: 100% 0; }
 }
 
-/* Every state owns an exit and entrance strip, so any pair can transition. */
-.pet-sprite.state-leaving,
-.pet-sprite.state-entering {
-  background-size: 300% 100%;
-  animation-duration: var(--activity-transition-duration, 1080ms);
-  animation-timing-function: linear;
-  animation-fill-mode: both;
+/* Every ordered pair is its own 4.8 second Aseprite transition strip. */
+.pet-sprite.activity-transition {
+  z-index: 3;
+  background-size: 600% 100%;
+  animation: sprite-transition-6 var(--activity-transition-duration, 4800ms) linear both;
 }
+.transition-work-meeting { background-image: url('/pets/animations/transition-work-meeting.png'); }
+.transition-work-leisure { background-image: url('/pets/animations/transition-work-leisure.png'); }
+.transition-work-idle { background-image: url('/pets/animations/transition-work-idle.png'); }
+.transition-work-rest { background-image: url('/pets/animations/transition-work-rest.png'); }
+.transition-meeting-work { background-image: url('/pets/animations/transition-meeting-work.png'); }
+.transition-meeting-leisure { background-image: url('/pets/animations/transition-meeting-leisure.png'); }
+.transition-meeting-idle { background-image: url('/pets/animations/transition-meeting-idle.png'); }
+.transition-meeting-rest { background-image: url('/pets/animations/transition-meeting-rest.png'); }
+.transition-leisure-work { background-image: url('/pets/animations/transition-leisure-work.png'); }
+.transition-leisure-meeting { background-image: url('/pets/animations/transition-leisure-meeting.png'); }
+.transition-leisure-idle { background-image: url('/pets/animations/transition-leisure-idle.png'); }
+.transition-leisure-rest { background-image: url('/pets/animations/transition-leisure-rest.png'); }
+.transition-idle-work { background-image: url('/pets/animations/transition-idle-work.png'); }
+.transition-idle-meeting { background-image: url('/pets/animations/transition-idle-meeting.png'); }
+.transition-idle-leisure { background-image: url('/pets/animations/transition-idle-leisure.png'); }
+.transition-idle-rest { background-image: url('/pets/animations/transition-idle-rest.png'); }
+.transition-rest-work { background-image: url('/pets/animations/transition-rest-work.png'); }
+.transition-rest-meeting { background-image: url('/pets/animations/transition-rest-meeting.png'); }
+.transition-rest-leisure { background-image: url('/pets/animations/transition-rest-leisure.png'); }
+.transition-rest-idle { background-image: url('/pets/animations/transition-rest-idle.png'); }
 
-.pet-sprite.state-leaving { z-index: 1; animation-name: sprite-state-out; }
-.pet-sprite.state-entering { z-index: 2; animation-name: sprite-state-in; }
-
-.pet-sprite.state-leaving.video { background-image: url('/pets/animations/transition-out-video.png'); }
-.pet-sprite.state-leaving.coding { background-image: url('/pets/animations/transition-out-coding.png'); }
-.pet-sprite.state-leaving.reading { background-image: url('/pets/animations/transition-out-reading.png'); }
-.pet-sprite.state-leaving.meeting { background-image: url('/pets/animations/transition-out-meeting.png'); }
-.pet-sprite.state-leaving.browsing { background-image: url('/pets/animations/transition-out-browsing.png'); }
-.pet-sprite.state-leaving.idle { background-image: url('/pets/animations/transition-out-idle.png'); }
-.pet-sprite.state-leaving.rest { background-image: url('/pets/animations/transition-out-rest.png'); }
-
-.pet-sprite.state-entering.video { background-image: url('/pets/animations/transition-in-video.png'); }
-.pet-sprite.state-entering.coding { background-image: url('/pets/animations/transition-in-coding.png'); }
-.pet-sprite.state-entering.reading { background-image: url('/pets/animations/transition-in-reading.png'); }
-.pet-sprite.state-entering.meeting { background-image: url('/pets/animations/transition-in-meeting.png'); }
-.pet-sprite.state-entering.browsing { background-image: url('/pets/animations/transition-in-browsing.png'); }
-.pet-sprite.state-entering.idle { background-image: url('/pets/animations/transition-in-idle.png'); }
-.pet-sprite.state-entering.rest { background-image: url('/pets/animations/transition-in-rest.png'); }
-
-@keyframes sprite-state-out {
-  0%, 24.999% { opacity: 1; background-position: 0 0; }
-  25%, 39.999% { opacity: 1; background-position: 50% 0; }
-  40%, 49.999% { opacity: 1; background-position: 100% 0; }
-  50%, 100% { opacity: 0; background-position: 100% 0; }
-}
-
-@keyframes sprite-state-in {
-  0%, 49.999% { opacity: 0; background-position: 0 0; }
-  50%, 64.999% { opacity: 1; background-position: 0 0; }
-  65%, 79.999% { opacity: 1; background-position: 50% 0; }
-  80%, 100% { opacity: 1; background-position: 100% 0; }
+@keyframes sprite-transition-6 {
+  0%, 16.665% { background-position: 0 0; }
+  16.666%, 33.332% { background-position: 20% 0; }
+  33.333%, 49.999% { background-position: 40% 0; }
+  50%, 66.665% { background-position: 60% 0; }
+  66.666%, 83.332% { background-position: 80% 0; }
+  83.333%, 100% { background-position: 100% 0; }
 }
 
 .interaction-sprite {
@@ -129,12 +102,38 @@
   filter: drop-shadow(0 14px 12px rgba(86, 45, 67, .18));
   pointer-events: none;
   transform: translateX(-50%);
-  animation: interaction-sprite-4 var(--interaction-duration, 1900ms) linear both;
+  animation: interaction-sprite-4 var(--interaction-duration, 3200ms) linear both;
 }
-
-.interaction-sprite.hug { background-image: url('/pets/animations/hug.png'); }
-.interaction-sprite.water { background-image: url('/pets/animations/water.png'); }
-.pet-pair.interacting .pet-avatar { opacity: 0; }
+.interaction-sprite.hug-work { background-image: url('/pets/animations/hug-work.png'); }
+.interaction-sprite.hug-meeting { background-image: url('/pets/animations/hug-meeting.png'); }
+.interaction-sprite.hug-leisure { background-image: url('/pets/animations/hug-leisure.png'); }
+.interaction-sprite.hug-idle { background-image: url('/pets/animations/hug-idle.png'); }
+.interaction-sprite.hug-rest { background-image: url('/pets/animations/hug-rest-blush.png'); }
+.interaction-sprite.hug-rest.blanket-night { background-image: url('/pets/animations/hug-rest-night.png'); }
+.interaction-sprite.hug-rest.blanket-mint { background-image: url('/pets/animations/hug-rest-mint.png'); }
+.interaction-sprite.water-work { background-image: url('/pets/animations/water-work-ceramic.png'); }
+.interaction-sprite.water-meeting { background-image: url('/pets/animations/water-meeting-ceramic.png'); }
+.interaction-sprite.water-leisure { background-image: url('/pets/animations/water-leisure-ceramic.png'); }
+.interaction-sprite.water-idle { background-image: url('/pets/animations/water-idle-ceramic.png'); }
+.interaction-sprite.water-rest { background-image: url('/pets/animations/water-rest-ceramic.png'); }
+.interaction-sprite.water-drink { background-image: url('/pets/animations/water-drink-ceramic.png'); }
+.interaction-sprite.water-work.cup-tumbler { background-image: url('/pets/animations/water-work-tumbler.png'); }
+.interaction-sprite.water-meeting.cup-tumbler { background-image: url('/pets/animations/water-meeting-tumbler.png'); }
+.interaction-sprite.water-leisure.cup-tumbler { background-image: url('/pets/animations/water-leisure-tumbler.png'); }
+.interaction-sprite.water-idle.cup-tumbler { background-image: url('/pets/animations/water-idle-tumbler.png'); }
+.interaction-sprite.water-rest.cup-tumbler { background-image: url('/pets/animations/water-rest-tumbler.png'); }
+.interaction-sprite.water-drink.cup-tumbler { background-image: url('/pets/animations/water-drink-tumbler.png'); }
+.interaction-sprite.water-work.cup-bottle { background-image: url('/pets/animations/water-work-bottle.png'); }
+.interaction-sprite.water-meeting.cup-bottle { background-image: url('/pets/animations/water-meeting-bottle.png'); }
+.interaction-sprite.water-leisure.cup-bottle { background-image: url('/pets/animations/water-leisure-bottle.png'); }
+.interaction-sprite.water-idle.cup-bottle { background-image: url('/pets/animations/water-idle-bottle.png'); }
+.interaction-sprite.water-rest.cup-bottle { background-image: url('/pets/animations/water-rest-bottle.png'); }
+.interaction-sprite.water-drink.cup-bottle { background-image: url('/pets/animations/water-drink-bottle.png'); }
+.pet-pair.interaction-hug .pet-avatar,
+.pet-pair.interaction-water.target-self .self-pet,
+.pet-pair.interaction-water.target-partner .partner-pet { opacity: 0; }
+.pet-pair.interaction-water .interaction-sprite { left: 0; bottom: 6px; width: 230px; height: 153px; transform: none; }
+.pet-pair.interaction-water.target-partner .interaction-sprite { left: auto; right: 0; }
 
 @keyframes interaction-sprite-4 {
   0%, 24.999% { opacity: 1; background-position: 0 0; }
@@ -144,9 +143,31 @@
   100% { opacity: 0; background-position: 100% 0; }
 }
 
+.waiting-cup {
+  position: absolute;
+  z-index: 4;
+  bottom: 39px;
+  width: 20px;
+  height: 25px;
+  border: 3px solid #54173e;
+  border-radius: 3px 3px 7px 7px;
+  background: #ef91ad;
+  filter: drop-shadow(0 5px 5px rgba(86, 45, 67, .16));
+}
+.waiting-cup.target-self { left: 155px; }
+.waiting-cup.target-partner { right: 32px; }
+.waiting-cup::after { content: ''; position: absolute; top: 4px; right: -10px; width: 8px; height: 10px; border: 3px solid #54173e; border-left: 0; border-radius: 0 8px 8px 0; }
+.waiting-cup.tumbler { height: 29px; background: #9dc8ed; }
+.waiting-cup.bottle { width: 15px; height: 30px; border-radius: 5px; background: #9edbcf; }
+.waiting-cup.bottle::after { display: none; }
+.waiting-cup i { position: absolute; top: -16px; width: 3px; height: 11px; border-radius: 50%; background: rgba(255,255,255,.9); animation: cup-steam 1800ms ease-in-out infinite alternate; }
+.waiting-cup i:first-child { left: 4px; }
+.waiting-cup i:last-child { left: 11px; animation-delay: -900ms; }
+@keyframes cup-steam { from { opacity: .25; transform: translateY(3px); } to { opacity: .9; transform: translateY(-2px); } }
+
 @media (prefers-reduced-motion: reduce) {
   .pet-sprite { animation: none; background-position: 0 0; }
-  .pet-sprite.state-entering { animation: none; background-position: 100% 0; }
-  .pet-sprite.state-leaving { display: none; }
+  .pet-sprite.activity-transition { animation: none; background-position: 100% 0; }
   .interaction-sprite { animation: none; background-position: 66.666667% 0; }
+  .waiting-cup i { animation: none; }
 }

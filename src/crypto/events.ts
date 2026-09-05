@@ -26,7 +26,7 @@ function isPlainEvent(value: unknown): value is PlainEvent {
   }
   return event.kind === 'activity.segment'
     && typeof payload.category === 'string'
-    && ['coding', 'reading', 'meeting', 'video', 'browsing', 'idle', 'rest'].includes(payload.category)
+    && ['work', 'meeting', 'leisure', 'idle', 'rest', 'coding', 'reading', 'video', 'browsing'].includes(payload.category)
     && typeof payload.startedAt === 'string'
     && typeof payload.endedAt === 'string';
 }

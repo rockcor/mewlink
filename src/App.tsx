@@ -1,9 +1,9 @@
-import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties, type PointerEvent as ReactPointerEvent } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties, type MouseEvent as ReactMouseEvent, type PointerEvent as ReactPointerEvent } from 'react';
 import { PhysicalPosition } from '@tauri-apps/api/dpi';
 import { getCurrentWindow } from '@tauri-apps/api/window';
 import { v4 as uuid } from 'uuid';
 import { SettingsPanel, type UpdateViewState } from './components/SettingsPanel';
-import type { ActivityKind, CupStyle, InteractionKind, InteractionPayload, PlainEvent, StoredEvent } from './domain/types';
+import type { ActivityKind, BlanketStyle, CupStyle, InteractionKind, InteractionPayload, PlainEvent, StoredEvent, WorkVisual } from './domain/types';
 import { cupStyles } from './domain/types';
 import {
   clearPairing,
@@ -15,7 +15,8 @@ import {
   savePairing,
   type PairingState,
 } from './pairing/pairing';
-import { activityProbe, classify, inputChangesForSequence, inputProbe, nextSampleDelay, POINTER_ANIMATION_HOLD_MS, shouldAnimatePointer, visualInputForActivity, type InputSignal } from './platform/activity';
+import { activityProbe, classify, inputChangesForSequence, inputProbe, nextSampleDelay, POINTER_ANIMATION_HOLD_MS, shouldAnimatePointer, visualInputForActivity, workVisualFor, type InputSignal } from './platform/activity';
+import { ACTIVITY_TRANSITION_MS, gestureFor, waterDrinkDelay, type GestureVariant } from './pet/interaction';
 import { localUtcOffsetMinutes } from './platform/clock';
 import { registerPairCreator, registerPairJoiner, sendEncryptedEvent, syncEncryptedEvents } from './services/relayTransport';
 import { checkForUpdate } from './services/update';
@@ -27,18 +28,32 @@ import './styles.css';
 import './pet.css';
 
 const windowPositionKey = 'mewlink.windowPosition.v1';
+const pendingCupKey = 'mewlink.pendingCup.v1';
 const isTauriWindow = typeof window !== 'undefined' && '__TAURI_INTERNALS__' in window;
 
+function loadPendingCup(): { target: 'self' | 'partner'; style: CupStyle; placedAt: number } | undefined {
+  try {
+    const value = JSON.parse(window.localStorage.getItem(pendingCupKey) ?? 'null') as Record<string, unknown> | null;
+    if (!value || (value.target !== 'self' && value.target !== 'partner') || !cupStyles.includes(value.style as CupStyle) || typeof value.placedAt !== 'number') return undefined;
+    return { target: value.target, style: value.style as CupStyle, placedAt: value.placedAt };
+  } catch {
+    return undefined;
+  }
+}
+
 export default function App() {
-  const [activity, setActivity] = useState<ActivityKind>('browsing');
+  const [activity, setActivity] = useState<ActivityKind>('work');
+  const [workVisual, setWorkVisual] = useState<WorkVisual>('web');
   const [keyboardPressed, setKeyboardPressed] = useState(false);
   const [pointerPressed, setPointerPressed] = useState(false);
-  const [previousSelfActivity, setPreviousSelfActivity] = useState<ActivityKind>();
-  const [previousPartnerActivity, setPreviousPartnerActivity] = useState<ActivityKind>();
+  const [selfTransition, setSelfTransition] = useState<{ from: ActivityKind; to: ActivityKind }>();
+  const [partnerTransition, setPartnerTransition] = useState<{ from: ActivityKind; to: ActivityKind }>();
   const [events, setEvents] = useState<StoredEvent[]>([]);
   const [playing, setPlaying] = useState(false);
   const [frame, setFrame] = useState(0);
-  const [gesture, setGesture] = useState<InteractionKind>();
+  const [gesture, setGesture] = useState<{ variant: GestureVariant; target: 'self' | 'partner'; cupStyle?: CupStyle; blanketStyle?: BlanketStyle }>();
+  const [pendingCup, setPendingCup] = useState(loadPendingCup);
+  const [sizeMenu, setSizeMenu] = useState<'self' | 'partner'>();
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [preferences, setPreferences] = useState(loadPreferences);
   const text = appCopy[preferences.language];
@@ -58,10 +73,10 @@ export default function App() {
   const clickTimer = useRef<number | undefined>(undefined);
   const gestureTimer = useRef<number | undefined>(undefined);
   const noticeTimer = useRef<number | undefined>(undefined);
-  const selfActivityRef = useRef<ActivityKind>('browsing');
+  const selfActivityRef = useRef<ActivityKind>('work');
   const partnerActivityRef = useRef<ActivityKind>('rest');
   const pairingRef = useRef<PairingState | undefined>(pairing);
-  const incomingInteractionRef = useRef<(action: InteractionKind, cup?: CupStyle) => void>(() => undefined);
+  const incomingInteractionRef = useRef<(action: InteractionKind, cup?: CupStyle, blanket?: BlanketStyle) => void>(() => undefined);
   const receiverUtcOffsetMinutes = effectiveUtcOffsetMinutes(preferences);
   const partnerUtcOffsetMinutes = useMemo(() => [...events].reverse().find(({ direction, event }) => direction === 'in' && event.senderUtcOffsetMinutes !== undefined)?.event.senderUtcOffsetMinutes, [events]);
   const inviteCode = pairing && !pairing.partnerDeviceId ? pairingInviteCode(pairing) : '';
@@ -75,7 +90,8 @@ export default function App() {
   const visualInputKind = visualInputForActivity(activity, keyboardPressed, pointerPressed);
   const defaultNotice = connected ? text.shortcut : text.soloShortcut;
   const motionStyle = useMemo(() => ({
-    '--pet-scale': String(preferences.petScalePercent / 100),
+    '--self-pet-scale': String(preferences.selfPetScalePercent / 100),
+    '--partner-pet-scale': String(preferences.partnerPetScalePercent / 100),
     '--pet-breathe-duration': `${Math.round(3_600 * durationScale)}ms`,
     '--pet-read-duration': `${Math.round(3_100 * durationScale)}ms`,
     '--pet-meeting-duration': `${Math.round(2_500 * durationScale)}ms`,
@@ -83,9 +99,9 @@ export default function App() {
     '--pet-browse-duration': `${Math.round(3_200 * durationScale)}ms`,
     '--pet-rest-duration': `${Math.round(4_300 * durationScale)}ms`,
     '--pet-idle-duration': `${Math.round(3_800 * durationScale)}ms`,
-    '--interaction-duration': `${Math.round(1_900 * durationScale)}ms`,
-    '--activity-transition-duration': `${Math.round(1_080 * durationScale)}ms`
-  }) as CSSProperties, [durationScale, preferences.petScalePercent]);
+    '--interaction-duration': `${Math.round(3_200 * durationScale)}ms`,
+    '--activity-transition-duration': `${Math.round(ACTIVITY_TRANSITION_MS * durationScale)}ms`
+  }) as CSSProperties, [durationScale, preferences.partnerPetScalePercent, preferences.selfPetScalePercent]);
 
   const runUpdateCheck = useCallback(async () => {
     setUpdateState({ kind: 'checking', message: text.updateChecking });
@@ -159,7 +175,7 @@ export default function App() {
           setEvents(currentEvents => currentEvents.some(item => item.event.id === stored.event.id) ? currentEvents : [...currentEvents, stored]);
           if (stored.event.kind === 'interaction') {
             const payload = stored.event.payload as InteractionPayload;
-            incomingInteractionRef.current(payload.action, payload.cupStyle);
+            incomingInteractionRef.current(payload.action, payload.cupStyle, payload.blanketStyle);
           }
         }
       } catch {
@@ -178,6 +194,7 @@ export default function App() {
     const sample = async () => {
       const signal = await activityProbe.sample();
       if (stopped) return;
+      if (!signal.locked && signal.idleSeconds < 120) setWorkVisual(workVisualFor(signal));
       setActivity(currentActivity => {
         if (!signal.locked && signal.idleSeconds < 120 && signal.appClass === 'unknown') return currentActivity;
         const next = classify(signal);
@@ -225,6 +242,10 @@ export default function App() {
     };
   }, []);
   useEffect(() => { window.localStorage.setItem('mewlink.cupStyle', cupStyle); }, [cupStyle]);
+  useEffect(() => {
+    if (pendingCup) window.localStorage.setItem(pendingCupKey, JSON.stringify(pendingCup));
+    else window.localStorage.removeItem(pendingCupKey);
+  }, [pendingCup]);
   useEffect(() => { savePreferences(preferences); }, [preferences]);
   useEffect(() => {
     setNotice(defaultNotice);
@@ -236,6 +257,7 @@ export default function App() {
     setPlaying(false);
     setFrame(0);
     setGesture(undefined);
+    setPendingCup(undefined);
   }, [connected]);
   useEffect(() => { if (preferences.autoUpdate) void runUpdateCheck(); }, [preferences.autoUpdate, runUpdateCheck]);
   useEffect(() => { if (!preferences.replayEnabled) { setPlaying(false); setFrame(0); } }, [preferences.replayEnabled]);
@@ -250,35 +272,55 @@ export default function App() {
     const previous = selfActivityRef.current;
     if (previous === activity) return;
     selfActivityRef.current = activity;
-    setPreviousSelfActivity(previous);
-    const timer = window.setTimeout(() => setPreviousSelfActivity(undefined), 1_100);
+    setSelfTransition({ from: previous, to: activity });
+    const timer = window.setTimeout(() => setSelfTransition(undefined), Math.round(ACTIVITY_TRANSITION_MS * durationScale));
     return () => window.clearTimeout(timer);
-  }, [activity]);
+  }, [activity, durationScale]);
   useEffect(() => {
     const previous = partnerActivityRef.current;
     if (previous === partnerActivity) return;
     partnerActivityRef.current = partnerActivity;
-    setPreviousPartnerActivity(previous);
-    const timer = window.setTimeout(() => setPreviousPartnerActivity(undefined), 1_100);
+    setPartnerTransition({ from: previous, to: partnerActivity });
+    const timer = window.setTimeout(() => setPartnerTransition(undefined), Math.round(ACTIVITY_TRANSITION_MS * durationScale));
     return () => window.clearTimeout(timer);
-  }, [partnerActivity]);
+  }, [durationScale, partnerActivity]);
+  useEffect(() => {
+    if (!pendingCup) return;
+    const timer = window.setTimeout(() => {
+      setGesture({ variant: 'water-drink', target: pendingCup.target, cupStyle: pendingCup.style });
+      setPendingCup(undefined);
+      gestureTimer.current = window.setTimeout(() => setGesture(undefined), Math.round(3_200 * durationScale));
+    }, waterDrinkDelay(pendingCup.placedAt));
+    return () => window.clearTimeout(timer);
+  }, [durationScale, pendingCup]);
   useEffect(() => () => {
     window.clearTimeout(clickTimer.current);
     window.clearTimeout(gestureTimer.current);
     window.clearTimeout(noticeTimer.current);
   }, []);
 
-  function showGesture(action: InteractionKind, message: string) {
+  function showGesture(action: InteractionKind, message: string, target: 'self' | 'partner', options?: { cupStyle?: CupStyle; blanketStyle?: BlanketStyle; receiverActivity?: ActivityKind; replaying?: boolean }) {
     window.clearTimeout(gestureTimer.current);
     window.clearTimeout(noticeTimer.current);
-    setGesture(action);
+    const receiverActivity = options?.receiverActivity ?? (target === 'self' ? activity : partnerActivity);
+    setGesture({
+      variant: gestureFor(action, receiverActivity, options?.replaying),
+      target,
+      cupStyle: options?.cupStyle,
+      blanketStyle: options?.blanketStyle
+    });
+    if (action === 'water') setPendingCup({ target, style: options?.cupStyle ?? 'ceramic', placedAt: Date.now() });
     setNotice(message);
-    gestureTimer.current = window.setTimeout(() => setGesture(undefined), Math.round(1_900 * durationScale));
+    gestureTimer.current = window.setTimeout(() => setGesture(undefined), Math.round(3_200 * durationScale));
     noticeTimer.current = window.setTimeout(() => setNotice(defaultNotice), Math.round(2_800 * durationScale));
   }
 
-  incomingInteractionRef.current = (action) => {
-    showGesture(action, action === 'hug' ? text.incomingHug : text.incomingWater);
+  incomingInteractionRef.current = (action, incomingCup, incomingBlanket) => {
+    showGesture(action, action === 'hug' ? text.incomingHug : text.incomingWater, 'self', {
+      cupStyle: incomingCup,
+      blanketStyle: incomingBlanket,
+      receiverActivity: activity
+    });
   };
 
   async function createPairing() {
@@ -339,14 +381,18 @@ export default function App() {
       createdAt: new Date().toISOString(),
       senderUtcOffsetMinutes: localUtcOffsetMinutes(),
       kind: 'interaction',
-      payload: { action, ...(action === 'water' ? { cupStyle } : {}) }
+      payload: { action, ...(action === 'water' ? { cupStyle } : { blanketStyle: preferences.blanketStyle }) }
     };
     try {
       const result = await sendEncryptedEvent(active, event);
       persistPairing(result.state);
       await putEvent(result.stored);
       setEvents(currentEvents => [...currentEvents, result.stored]);
-      showGesture(action, action === 'hug' ? text.hugSent : text.cupSent(text.cups[cupStyle].label));
+      showGesture(action, action === 'hug' ? text.hugSent : text.cupSent(text.cups[cupStyle].label), 'partner', {
+        cupStyle,
+        blanketStyle: preferences.blanketStyle,
+        receiverActivity: partnerActivity
+      });
     } catch {
       setNotice(text.sendError);
     }
@@ -376,6 +422,20 @@ export default function App() {
     void getCurrentWindow().startDragging();
   }
 
+  function openSizeMenu(event: ReactMouseEvent, target: 'self' | 'partner') {
+    event.preventDefault();
+    event.stopPropagation();
+    setSizeMenu(target);
+  }
+
+  function adjustPetSize(target: 'self' | 'partner', delta: number) {
+    const key = target === 'self' ? 'selfPetScalePercent' : 'partnerPetScalePercent';
+    setPreferences(currentPreferences => ({
+      ...currentPreferences,
+      [key]: Math.min(110, Math.max(70, currentPreferences[key] + delta))
+    }));
+  }
+
   async function shareFeedback() {
     const message = feedback.trim();
     if (!message) return;
@@ -396,7 +456,13 @@ export default function App() {
     }
   }
 
-  const displayedGesture = connected ? (gesture ?? current?.interaction) : undefined;
+  const replayGesture = current?.interaction ? {
+    variant: gestureFor(current.interaction, partnerActivity, true),
+    target: 'self' as const,
+    cupStyle: current.cupStyle,
+    blanketStyle: current.blanketStyle
+  } : undefined;
+  const displayedGesture = connected ? (gesture ?? replayGesture) : undefined;
 
   return (
     <main className="desktop-pet" style={motionStyle}>
@@ -435,11 +501,12 @@ export default function App() {
         </div>
 
         <div className="drag-handle" data-tauri-drag-region aria-label={text.drag}>•••</div>
-        <div className={`pet-pair ${connected ? 'paired' : 'solo'} ${displayedGesture ? 'interacting' : ''}`}>
-          <div className="pet-avatar self-pet" aria-label={text.myPet(text.status[activity])} onPointerDown={startPetDrag}>
+        <div className={`pet-pair ${connected ? 'paired' : 'solo'} ${displayedGesture ? `interacting target-${displayedGesture.target} interaction-${displayedGesture.variant.startsWith('hug') ? 'hug' : 'water'}` : ''}`}>
+          <div className="pet-avatar self-pet" aria-label={text.myPet(text.status[activity])} onPointerDown={startPetDrag} onContextMenu={event => openSizeMenu(event, 'self')}>
             <span className="identity-badge">{text.me}</span>
-            {previousSelfActivity && <span className={`pet-sprite state-leaving ${previousSelfActivity}`} aria-hidden="true" />}
-            <span className={`pet-sprite ${previousSelfActivity ? 'state-entering' : ''} ${activity} input-${visualInputKind}`} aria-hidden="true" />
+            {selfTransition
+              ? <span className={`pet-sprite activity-transition transition-${selfTransition.from}-${selfTransition.to}`} aria-hidden="true" />
+              : <span className={`pet-sprite ${activity} ${activity === 'work' ? `work-${workVisual}` : ''} input-${visualInputKind}`} aria-hidden="true" />}
           </div>
           {connected && <button
             className="pet-avatar partner-pet"
@@ -447,12 +514,21 @@ export default function App() {
             aria-label={text.partnerPet(current?.label ?? text.partnerWaiting)}
             onClick={handlePetClick}
             onDoubleClick={handlePetDoubleClick}
+            onContextMenu={event => openSizeMenu(event, 'partner')}
           >
             <span className="identity-badge">TA</span>
-            {previousPartnerActivity && <span className={`pet-sprite partner-sprite state-leaving ${previousPartnerActivity}`} aria-hidden="true" />}
-            <span className={`pet-sprite partner-sprite ${previousPartnerActivity ? 'state-entering' : ''} ${partnerActivity} ${playing ? 'replaying' : ''}`} aria-hidden="true" />
+            {partnerTransition
+              ? <span className={`pet-sprite partner-sprite activity-transition transition-${partnerTransition.from}-${partnerTransition.to}`} aria-hidden="true" />
+              : <span className={`pet-sprite partner-sprite ${partnerActivity} ${partnerActivity === 'work' ? 'work-web' : ''} ${playing ? 'replaying' : ''}`} aria-hidden="true" />}
           </button>}
-          {displayedGesture && <span className={`interaction-sprite ${displayedGesture}`} aria-hidden="true" />}
+          {displayedGesture && <span className={`interaction-sprite ${displayedGesture.variant} target-${displayedGesture.target} cup-${displayedGesture.cupStyle ?? 'ceramic'} blanket-${displayedGesture.blanketStyle ?? preferences.blanketStyle}`} aria-hidden="true" />}
+          {pendingCup && <span className={`waiting-cup target-${pendingCup.target} ${pendingCup.style}`} aria-label={text.water}><i /><i /></span>}
+          {sizeMenu && <div className={`pet-size-menu target-${sizeMenu}`} role="dialog" aria-label={preferences.language === 'zh' ? '调整宠物大小' : 'Resize companion'} onPointerDown={event => event.stopPropagation()}>
+            <button type="button" onClick={() => adjustPetSize(sizeMenu, -5)} aria-label="−">−</button>
+            <output>{preferences[sizeMenu === 'self' ? 'selfPetScalePercent' : 'partnerPetScalePercent']}%</output>
+            <button type="button" onClick={() => adjustPetSize(sizeMenu, 5)} aria-label="+">+</button>
+            <button type="button" className="size-menu-close" onClick={() => setSizeMenu(undefined)} aria-label={preferences.language === 'zh' ? '关闭' : 'Close'}>×</button>
+          </div>}
         </div>
         <div className="shortcut-hint" aria-live="polite">{notice}</div>
         {settingsOpen && <SettingsPanel
@@ -467,6 +543,7 @@ export default function App() {
           inviteCode={inviteCode}
           joinCode={joinCode}
           safetyCode={safetyCode}
+          cupStyle={cupStyle}
           onChange={setPreferences}
           onCheckUpdate={() => { void runUpdateCheck(); }}
           onFeedbackChange={value => { setFeedback(value); setFeedbackStatus(''); }}
@@ -476,6 +553,7 @@ export default function App() {
           onJoinCodeChange={setJoinCode}
           onJoinPairing={() => { void joinPairing(); }}
           onDisconnect={disconnectPairing}
+          onCupStyleChange={setCupStyle}
           onClose={() => setSettingsOpen(false)}
         />}
       </section>

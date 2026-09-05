@@ -1,3 +1,4 @@
+import { blanketStyles, cupStyles, type CupStyle } from '../domain/types';
 import type { AnimationSpeed, Preferences } from '../settings/preferences';
 import type { PairingState } from '../pairing/pairing';
 import { animationSpeeds, formatUtcOffset } from '../settings/preferences';
@@ -20,6 +21,7 @@ interface SettingsPanelProps {
   inviteCode: string;
   joinCode: string;
   safetyCode: string;
+  cupStyle: CupStyle;
   onChange: (next: Preferences) => void;
   onCheckUpdate: () => void;
   onFeedbackChange: (value: string) => void;
@@ -29,6 +31,7 @@ interface SettingsPanelProps {
   onJoinCodeChange: (value: string) => void;
   onJoinPairing: () => void;
   onDisconnect: () => void;
+  onCupStyleChange: (style: CupStyle) => void;
   onClose: () => void;
 }
 
@@ -41,7 +44,8 @@ const copy = {
     replay: '时差重放', replayNote: '两人连接后自动识别时差，上线时重放错过的片刻',
     update: '自动更新', updateNote: '启动时检查，有新版本就提醒你', goUpdate: '前往更新', checkNow: '立即检查',
     timezone: '时区', timezoneNote: '自动识别双方时差，可随时关闭', auto: '自动', manual: '手动', off: '关闭', me: '你', partnerPending: 'TA · 连接后识别', step: '每格 15 分钟', hideClocks: '重放中不显示双方时间', manualAria: '手动时区 UTC 偏移',
-    petSize: '宠物大小', petSizeNote: '拖动滑块调整桌面上的显示大小', petSizeAria: '宠物大小',
+    petSize: '宠物大小', petSizeNote: '两只宠物可分别调整，也可右键宠物修改', selfPet: '我的宠物', partnerPet: 'TA 的宠物', petSizeAria: '宠物大小',
+    props: '互动道具', propsNote: '只有水杯和被子可以更换', cup: '水杯', blanket: '被子', blankets: { blush: '樱粉', night: '星夜', mint: '薄荷' },
     speed: '动画速度', speedNote: '默认采用更从容的节奏', speedAria: '动画速度', speeds: { calm: '舒缓', natural: '自然', lively: '活泼' },
     feedback: '意见反馈', feedbackNote: '告诉我们哪里还不够自然', feedbackPlaceholder: '写下你的感受或建议…', feedbackAria: '反馈内容', sendFeedback: '发送反馈',
   },
@@ -53,7 +57,8 @@ const copy = {
     replay: 'Time-zone replay', replayNote: 'Detects your time difference and replays moments you missed',
     update: 'Automatic updates', updateNote: 'Check at launch and let you know when an update is ready', goUpdate: 'Get update', checkNow: 'Check now',
     timezone: 'Time zone', timezoneNote: 'Detect your time difference automatically or turn it off', auto: 'Auto', manual: 'Manual', off: 'Off', me: 'You', partnerPending: 'Partner · after pairing', step: '15-minute steps', hideClocks: 'Hide both local times during replay', manualAria: 'Manual UTC offset',
-    petSize: 'Companion size', petSizeNote: 'Adjust how large the companions appear on your desktop', petSizeAria: 'Companion size',
+    petSize: 'Companion size', petSizeNote: 'Adjust each companion here or by right-clicking it', selfPet: 'Mine', partnerPet: 'Partner', petSizeAria: 'Companion size',
+    props: 'Interaction props', propsNote: 'Only mugs and blankets can be changed', cup: 'Mug', blanket: 'Blanket', blankets: { blush: 'Blush', night: 'Night', mint: 'Mint' },
     speed: 'Animation speed', speedNote: 'A calmer pace is selected by default', speedAria: 'Animation speed', speeds: { calm: 'Calm', natural: 'Natural', lively: 'Lively' },
     feedback: 'Feedback', feedbackNote: 'Tell us what could feel more natural', feedbackPlaceholder: 'Share a thought or suggestion…', feedbackAria: 'Feedback message', sendFeedback: 'Send feedback',
   },
@@ -71,6 +76,7 @@ export function SettingsPanel({
   inviteCode,
   joinCode,
   safetyCode,
+  cupStyle,
   onChange,
   onCheckUpdate,
   onFeedbackChange,
@@ -80,6 +86,7 @@ export function SettingsPanel({
   onJoinCodeChange,
   onJoinPairing,
   onDisconnect,
+  onCupStyleChange,
   onClose
 }: SettingsPanelProps) {
   const text = copy[preferences.language];
@@ -141,12 +148,15 @@ export function SettingsPanel({
         </article>
 
         <article className="setting-block">
-          <div className="setting-title"><div><b>{text.petSize}</b><small>{text.petSizeNote}</small></div><output>{preferences.petScalePercent}%</output></div>
-          <label className="pet-size-slider">
-            <span>70%</span>
-            <input type="range" min="70" max="100" step="5" value={preferences.petScalePercent} onChange={event => patchPreferences({ petScalePercent: Number(event.target.value) })} aria-label={text.petSizeAria}/>
-            <span>100%</span>
-          </label>
+          <div className="setting-title"><div><b>{text.petSize}</b><small>{text.petSizeNote}</small></div></div>
+          <label className="pet-size-slider named"><span>{text.selfPet}</span><input type="range" min="70" max="110" step="5" value={preferences.selfPetScalePercent} onChange={event => patchPreferences({ selfPetScalePercent: Number(event.target.value) })} aria-label={`${text.selfPet} ${text.petSizeAria}`}/><output>{preferences.selfPetScalePercent}%</output></label>
+          <label className="pet-size-slider named"><span>{text.partnerPet}</span><input type="range" min="70" max="110" step="5" value={preferences.partnerPetScalePercent} onChange={event => patchPreferences({ partnerPetScalePercent: Number(event.target.value) })} aria-label={`${text.partnerPet} ${text.petSizeAria}`}/><output>{preferences.partnerPetScalePercent}%</output></label>
+        </article>
+
+        <article className="setting-block">
+          <div className="setting-title"><div><b>{text.props}</b><small>{text.propsNote}</small></div></div>
+          <div className="prop-picker"><b>{text.cup}</b><div className="mini-tabs">{cupStyles.map(style => <button key={style} type="button" className={cupStyle === style ? 'selected' : ''} onClick={() => onCupStyleChange(style)}>{style === 'ceramic' ? '☕' : style === 'tumbler' ? '🥤' : '▣'}</button>)}</div></div>
+          <div className="prop-picker"><b>{text.blanket}</b><div className="mini-tabs">{blanketStyles.map(style => <button key={style} type="button" className={preferences.blanketStyle === style ? 'selected' : ''} onClick={() => patchPreferences({ blanketStyle: style })}>{text.blankets[style]}</button>)}</div></div>
         </article>
 
         <article className="setting-block">

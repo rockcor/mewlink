@@ -30,7 +30,7 @@ describe('time-zone aware replay', () => {
     const event: PlainEvent = {
       id: 'hidden-clock', version: 1, relationshipId: 'pair', senderDeviceId: 'partner',
       createdAt: '2026-09-03T07:30:00.000Z', senderUtcOffsetMinutes: -420,
-      kind: 'activity.segment', payload: { category: 'coding', startedAt: '2026-09-03T07:00:00.000Z', endedAt: '2026-09-03T07:30:00.000Z' }
+      kind: 'activity.segment', payload: { category: 'work', startedAt: '2026-09-03T07:00:00.000Z', endedAt: '2026-09-03T07:30:00.000Z' }
     };
 
     expect(buildReplay([stored(event)], 480, false)[0].clockLabel).toBe('');
@@ -40,8 +40,8 @@ describe('time-zone aware replay', () => {
     const event: PlainEvent = {
       id: 'english-label', version: 1, relationshipId: 'pair', senderDeviceId: 'partner',
       createdAt: '2026-09-03T07:30:00.000Z', senderUtcOffsetMinutes: -420,
-      kind: 'activity.segment', payload: { category: 'coding', startedAt: '2026-09-03T07:00:00.000Z', endedAt: '2026-09-03T07:30:00.000Z' }
+      kind: 'activity.segment', payload: { category: 'work', startedAt: '2026-09-03T07:00:00.000Z', endedAt: '2026-09-03T07:30:00.000Z' }
     };
-    expect(buildReplay([stored(event)], 480, true, 'en')[0].label).toBe('Focused on code');
+    expect(buildReplay([stored(event)], 480, true, 'en')[0].label).toBe('Focused on work');
   });
 });

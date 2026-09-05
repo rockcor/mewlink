@@ -1,5 +1,5 @@
 import { invoke } from '@tauri-apps/api/core';
-import type { ActivityKind } from '../domain/types';
+import type { ActivityKind, WorkVisual } from '../domain/types';
 
 export type InputKind = 'keyboard' | 'pointer' | 'none';
 export type InputMotion = InputKind | 'both';
@@ -19,7 +19,7 @@ export const classify = (signal: PresenceSignal): ActivityKind => {
   if (signal.locked || signal.idleSeconds >= 600) return 'rest';
   if (signal.idleSeconds >= 120) return 'idle';
   const map: Record<NonNullable<PresenceSignal['appClass']>, ActivityKind> = {
-    editor: 'coding', reader: 'reading', meeting: 'meeting', media: 'video', browser: 'browsing', unknown: 'browsing'
+    editor: 'work', reader: 'work', meeting: 'meeting', media: 'leisure', browser: 'work', unknown: 'work'
   };
   return map[signal.appClass ?? 'unknown'];
 };
@@ -32,11 +32,17 @@ export const nextSampleDelay = (signal: PresenceSignal) => {
 };
 
 export const visualInputForActivity = (activity: ActivityKind, keyboard: boolean, pointer: boolean): InputMotion => {
-  if (activity !== 'coding') return 'none';
+  if (activity !== 'work') return 'none';
   if (keyboard && pointer) return 'both';
   if (keyboard) return 'keyboard';
   if (pointer) return 'pointer';
   return 'none';
+};
+
+export const workVisualFor = (signal: PresenceSignal): WorkVisual => {
+  if (signal.appClass === 'editor') return 'code';
+  if (signal.appClass === 'reader') return 'document';
+  return 'web';
 };
 
 export const inputChangesForSequence = (previous: InputSignal, current: InputSignal): InputChanges => ({

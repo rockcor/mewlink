@@ -3,7 +3,8 @@
 MewLink's architecture is designed so raw screen content never leaves a device.
 The application must not collect screenshots, pixels, keystrokes, document
 contents, URLs, or window titles. Local signals are reduced to a coarse state:
-`coding`, `reading`, `meeting`, `video`, `browsing`, `idle`, or `rest`.
+`work`, `meeting`, `leisure`, `idle`, or `rest`. Code, document, and web
+screen variants are selected locally and are not synchronized as separate states.
 
 The current developer preview has no account system. Two Macs can pair using a
 private invite and exchange encrypted interaction envelopes through a mailbox

@@ -1,15 +1,23 @@
-import { classify, inputChangesForSequence, nextSampleDelay, POINTER_ANIMATION_INTERVAL_MS, shouldAnimatePointer, visualInputForActivity } from './activity';
+import { classify, inputChangesForSequence, nextSampleDelay, POINTER_ANIMATION_INTERVAL_MS, shouldAnimatePointer, visualInputForActivity, workVisualFor } from './activity';
 import { describe, expect, it } from 'vitest';
 describe('privacy-first activity classification', () => {
   it('treats lock as rest regardless of app', () => expect(classify({ locked: true, idleSeconds: 0, appClass: 'editor' })).toBe('rest'));
   it('uses idle thresholds before app class', () => expect(classify({ locked: false, idleSeconds: 200, appClass: 'meeting' })).toBe('idle'));
-  it('maps only coarse app classes', () => expect(classify({ locked: false, idleSeconds: 1, appClass: 'reader' })).toBe('reading'));
-  it('maps local media activity to video', () => expect(classify({ locked: false, idleSeconds: 1, appClass: 'media' })).toBe('video'));
-  it('keeps a foreground browser in the browsing state without input', () => expect(classify({ locked: false, idleSeconds: 1, appClass: 'browser', inputKind: 'none' })).toBe('browsing'));
-  it('keeps the browsing screen visible while mouse or keyboard input is detected', () => {
-    expect(visualInputForActivity('browsing', true, false)).toBe('none');
-    expect(visualInputForActivity('browsing', false, true)).toBe('none');
-    expect(visualInputForActivity('coding', true, false)).toBe('keyboard');
+  it('merges editors, documents, and browsers into work', () => {
+    expect(classify({ locked: false, idleSeconds: 1, appClass: 'reader' })).toBe('work');
+    expect(classify({ locked: false, idleSeconds: 1, appClass: 'editor' })).toBe('work');
+    expect(classify({ locked: false, idleSeconds: 1, appClass: 'browser' })).toBe('work');
+  });
+  it('maps local media activity to leisure', () => expect(classify({ locked: false, idleSeconds: 1, appClass: 'media' })).toBe('leisure'));
+  it('uses the private local class only to change the work screen', () => {
+    expect(workVisualFor({ locked: false, idleSeconds: 1, appClass: 'editor' })).toBe('code');
+    expect(workVisualFor({ locked: false, idleSeconds: 1, appClass: 'reader' })).toBe('document');
+    expect(workVisualFor({ locked: false, idleSeconds: 1, appClass: 'browser' })).toBe('web');
+  });
+  it('keeps keyboard and pointer hands active throughout work', () => {
+    expect(visualInputForActivity('meeting', true, false)).toBe('none');
+    expect(visualInputForActivity('work', true, false)).toBe('keyboard');
+    expect(visualInputForActivity('work', false, true)).toBe('pointer');
   });
   it('polls active input quickly and rests slowly', () => {
     expect(nextSampleDelay({ locked: false, idleSeconds: 1, appClass: 'editor' })).toBe(500);
@@ -26,7 +34,7 @@ describe('privacy-first activity classification', () => {
   it('keeps keyboard and pointer changes independent when both advance', () => {
     const baseline = { keyboardSequence: 2, pointerSequence: 8, recentKind: 'none' as const };
     expect(inputChangesForSequence(baseline, { keyboardSequence: 3, pointerSequence: 9, recentKind: 'pointer' })).toEqual({ keyboard: true, pointer: true });
-    expect(visualInputForActivity('coding', true, true)).toBe('both');
+    expect(visualInputForActivity('work', true, true)).toBe('both');
   });
   it('coalesces dense pointer movement into a calmer hand rhythm', () => {
     expect(shouldAnimatePointer(Number.NEGATIVE_INFINITY, 1)).toBe(true);

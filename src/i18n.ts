@@ -54,7 +54,7 @@ export const appCopy: Record<Language, AppCopy> = {
   zh: {
     cups: { ceramic: { label: '樱粉陶瓷杯', shortLabel: '陶瓷杯' }, tumbler: { label: '天空随行杯', shortLabel: '随行杯' }, bottle: { label: '薄荷运动瓶', shortLabel: '运动瓶' } },
     input: { keyboard: '键盘输入 · 左手同步', pointer: '鼠标/触控板 · 右手同步', both: '键盘与鼠标 · 双手同步', none: '' },
-    status: { coding: '在写代码', reading: '在阅读', meeting: '在开会', video: '在看视频', browsing: '在浏览', idle: '暂时离开', rest: '休息中' },
+    status: { work: '工作中', meeting: '在开会', leisure: '休闲娱乐', idle: '暂时离开', rest: '休息中' },
     updateUnchecked: '尚未检查更新', updateChecking: '正在检查…', updateAvailable: version => `发现新版本 ${version}`, updateCurrent: version => `已是最新版 ${version}`, updateError: '暂时无法检查，请稍后再试',
     connected: '已连接，可以互相发送拥抱和喝水', waitingForInvite: '等待 TA 粘贴邀请码', connectionRetry: '暂时无法连接，稍后会自动重试', shortcut: '单击拥抱 · 双击喝水',
     incomingHug: 'TA 送来一个拥抱', incomingWater: 'TA 提醒你喝水', creatingInvite: '正在生成邀请码…', createInviteError: '暂时无法生成，请稍后再试', connecting: '正在连接…', connectError: '邀请码无效、已过期或暂时无法连接',
@@ -65,7 +65,7 @@ export const appCopy: Record<Language, AppCopy> = {
   en: {
     cups: { ceramic: { label: 'Blush ceramic mug', shortLabel: 'Ceramic' }, tumbler: { label: 'Sky tumbler', shortLabel: 'Tumbler' }, bottle: { label: 'Mint sports bottle', shortLabel: 'Bottle' } },
     input: { keyboard: 'Keyboard · left hand in sync', pointer: 'Mouse/trackpad · right hand in sync', both: 'Keyboard + mouse · both hands in sync', none: '' },
-    status: { coding: 'Coding', reading: 'Reading', meeting: 'In a meeting', video: 'Watching video', browsing: 'Browsing', idle: 'Away for a moment', rest: 'Resting' },
+    status: { work: 'Working', meeting: 'In a meeting', leisure: 'Taking a break', idle: 'Away for a moment', rest: 'Resting' },
     updateUnchecked: 'Updates not checked yet', updateChecking: 'Checking…', updateAvailable: version => `Version ${version} is ready`, updateCurrent: version => `Up to date · ${version}`, updateError: 'Unable to check right now. Try again later.',
     connected: 'Connected — you can send hugs and water', waitingForInvite: 'Waiting for your partner to paste the invite', connectionRetry: 'Unable to connect right now. Retrying automatically.', shortcut: 'Click to hug · Double-click for water',
     incomingHug: 'Your partner sent a hug', incomingWater: 'Your partner reminded you to drink water', creatingInvite: 'Creating an invite…', createInviteError: 'Unable to create an invite. Try again later.', connecting: 'Connecting…', connectError: 'The invite is invalid, expired, or unavailable right now',

@@ -1,16 +1,22 @@
-import type { ActivityKind, ActivitySegment, CupStyle, InteractionKind, InteractionPayload, StoredEvent } from '../domain/types';
+import type { ActivityKind, ActivitySegment, BlanketStyle, CupStyle, InteractionKind, InteractionPayload, StoredEvent } from '../domain/types';
 import { replayClock } from '../platform/clock';
 import type { Language } from '../settings/preferences';
-export interface ReplayItem { id: string; at: string; label: string; icon: string; clockLabel: string; activity?: ActivityKind; interaction?: InteractionKind; cupStyle?: CupStyle }
+export interface ReplayItem { id: string; at: string; label: string; icon: string; clockLabel: string; activity?: ActivityKind; interaction?: InteractionKind; cupStyle?: CupStyle; blanketStyle?: BlanketStyle }
 const labels = {
-  zh: { coding: '认真写代码', reading: '安静阅读', meeting: '正在开会', video: '看了一会儿视频', browsing: '浏览资料', idle: '离开了一会儿', rest: '休息中', water: '提醒你喝水', hug: '送来一个拥抱' },
-  en: { coding: 'Focused on code', reading: 'Quietly reading', meeting: 'In a meeting', video: 'Watching a video', browsing: 'Browsing resources', idle: 'Away for a moment', rest: 'Resting', water: 'Reminded you to drink water', hug: 'Sent you a hug' }
+  zh: { work: '专注工作', meeting: '正在开会', leisure: '休闲娱乐', idle: '离开了一会儿', rest: '休息中', water: '提醒你喝水', hug: '送来一个拥抱' },
+  en: { work: 'Focused on work', meeting: 'In a meeting', leisure: 'Taking a break', idle: 'Away for a moment', rest: 'Resting', water: 'Reminded you to drink water', hug: 'Sent you a hug' }
 } as const;
-const icons = { coding: '⌨️', reading: '📖', meeting: '🎧', video: '▶️', browsing: '🔎', idle: '🐾', rest: '💤', water: '☕', hug: '🫂' } as const;
+const icons = { work: '⌨️', meeting: '🎧', leisure: '▶️', idle: '🐾', rest: '💤', water: '☕', hug: '🫂' } as const;
+const normalizeActivity = (category: string): ActivityKind => {
+  if (category === 'coding' || category === 'reading' || category === 'browsing') return 'work';
+  if (category === 'video') return 'leisure';
+  return category as ActivityKind;
+};
 export function buildReplay(events: StoredEvent[], receiverUtcOffsetMinutes?: number, showTimezone = true, language: Language = 'zh'): ReplayItem[] {
   const localizedLabels = labels[language];
   return events.filter(stored => stored.direction === 'in').sort((left, right) => Date.parse(left.event.createdAt) - Date.parse(right.event.createdAt)).flatMap(({ event }) => {
-    const key = event.kind === 'interaction' ? (event.payload as InteractionPayload).action : (event.payload as ActivitySegment).category;
+    const payload = event.payload as InteractionPayload | ActivitySegment;
+    const key = event.kind === 'interaction' ? (payload as InteractionPayload).action : normalizeActivity((payload as ActivitySegment).category);
     if (!(key in localizedLabels)) return [];
     return [{
       id: event.id,
@@ -18,7 +24,7 @@ export function buildReplay(events: StoredEvent[], receiverUtcOffsetMinutes?: nu
       label: localizedLabels[key as keyof typeof localizedLabels],
       icon: icons[key as keyof typeof icons],
       clockLabel: showTimezone ? replayClock(event.createdAt, event.senderUtcOffsetMinutes, receiverUtcOffsetMinutes, language).label : '',
-      ...(event.kind === 'interaction' ? { interaction: key as InteractionKind, cupStyle: (event.payload as InteractionPayload).cupStyle } : { activity: key as ActivityKind })
+      ...(event.kind === 'interaction' ? { interaction: key as InteractionKind, cupStyle: (payload as InteractionPayload).cupStyle, blanketStyle: (payload as InteractionPayload).blanketStyle } : { activity: key as ActivityKind })
     }];
   }).slice(-12);
 }
