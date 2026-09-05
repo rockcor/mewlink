@@ -439,7 +439,7 @@ export default function App() {
           <div className="pet-avatar self-pet" aria-label={text.myPet(text.status[activity])} onPointerDown={startPetDrag}>
             <span className="identity-badge">{text.me}</span>
             {previousSelfActivity && <span className={`pet-sprite state-leaving ${previousSelfActivity}`} aria-hidden="true" />}
-            <span className={`pet-sprite ${previousSelfActivity ? 'state-entering' : ''} ${activity}`} aria-hidden="true" />
+            <span className={`pet-sprite ${previousSelfActivity ? 'state-entering' : ''} ${activity} input-${visualInputKind}`} aria-hidden="true" />
           </div>
           {connected && <button
             className="pet-avatar partner-pet"
@@ -452,6 +452,7 @@ export default function App() {
             {previousPartnerActivity && <span className={`pet-sprite partner-sprite state-leaving ${previousPartnerActivity}`} aria-hidden="true" />}
             <span className={`pet-sprite partner-sprite ${previousPartnerActivity ? 'state-entering' : ''} ${partnerActivity} ${playing ? 'replaying' : ''}`} aria-hidden="true" />
           </button>}
+          {displayedGesture && <span className={`interaction-sprite ${displayedGesture}`} aria-hidden="true" />}
         </div>
         <div className="shortcut-hint" aria-live="polite">{notice}</div>
         {settingsOpen && <SettingsPanel

@@ -7,108 +7,146 @@
   display: block;
   width: var(--frame-width);
   height: var(--frame-height);
-  background-image: url('/pets/canonical-pet-scenes.png');
   background-repeat: no-repeat;
-  background-size: calc(var(--frame-width) * 2) calc(var(--frame-height) * 2);
   filter: drop-shadow(0 13px 10px rgba(86, 45, 67, .16));
-  transform-origin: 50% 88%;
-  animation: pet-breathe var(--pet-breathe-duration, 3600ms) ease-in-out infinite;
+  image-rendering: auto;
+  transform: none;
 }
 
-.pet-sprite.partner-sprite {
-  background-image: url('/pets/canonical-pet-scenes.png');
+/* Four-frame Aseprite loops. No transform is applied to the whole pet. */
+.pet-sprite.video {
+  background-image: url('/pets/animations/video.png');
+  background-size: 400% 100%;
+  animation: sprite-loop-4 var(--pet-video-duration, 2900ms) linear infinite;
 }
 
-.pet-sprite.video,
-.pet-sprite.rest,
-.pet-sprite.idle { background-position: 0 0; }
-.pet-sprite.coding,
-.pet-sprite.browsing { background-position: calc(var(--frame-width) * -1) 0; }
-.pet-sprite.reading { background-position: 0 calc(var(--frame-height) * -1); }
-.pet-sprite.meeting { background-position: calc(var(--frame-width) * -1) calc(var(--frame-height) * -1); }
+.pet-sprite.reading {
+  background-image: url('/pets/animations/reading.png');
+  background-size: 400% 100%;
+  animation: sprite-loop-4 var(--pet-read-duration, 3100ms) linear infinite;
+}
 
-.pet-sprite.coding { animation: pet-breathe var(--pet-breathe-duration, 3600ms) ease-in-out infinite; }
-.pet-sprite.reading { animation: pet-read var(--pet-read-duration, 3100ms) ease-in-out infinite; }
-.pet-sprite.meeting { animation: pet-nod var(--pet-meeting-duration, 2500ms) ease-in-out infinite; }
-.pet-sprite.video { animation: pet-watch var(--pet-video-duration, 2900ms) ease-in-out infinite; }
-.pet-sprite.browsing { animation: pet-search var(--pet-browse-duration, 3200ms) ease-in-out infinite; }
-.pet-sprite.rest { animation: pet-sleep var(--pet-rest-duration, 4300ms) ease-in-out infinite; }
+.pet-sprite.meeting {
+  background-image: url('/pets/animations/meeting.png');
+  background-size: 400% 100%;
+  animation: sprite-loop-4 var(--pet-meeting-duration, 2500ms) linear infinite;
+}
+
+.pet-sprite.browsing {
+  background-image: url('/pets/animations/browsing.png');
+  background-size: 400% 100%;
+  animation: sprite-loop-4 var(--pet-browse-duration, 3200ms) linear infinite;
+}
 
 .pet-sprite.idle {
-  background-image: url('/pets/canonical-pet-scenes.png');
-  animation: pet-idle var(--pet-idle-duration, 3800ms) ease-in-out infinite;
+  background-image: url('/pets/animations/idle.png');
+  background-size: 400% 100%;
+  animation: sprite-loop-4 var(--pet-idle-duration, 3800ms) linear infinite;
 }
 
-.pet-sprite.partner-sprite.idle {
-  background-image: url('/pets/canonical-pet-scenes.png');
-  animation: pet-idle var(--pet-idle-duration, 3800ms) ease-in-out infinite;
+.pet-sprite.rest {
+  background-image: url('/pets/animations/rest.png');
+  background-size: 400% 100%;
+  animation: sprite-loop-4 var(--pet-rest-duration, 4300ms) linear infinite;
 }
 
-.pet-sprite.replaying { filter: drop-shadow(0 13px 10px rgba(86, 45, 67, .16)) saturate(1.08); }
-
-.pet-sprite.state-entering { animation: activity-state-in var(--activity-transition-duration, 1080ms) linear both; }
-.pet-sprite.state-leaving { z-index: 1; animation: activity-state-out var(--activity-transition-duration, 1080ms) linear both; }
-
-@keyframes activity-state-in {
-  0%, 76% { opacity: 0; transform: translateY(5px) scale(.985); }
-  96%, 100% { opacity: 1; transform: translateY(0) scale(1); }
+/* Coding is driven by real input sequences, never by a fixed-rate loop. */
+.pet-sprite.coding {
+  background-image: url('/pets/animations/coding-input.png');
+  background-size: 400% 100%;
+  animation: none;
 }
 
-@keyframes activity-state-out {
-  0%, 8% { opacity: 1; transform: translateY(0) scale(1); }
-  24%, 100% { opacity: 0; transform: translateY(-2px) scale(1.01); }
+.pet-sprite.coding.input-none { background-position: 0 0; }
+.pet-sprite.coding.input-keyboard { background-position: 33.333333% 0; }
+.pet-sprite.coding.input-pointer { background-position: 66.666667% 0; }
+.pet-sprite.coding.input-both { background-position: 100% 0; }
+.pet-sprite.partner-sprite.coding { background-position: 0 0; }
+
+.pet-sprite.replaying {
+  filter: drop-shadow(0 13px 10px rgba(86, 45, 67, .16)) saturate(1.08);
 }
 
-
-@keyframes pet-breathe {
-  50% { transform: translateY(-4px) scale(1.015); }
+@keyframes sprite-loop-4 {
+  0%, 24.999% { background-position: 0 0; }
+  25%, 49.999% { background-position: 33.333333% 0; }
+  50%, 74.999% { background-position: 66.666667% 0; }
+  75%, 100% { background-position: 100% 0; }
 }
 
-@keyframes pet-read {
-  0%, 100% { transform: rotate(-1deg); }
-  50% { transform: translateY(-3px) rotate(1deg); }
+/* Every state owns an exit and entrance strip, so any pair can transition. */
+.pet-sprite.state-leaving,
+.pet-sprite.state-entering {
+  background-size: 300% 100%;
+  animation-duration: var(--activity-transition-duration, 1080ms);
+  animation-timing-function: linear;
+  animation-fill-mode: both;
 }
 
-@keyframes pet-nod {
-  0%, 100% { transform: rotate(0); }
-  45% { transform: translateY(2px) rotate(1.4deg); }
+.pet-sprite.state-leaving { z-index: 1; animation-name: sprite-state-out; }
+.pet-sprite.state-entering { z-index: 2; animation-name: sprite-state-in; }
+
+.pet-sprite.state-leaving.video { background-image: url('/pets/animations/transition-out-video.png'); }
+.pet-sprite.state-leaving.coding { background-image: url('/pets/animations/transition-out-coding.png'); }
+.pet-sprite.state-leaving.reading { background-image: url('/pets/animations/transition-out-reading.png'); }
+.pet-sprite.state-leaving.meeting { background-image: url('/pets/animations/transition-out-meeting.png'); }
+.pet-sprite.state-leaving.browsing { background-image: url('/pets/animations/transition-out-browsing.png'); }
+.pet-sprite.state-leaving.idle { background-image: url('/pets/animations/transition-out-idle.png'); }
+.pet-sprite.state-leaving.rest { background-image: url('/pets/animations/transition-out-rest.png'); }
+
+.pet-sprite.state-entering.video { background-image: url('/pets/animations/transition-in-video.png'); }
+.pet-sprite.state-entering.coding { background-image: url('/pets/animations/transition-in-coding.png'); }
+.pet-sprite.state-entering.reading { background-image: url('/pets/animations/transition-in-reading.png'); }
+.pet-sprite.state-entering.meeting { background-image: url('/pets/animations/transition-in-meeting.png'); }
+.pet-sprite.state-entering.browsing { background-image: url('/pets/animations/transition-in-browsing.png'); }
+.pet-sprite.state-entering.idle { background-image: url('/pets/animations/transition-in-idle.png'); }
+.pet-sprite.state-entering.rest { background-image: url('/pets/animations/transition-in-rest.png'); }
+
+@keyframes sprite-state-out {
+  0%, 24.999% { opacity: 1; background-position: 0 0; }
+  25%, 39.999% { opacity: 1; background-position: 50% 0; }
+  40%, 49.999% { opacity: 1; background-position: 100% 0; }
+  50%, 100% { opacity: 0; background-position: 100% 0; }
 }
 
-@keyframes pet-watch {
-  0%, 100% { transform: scale(1); }
-  50% { transform: translateY(-2px) scale(1.018); }
+@keyframes sprite-state-in {
+  0%, 49.999% { opacity: 0; background-position: 0 0; }
+  50%, 64.999% { opacity: 1; background-position: 0 0; }
+  65%, 79.999% { opacity: 1; background-position: 50% 0; }
+  80%, 100% { opacity: 1; background-position: 100% 0; }
 }
 
-@keyframes pet-search {
-  0%, 100% { transform: translateX(-2px) rotate(-1deg); }
-  50% { transform: translateX(3px) rotate(1deg); }
+.interaction-sprite {
+  position: absolute;
+  z-index: 5;
+  left: 50%;
+  bottom: -1px;
+  display: block;
+  width: 384px;
+  height: 256px;
+  background-repeat: no-repeat;
+  background-size: 400% 100%;
+  filter: drop-shadow(0 14px 12px rgba(86, 45, 67, .18));
+  pointer-events: none;
+  transform: translateX(-50%);
+  animation: interaction-sprite-4 var(--interaction-duration, 1900ms) linear both;
 }
 
-@keyframes pet-sleep {
-  0%, 100% { transform: scale(1); }
-  50% { transform: translateY(2px) scale(.985, 1.015); }
-}
+.interaction-sprite.hug { background-image: url('/pets/animations/hug.png'); }
+.interaction-sprite.water { background-image: url('/pets/animations/water.png'); }
+.pet-pair.interacting .pet-avatar { opacity: 0; }
 
-@keyframes pet-idle {
-  0%, 100% { transform: translateY(0); }
-  50% { transform: translateY(-5px); }
-}
-
-@keyframes interaction-hug {
-  0% { opacity: 0; transform: translateY(16px) scale(.82); }
-  28%, 72% { opacity: 1; transform: translateY(0) scale(1.04) rotate(-1deg); }
-  100% { opacity: 0; transform: translateY(-6px) scale(.94); }
-}
-
-@keyframes interaction-drink {
-  0% { opacity: 0; transform: translateY(14px) scale(.86); }
-  30% { opacity: 1; transform: translateY(0) scale(1); }
-  52% { opacity: 1; transform: translateY(-4px) rotate(-1.5deg); }
-  72% { opacity: 1; transform: translateY(0) rotate(1deg); }
-  100% { opacity: 0; transform: translateY(-5px) scale(.95); }
+@keyframes interaction-sprite-4 {
+  0%, 24.999% { opacity: 1; background-position: 0 0; }
+  25%, 49.999% { opacity: 1; background-position: 33.333333% 0; }
+  50%, 74.999% { opacity: 1; background-position: 66.666667% 0; }
+  75%, 98% { opacity: 1; background-position: 100% 0; }
+  100% { opacity: 0; background-position: 100% 0; }
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .pet-sprite.state-entering { animation: none; }
+  .pet-sprite { animation: none; background-position: 0 0; }
+  .pet-sprite.state-entering { animation: none; background-position: 100% 0; }
   .pet-sprite.state-leaving { display: none; }
+  .interaction-sprite { animation: none; background-position: 66.666667% 0; }
 }

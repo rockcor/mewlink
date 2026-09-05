@@ -8,6 +8,7 @@
     "build": "tsc -b && vite build",
     "lint": "eslint .",
     "test": "vitest run",
+    "test:animations": "node scripts/validate-animation-assets.mjs",
     "test:peer": "node scripts/test-peer.mjs",
     "tauri": "tauri"
   },
