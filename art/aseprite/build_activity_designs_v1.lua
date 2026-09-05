@@ -1,6 +1,6 @@
 -- MewLink activity-pose design sheet.
--- Four transparent 96x64 frames using the workstation companion as the
--- exact character master: video, code, paper, meeting.
+-- Four transparent 96x64 frames using the compact-head workstation companion
+-- master: video, code, paper, meeting.
 
 local output = app.params["output"]
 if not output or output == "" then
@@ -107,56 +107,57 @@ local function curvedLimb(img,x0,y0,cx,cy,x1,y1,radius)
 end
 
 local function drawCompanion(img,expression)
-  -- Keep the silhouette pixel-identical to workstation-input-v5.
-  ellipseWithOutline(img,22,42,7,6,0,6)
-  fillEllipse(img,21,40,3,2,0,8)
-  ellipseWithOutline(img,24,22,8,15,24,6)
-  fillEllipse(img,22,18,3,7,24,8)
-  ellipseWithOutline(img,72,22,8,15,-24,6)
-  fillEllipse(img,74,18,3,7,-24,8)
+  -- Compact head + visible torso. This replaces the former tall forehead bean.
+  ellipseWithOutline(img,20,43,7,6,0,6)
+  fillEllipse(img,19,41,3,2,0,8)
+  ellipseWithOutline(img,25,24,8,13,22,6)
+  fillEllipse(img,23,20,3,6,22,8)
+  ellipseWithOutline(img,71,24,8,13,-22,6)
+  fillEllipse(img,73,20,3,6,-22,8)
 
-  fillEllipse(img,48,25,22,20,0,1)
-  rect(img,26,24,45,23,1)
-  fillEllipse(img,48,47,22,9,0,1)
-  fillEllipse(img,48,25,20,18,0,3)
-  rect(img,28,24,41,22,3)
-  fillEllipse(img,48,46,20,7,0,3)
-  fillEllipse(img,41,18,9,7,-15,4)
-  rect(img,29,39,2,7,5)
-  rect(img,31,47,34,2,5)
+  -- Torso is drawn first so the smaller separate head reads clearly.
+  fillEllipse(img,48,43,20,13,0,1)
+  fillEllipse(img,48,43,18,11,0,3)
+  rect(img,32,45,32,6,3)
+  fillEllipse(img,48,50,15,5,0,5)
 
-  -- Every expression uses the original face box and anchor points.
+  fillEllipse(img,48,24,19,16,0,1)
+  fillEllipse(img,48,24,17,14,0,3)
+  rect(img,32,22,33,10,3)
+  fillEllipse(img,42,17,7,5,-12,4)
+
+  -- Every expression shares the compact head's fixed face anchors.
   if expression=="video-happy" then
     -- Big closed-eye smile with an open pink mouth: clearly off-duty.
-    line(img,36,27,39,30,1,1);line(img,39,30,43,27,1,1)
-    line(img,53,27,57,30,1,1);line(img,57,30,60,27,1,1)
-    pixel(img,48,32,1)
-    fillEllipse(img,48,35,3,2,0,1);fillEllipse(img,48,35,1.5,1,0,12)
-    fillEllipse(img,34,34,4,2,0,8);fillEllipse(img,62,34,4,2,0,8)
+    line(img,37,24,40,27,1,1);line(img,40,27,43,24,1,1)
+    line(img,53,24,56,27,1,1);line(img,56,27,59,24,1,1)
+    pixel(img,48,29,1)
+    fillEllipse(img,48,32,3,2,0,1);fillEllipse(img,48,32,1.5,1,0,12)
+    fillEllipse(img,36,31,3,2,0,8);fillEllipse(img,60,31,3,2,0,8)
   elseif expression=="code-focus" then
     -- Low angled brows and narrowed eyes: concentrated, not angry.
-    line(img,36,22,42,24,1,1);line(img,54,24,60,22,1,1)
-    fillEllipse(img,40,29,2.5,2,0,1);fillEllipse(img,56,29,2.5,2,0,1)
-    pixel(img,39,28,14);pixel(img,55,28,14)
-    rect(img,47,33,3,1,1);pixel(img,48,34,1)
-    line(img,46,36,50,35,1,1)
-    fillEllipse(img,34,33,4,2,0,12);fillEllipse(img,62,33,4,2,0,12)
+    line(img,36,19,42,21,1,1);line(img,54,21,60,19,1,1)
+    fillEllipse(img,40,26,2.5,2,0,1);fillEllipse(img,56,26,2.5,2,0,1)
+    pixel(img,39,25,14);pixel(img,55,25,14)
+    rect(img,47,30,3,1,1);pixel(img,48,31,1)
+    line(img,46,33,50,32,1,1)
+    fillEllipse(img,36,30,3,2,0,12);fillEllipse(img,60,30,3,2,0,12)
   elseif expression=="paper-curious" then
     -- One open eye, one squint, raised brow, and a tiny thinking "o".
-    line(img,37,23,42,21,1,1);line(img,54,22,59,22,1,1)
-    fillEllipse(img,40,28,2.5,3,0,1);pixel(img,39,27,14)
-    line(img,54,29,59,29,1,1);pixel(img,57,28,1)
-    rect(img,47,32,3,1,1);pixel(img,48,33,1)
-    pixel(img,47,35,1);pixel(img,49,35,1);pixel(img,48,34,1);pixel(img,48,36,1)
-    fillEllipse(img,34,33,4,2,0,12);fillEllipse(img,62,33,3,2,0,12)
+    line(img,37,20,42,18,1,1);line(img,54,19,59,19,1,1)
+    fillEllipse(img,40,25,2.5,3,0,1);pixel(img,39,24,14)
+    line(img,54,26,59,26,1,1);pixel(img,57,25,1)
+    rect(img,47,29,3,1,1);pixel(img,48,30,1)
+    pixel(img,47,32,1);pixel(img,49,32,1);pixel(img,48,31,1);pixel(img,48,33,1)
+    fillEllipse(img,36,30,3,2,0,12);fillEllipse(img,60,30,3,2,0,12)
   else
     -- Meeting: wide alert eyes, level brows, and a firm straight mouth.
-    line(img,36,22,42,22,1,1);line(img,54,22,60,22,1,1)
-    fillEllipse(img,40,28,3,3.5,0,1);fillEllipse(img,56,28,3,3.5,0,1)
-    pixel(img,39,27,14);pixel(img,55,27,14);pixel(img,41,29,2);pixel(img,57,29,2)
-    rect(img,47,33,3,1,1);pixel(img,48,34,1)
-    rect(img,46,36,5,1,1)
-    fillEllipse(img,34,33,3,2,0,12);fillEllipse(img,62,33,3,2,0,12)
+    line(img,36,19,42,19,1,1);line(img,54,19,60,19,1,1)
+    fillEllipse(img,40,25,3,3.5,0,1);fillEllipse(img,56,25,3,3.5,0,1)
+    pixel(img,39,24,14);pixel(img,55,24,14);pixel(img,41,26,2);pixel(img,57,26,2)
+    rect(img,47,30,3,1,1);pixel(img,48,31,1)
+    rect(img,46,33,5,1,1)
+    fillEllipse(img,36,30,3,2,0,12);fillEllipse(img,60,30,3,2,0,12)
   end
 end
 
@@ -298,7 +299,7 @@ for frameNumber,state in ipairs(states) do
   local tag=sprite:newTag(frameNumber,frameNumber);tag.name=state.name
 end
 
-sprite.data="MewLink workstation companion activity poses | locked v5 silhouette | four scene-specific expressions | swappable snack slot defaults to chips | 96x64"
+sprite.data="MewLink compact-head workstation companion | four scene-specific expressions | swappable snack slot defaults to chips | 96x64"
 sprite:saveAs(output)
 app.activeSprite=sprite
 app.activeFrame=sprite.frames[1]

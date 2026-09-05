@@ -25,8 +25,8 @@ Open `activity-designs-v1.aseprite` to review the four 96 × 64 activity poses:
 3. `paper`
 4. `meeting`
 
-The original workstation companion silhouette is shared across all four poses,
-while each scene has its own clearly different face. Body/expression,
+The compact-head companion silhouette is shared across all four poses, while
+each scene has its own clearly different face. Body/expression,
 headset/back props, complete arms, foreground props, the swappable snack item,
 and motion accents stay on separate layers. The video pose defaults to a chip
 and chip bag; future shop snacks replace only the snack layer.
