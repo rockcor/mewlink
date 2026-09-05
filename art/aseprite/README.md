@@ -15,3 +15,17 @@ combined without moving the character's face or body.
 `build_workstation_pixel_v5.lua` regenerates the editable project. Export at
 4× nearest-neighbor scale in a two-column sprite sheet to produce the 768 × 512
 runtime asset.
+
+## Activity pose concepts
+
+Open `activity-designs-v1.aseprite` to review the four 96 × 64 activity poses:
+
+1. `video`
+2. `code`
+3. `paper`
+4. `meeting`
+
+The body/expression, headset/back props, complete arms, foreground props, and
+motion accents stay on separate layers. `build_activity_designs_v1.lua`
+regenerates the indexed-color source and exports the 4× two-column preview
+sheet `activity-designs-v1.png`.
