@@ -25,7 +25,8 @@ Open `activity-designs-v1.aseprite` to review the four 96 × 64 activity poses:
 3. `paper`
 4. `meeting`
 
-The body/expression, headset/back props, complete arms, foreground props, and
-motion accents stay on separate layers. `build_activity_designs_v1.lua`
-regenerates the indexed-color source and exports the 4× two-column preview
-sheet `activity-designs-v1.png`.
+The original workstation companion silhouette is shared across all four poses,
+while each scene has its own face. Body/expression, headset/back props,
+complete arms, foreground props, and motion accents stay on separate layers.
+`build_activity_designs_v1.lua` regenerates the indexed-color source and exports
+the 8× two-column preview sheet `activity-designs-v1.png`.

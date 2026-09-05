@@ -1,5 +1,6 @@
 -- MewLink activity-pose design sheet.
--- Four transparent 96x64 pixel-art frames: video, code, paper, meeting.
+-- Four transparent 96x64 frames using the workstation companion as the
+-- exact character master: video, code, paper, meeting.
 
 local output = app.params["output"]
 if not output or output == "" then
@@ -105,9 +106,10 @@ local function curvedLimb(img,x0,y0,cx,cy,x1,y1,radius)
   curve(3,radius-1.5)
 end
 
-local function drawBean(img,expression)
-  ellipseWithOutline(img,21,42,7,6,0,6)
-  fillEllipse(img,20,40,3,2,0,8)
+local function drawCompanion(img,expression)
+  -- Keep the silhouette pixel-identical to workstation-input-v5.
+  ellipseWithOutline(img,22,42,7,6,0,6)
+  fillEllipse(img,21,40,3,2,0,8)
   ellipseWithOutline(img,24,22,8,15,24,6)
   fillEllipse(img,22,18,3,7,24,8)
   ellipseWithOutline(img,72,22,8,15,-24,6)
@@ -123,25 +125,40 @@ local function drawBean(img,expression)
   rect(img,29,39,2,7,5)
   rect(img,31,47,34,2,5)
 
-  if expression=="relaxed" then
-    line(img,37,27,42,27,1,1);line(img,54,27,59,27,1,1)
-    pixel(img,39,26,1);pixel(img,57,26,1)
+  -- Every expression uses the original face box and anchor points.
+  if expression=="video-happy" then
+    -- Soft smiling eyes and a tiny open smile.
+    line(img,37,28,40,30,1,1);line(img,40,30,43,28,1,1)
+    line(img,53,28,56,30,1,1);line(img,56,30,59,28,1,1)
     rect(img,47,33,3,1,1);pixel(img,48,34,1)
-    line(img,46,36,50,36,1,1)
-  else
-    if expression=="serious" or expression=="focus" then
-      line(img,37,22,42,21,1,1);line(img,54,21,59,22,1,1)
-    end
+    pixel(img,46,35,1);rect(img,47,36,3,1,1);pixel(img,50,35,1)
+    pixel(img,48,35,12)
+    fillEllipse(img,34,34,4,2,0,8);fillEllipse(img,62,34,4,2,0,8)
+  elseif expression=="code-focus" then
+    -- Determined brows, bright eyes, confident little mouth.
+    line(img,37,22,42,21,1,1);line(img,54,21,59,22,1,1)
     fillEllipse(img,40,28,2.5,3,0,1);fillEllipse(img,56,28,2.5,3,0,1)
     pixel(img,39,27,14);pixel(img,55,27,14)
     rect(img,47,33,3,1,1);pixel(img,48,34,1)
-    if expression=="serious" then
-      rect(img,46,36,5,1,1)
-    else
-      line(img,46,36,50,36,1,1)
-    end
+    pixel(img,46,36,1);line(img,47,37,50,36,1,1)
+    fillEllipse(img,34,33,4,2,0,12);fillEllipse(img,62,33,4,2,0,12)
+  elseif expression=="paper-curious" then
+    -- One raised brow and sideways eyes for a thinking/reading face.
+    line(img,37,22,42,21,1,1);line(img,54,22,58,23,1,1)
+    fillEllipse(img,41,28,2.5,3,0,1);fillEllipse(img,57,28,2.5,3,0,1)
+    pixel(img,40,27,14);pixel(img,56,27,14)
+    rect(img,47,33,3,1,1);pixel(img,48,34,1)
+    pixel(img,47,36,1);pixel(img,48,37,1);pixel(img,49,36,1)
+    fillEllipse(img,34,33,4,2,0,12);fillEllipse(img,62,33,3,2,0,12)
+  else
+    -- Meeting: alert and serious, without losing the cute proportions.
+    line(img,37,22,42,23,1,1);line(img,54,23,59,22,1,1)
+    fillEllipse(img,40,28,2.5,3,0,1);fillEllipse(img,56,28,2.5,3,0,1)
+    pixel(img,39,27,14);pixel(img,55,27,14)
+    rect(img,47,33,3,1,1);pixel(img,48,34,1)
+    rect(img,46,36,5,1,1)
+    fillEllipse(img,34,33,3,2,0,12);fillEllipse(img,62,33,3,2,0,12)
   end
-  fillEllipse(img,34,33,4,2,0,12);fillEllipse(img,62,33,4,2,0,12)
 end
 
 local function drawVideoBack(img)
@@ -165,11 +182,12 @@ local function drawCodeArms(img)
 end
 
 local function drawCodeProp(img)
-  rect(img,25,36,48,22,1)
-  rect(img,28,39,42,16,9)
-  rect(img,31,42,3,2,16);rect(img,36,42,14,2,16)
-  rect(img,31,46,3,2,6);rect(img,36,46,20,2,6);rect(img,57,46,7,2,17)
-  rect(img,31,50,3,2,16);rect(img,36,50,11,2,6);rect(img,49,50,16,2,16)
+  -- Shorter screen leaves the complete expression visible above it.
+  rect(img,25,38,48,19,1)
+  rect(img,28,41,42,13,9)
+  rect(img,31,43,3,2,16);rect(img,36,43,14,2,16)
+  rect(img,31,47,3,2,6);rect(img,36,47,20,2,6);rect(img,57,47,7,2,17)
+  rect(img,31,51,3,2,16);rect(img,36,51,11,2,6);rect(img,49,51,16,2,16)
   fillPolygon(img,{{23,57},{75,57},{80,61},{19,61}},1)
   rect(img,27,58,45,1,10);rect(img,42,60,15,1,11)
   ellipseWithOutline(img,80,56,6,4,0,6)
@@ -184,12 +202,12 @@ local function drawPaperArms(img)
 end
 
 local function drawPaperProp(img)
-  fillPolygon(img,{{21,36},{72,36},{76,58},{20,58}},1)
-  fillPolygon(img,{{23,38},{69,38},{73,56},{22,56}},14)
-  rect(img,27,49,3,5,16);rect(img,31,46,3,8,6);rect(img,35,43,3,11,13)
-  rect(img,43,43,20,2,2);rect(img,43,48,23,2,2);rect(img,43,53,17,2,2)
-  fillPolygon(img,{{67,38},{73,38},{73,45}},18)
-  line(img,69,37,74,33,13,2);line(img,73,38,78,37,15,2)
+  fillPolygon(img,{{21,38},{72,38},{76,59},{20,59}},1)
+  fillPolygon(img,{{23,40},{69,40},{73,57},{22,57}},14)
+  rect(img,27,51,3,5,16);rect(img,31,48,3,8,6);rect(img,35,45,3,11,13)
+  rect(img,43,45,20,2,2);rect(img,43,50,23,2,2);rect(img,43,55,17,2,2)
+  fillPolygon(img,{{67,40},{73,40},{73,47}},18)
+  line(img,69,39,74,35,13,2);line(img,73,40,78,39,15,2)
 end
 
 local function drawMeetingBack(img)
@@ -221,12 +239,14 @@ local function drawAccents(img,state)
     pixel(img,22,29,16);pixel(img,21,30,16);pixel(img,22,32,6);pixel(img,23,33,6)
   elseif state=="code" then
     line(img,85,45,89,42,13,2);line(img,86,50,91,50,15,2);line(img,85,55,89,58,13,2)
+  elseif state=="paper" then
+    pixel(img,77,31,13);line(img,80,33,83,31,15,1);line(img,79,36,84,37,13,1)
   elseif state=="meeting" then
     line(img,85,14,89,10,13,2);line(img,87,19,92,18,15,2)
   end
 end
 
-local body=sprite.layers[1];body.name="01 Bean + expression"
+local body=sprite.layers[1];body.name="01 Workstation companion + expression"
 local back=sprite:newLayer();back.name="02 Headset + back props"
 local arms=sprite:newLayer();arms.name="03 Complete arms"
 local props=sprite:newLayer();props.name="04 Foreground props"
@@ -234,15 +254,15 @@ local accents=sprite:newLayer();accents.name="05 Motion accents"
 for frameNumber=2,4 do sprite:newEmptyFrame(frameNumber) end
 
 local states={
-  {name="video",expression="relaxed"},
-  {name="code",expression="focus"},
-  {name="paper",expression="neutral"},
-  {name="meeting",expression="serious"}
+  {name="video",expression="video-happy"},
+  {name="code",expression="code-focus"},
+  {name="paper",expression="paper-curious"},
+  {name="meeting",expression="meeting-serious"}
 }
 
 for frameNumber,state in ipairs(states) do
   sprite.frames[frameNumber].duration=0.18
-  local bodyImage=image();drawBean(bodyImage,state.expression)
+  local bodyImage=image();drawCompanion(bodyImage,state.expression)
   sprite:newCel(body,frameNumber,bodyImage,Point(0,0))
   local backImage=image()
   local armsImage=image()
@@ -264,10 +284,9 @@ for frameNumber,state in ipairs(states) do
   local tag=sprite:newTag(frameNumber,frameNumber);tag.name=state.name
 end
 
-sprite.data="MewLink activity pose designs v1 | video, code, paper, meeting | 96x64 | transparent indexed pixel art"
+sprite.data="MewLink workstation companion activity poses | locked v5 silhouette | four scene-specific expressions | 96x64"
 sprite:saveAs(output)
 app.activeSprite=sprite
 app.activeFrame=sprite.frames[1]
 app.activeLayer=props
 app.refresh()
-
