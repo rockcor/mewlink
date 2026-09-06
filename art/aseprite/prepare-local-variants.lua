@@ -159,13 +159,14 @@ local function placedCup(image, style, steamPhase)
   cup(image, 350, 209, style, steamPhase)
 end
 
-local function incomingArm(image, progress)
+local function incomingArm(image, progress, y)
   if progress == 0 then return end
+  y = y or 163
   local length = progress == 1 and 29 or 48
-  fill(image, 384 - length, 163, length, 17, outline)
-  fill(image, 384 - length, 166, length, 11, cream)
-  fill(image, 384 - length - 7, 160, 13, 23, outline)
-  fill(image, 384 - length - 4, 163, 9, 17, cream)
+  fill(image, 384 - length, y, length, 17, outline)
+  fill(image, 384 - length, y + 3, length, 11, cream)
+  fill(image, 384 - length - 7, y - 3, 13, 23, outline)
+  fill(image, 384 - length - 4, y, 9, 17, cream)
 end
 
 local workNames = { "input_none", "input_keyboard", "input_pointer", "input_both" }
@@ -194,8 +195,11 @@ for state, baseName in pairs(states) do
     for frame = 1, 4 do
       local image = load(baseName)
       if state == "work" then
-        if frame == 2 then incomingArm(image, 1); cup(image, 333, 151, style, frame); face(image, "surprised") end
-        if frame == 3 then incomingArm(image, 2); cup(image, 306, 154, style, frame); face(image, "happy") end
+        -- Approach the final mouse-side resting point in one direction. The
+        -- cup keeps its full size, never crosses the mouse, and does not move
+        -- again while the delivering arm retracts.
+        if frame == 2 then incomingArm(image, 1, 205); cup(image, 360, 209, style, frame); face(image, "surprised") end
+        if frame == 3 then incomingArm(image, 2, 205); placedCup(image, style, frame); face(image, "happy") end
         if frame == 4 then placedCup(image, style, frame); face(image, "happy") end
       elseif state == "rest" then
         if frame == 2 then incomingArm(image, 1); cup(image, 342, 170, style, frame) end
