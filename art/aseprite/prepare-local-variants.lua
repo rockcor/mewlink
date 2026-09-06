@@ -9,6 +9,10 @@ local blushDark = app.pixelColor.rgba(183, 57, 105, 255)
 local blue = app.pixelColor.rgba(128, 190, 226, 255)
 local mint = app.pixelColor.rgba(125, 205, 188, 255)
 local white = app.pixelColor.rgba(255, 255, 255, 235)
+local codeBackground = app.pixelColor.rgba(28, 25, 55, 255)
+local codePanel = app.pixelColor.rgba(53, 43, 82, 255)
+local webBackground = app.pixelColor.rgba(240, 250, 255, 255)
+local webChrome = app.pixelColor.rgba(96, 155, 205, 255)
 local transparent = app.pixelColor.rgba(0, 0, 0, 0)
 
 local function load(name) return Image { fromFile = frames .. name .. ".png" } end
@@ -26,20 +30,49 @@ local function dot(image, x, y, size, color) fill(image, x, y, size, size, color
 
 local function screenVariant(image, kind)
   fill(image, 48, 94, 108, 66, outline)
-  if kind == "document" then
+  if kind == "code" then
+    -- A nearly black editor with a gutter and dense syntax colors. Keep most
+    -- of the monitor dark so it stays distinct from the bright web scene at
+    -- the small on-desktop rendering size.
+    fill(image, 55, 101, 94, 52, codeBackground)
+    fill(image, 55, 101, 94, 9, codePanel)
+    dot(image, 60, 104, 3, blush)
+    dot(image, 67, 104, 3, cream)
+    dot(image, 74, 104, 3, mint)
+    fill(image, 58, 114, 12, 35, codePanel)
+    fill(image, 74, 115, 20, 4, blush)
+    fill(image, 98, 115, 31, 4, blue)
+    fill(image, 78, 123, 35, 4, mint)
+    fill(image, 117, 123, 22, 4, blue)
+    fill(image, 74, 131, 17, 4, cream)
+    fill(image, 95, 131, 37, 4, blush)
+    fill(image, 78, 139, 27, 4, blue)
+    fill(image, 109, 139, 30, 4, mint)
+    fill(image, 74, 147, 18, 3, blush)
+    fill(image, 96, 147, 26, 3, cream)
+  elseif kind == "document" then
     fill(image, 76, 100, 54, 54, cream)
     fill(image, 84, 108, 35, 4, blush)
     fill(image, 84, 119, 28, 3, blushDark)
     fill(image, 84, 128, 37, 3, blush)
     fill(image, 84, 137, 31, 3, blushDark)
   elseif kind == "web" then
-    fill(image, 55, 101, 94, 8, blush)
-    dot(image, 60, 103, 3, cream)
-    dot(image, 67, 103, 3, cream)
-    fill(image, 57, 116, 40, 34, cream)
-    fill(image, 103, 116, 43, 8, blue)
-    fill(image, 103, 131, 34, 4, mint)
-    fill(image, 103, 141, 40, 4, blush)
+    -- A bright browser window with unmistakable chrome, address bar, large
+    -- image tile, and cards. Its overall value is deliberately opposite to
+    -- the dark code editor above.
+    fill(image, 55, 101, 94, 52, webBackground)
+    fill(image, 55, 101, 94, 11, webChrome)
+    dot(image, 60, 105, 3, blush)
+    dot(image, 67, 105, 3, cream)
+    fill(image, 75, 104, 68, 5, white)
+    fill(image, 60, 117, 52, 27, blue)
+    fill(image, 64, 121, 17, 14, cream)
+    fill(image, 85, 121, 22, 4, white)
+    fill(image, 85, 129, 17, 4, mint)
+    fill(image, 118, 117, 26, 8, blush)
+    fill(image, 118, 130, 26, 6, mint)
+    fill(image, 118, 141, 20, 5, webChrome)
+    fill(image, 60, 148, 52, 3, webChrome)
   end
 end
 
@@ -100,6 +133,7 @@ end
 local workNames = { "input_none", "input_keyboard", "input_pointer", "input_both" }
 for _, name in ipairs(workNames) do
   local code = load(name)
+  screenVariant(code, "code")
   save(code, "code_" .. name)
   local document = load(name)
   screenVariant(document, "document")
@@ -110,7 +144,7 @@ for _, name in ipairs(workNames) do
 end
 
 local states = {
-  work = "input_none",
+  work = "code_input_none",
   meeting = "base_meeting",
   leisure = "base_video",
   idle = "base_idle",
@@ -141,7 +175,7 @@ end
 
 for _, style in ipairs(cupStyles) do
   for frame = 1, 4 do
-    local image = load("input_none")
+    local image = load("code_input_none")
     if frame < 4 then placedCup(image, style, frame) end
     if frame == 2 then face(image, "surprised") end
     if frame == 3 then face(image, "happy") end

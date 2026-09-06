@@ -61,6 +61,10 @@ fn classify_foreground_app(value: &str) -> &'static str {
         "pages",
         "numbers",
         "keynote",
+        "com.apple.notes",
+        "notes",
+        "microsoft.outlook",
+        "outlook",
         "obsidian",
         "notion",
     ]) {
@@ -452,6 +456,8 @@ mod classification_tests {
         );
         assert_eq!(classify_foreground_app("com.apple.Safari"), "browser");
         assert_eq!(classify_foreground_app("com.apple.Preview"), "reader");
+        assert_eq!(classify_foreground_app("com.apple.Notes"), "reader");
+        assert_eq!(classify_foreground_app("com.microsoft.Outlook"), "reader");
     }
 }
 
