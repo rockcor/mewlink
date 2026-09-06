@@ -479,12 +479,12 @@ export default function App() {
           <div className="status-row" aria-live="polite">
             <div className="status-pill self-status">
               <span>●</span>
-              <span className="status-copy"><b>{text.me} · {text.status[activity]}</b>{text.input[visualInputKind] && <small>{text.input[visualInputKind]}</small>}</span>
+              <span className="status-copy"><b>{text.status[activity]}</b></span>
             </div>
             {connected && <div className="status-pill partner-status">
               <span>{current?.icon ?? '○'}</span>
               <span className="status-copy">
-                <b>{preferences.language === 'zh' ? 'TA' : 'Partner'} · {current?.label ?? text.partnerWaiting}</b>
+                <b>{current?.label ?? text.partnerWaiting}</b>
                 {current?.clockLabel && <small>{current.clockLabel}</small>}
               </span>
             </div>}
@@ -511,7 +511,6 @@ export default function App() {
         <div className="drag-handle" data-tauri-drag-region aria-label={text.drag}>•••</div>
         <div className={`pet-pair ${connected ? 'paired' : 'solo'} ${displayedGesture ? `interacting target-${displayedGesture.target} interaction-${displayedGesture.variant.startsWith('hug') ? 'hug' : 'water'}` : ''}`}>
           <div className="pet-avatar self-pet" aria-label={text.myPet(text.status[activity])} onPointerDown={startPetDrag} onContextMenu={event => openSizeMenu(event, 'self')}>
-            <span className="identity-badge">{text.me}</span>
             {selfTransition
               ? <span className={`pet-sprite activity-transition transition-${selfTransition.from}-${selfTransition.to}`} aria-hidden="true" />
               : <span className={`pet-sprite ${activity} ${activity === 'work' ? `work-${workVisual}` : ''} input-${visualInputKind}`} aria-hidden="true" />}
@@ -524,7 +523,6 @@ export default function App() {
             onDoubleClick={handlePetDoubleClick}
             onContextMenu={event => openSizeMenu(event, 'partner')}
           >
-            <span className="identity-badge">TA</span>
             {partnerTransition
               ? <span className={`pet-sprite partner-sprite activity-transition transition-${partnerTransition.from}-${partnerTransition.to}`} aria-hidden="true" />
               : <span className={`pet-sprite partner-sprite ${partnerActivity} ${partnerActivity === 'work' ? 'work-web' : ''} ${playing ? 'replaying' : ''}`} aria-hidden="true" />}

@@ -26,38 +26,33 @@
 
 .pet-sprite.meeting {
   background-image: url('/pets/animations/meeting.png');
-  background-size: 400% 100%;
-  animation: sprite-loop-4 var(--pet-meeting-duration, 2500ms) linear infinite;
+  background-size: 800% 100%;
+  animation: sprite-loop-8 var(--pet-meeting-duration, 2500ms) steps(7, end) infinite;
 }
 .pet-sprite.leisure {
   background-image: url('/pets/animations/leisure.png');
-  background-size: 400% 100%;
-  animation: sprite-loop-4 var(--pet-video-duration, 2900ms) linear infinite;
+  background-size: 800% 100%;
+  animation: sprite-loop-8 var(--pet-video-duration, 2900ms) steps(7, end) infinite;
 }
 .pet-sprite.idle {
   background-image: url('/pets/animations/idle.png');
-  background-size: 400% 100%;
-  animation: sprite-loop-4 var(--pet-idle-duration, 3800ms) linear infinite;
+  background-size: 800% 100%;
+  animation: sprite-loop-8 var(--pet-idle-duration, 3800ms) steps(7, end) infinite;
 }
 .pet-sprite.rest {
   background-image: url('/pets/animations/rest.png');
-  background-size: 400% 100%;
-  animation: sprite-loop-4 var(--pet-rest-duration, 4300ms) linear infinite;
+  background-size: 800% 100%;
+  animation: sprite-loop-8 var(--pet-rest-duration, 4300ms) steps(7, end) infinite;
 }
 .pet-sprite.replaying { filter: drop-shadow(0 13px 10px rgba(86, 45, 67, .16)) saturate(1.08); }
 
-@keyframes sprite-loop-4 {
-  0%, 24.999% { background-position: 0 0; }
-  25%, 49.999% { background-position: 33.333333% 0; }
-  50%, 74.999% { background-position: 66.666667% 0; }
-  75%, 100% { background-position: 100% 0; }
-}
+@keyframes sprite-loop-8 { from { background-position: 0 0; } to { background-position: 100% 0; } }
 
 /* Every ordered pair is its own 4.8 second Aseprite transition strip. */
 .pet-sprite.activity-transition {
   z-index: 3;
-  background-size: 600% 100%;
-  animation: sprite-transition-6 var(--activity-transition-duration, 4800ms) linear both;
+  background-size: 1200% 100%;
+  animation: sprite-transition-12 var(--activity-transition-duration, 4800ms) steps(11, end) both;
 }
 .transition-work-meeting { background-image: url('/pets/animations/transition-work-meeting.png'); }
 .transition-work-leisure { background-image: url('/pets/animations/transition-work-leisure.png'); }
@@ -80,14 +75,7 @@
 .transition-rest-leisure { background-image: url('/pets/animations/transition-rest-leisure.png'); }
 .transition-rest-idle { background-image: url('/pets/animations/transition-rest-idle.png'); }
 
-@keyframes sprite-transition-6 {
-  0%, 16.665% { background-position: 0 0; }
-  16.666%, 33.332% { background-position: 20% 0; }
-  33.333%, 49.999% { background-position: 40% 0; }
-  50%, 66.665% { background-position: 60% 0; }
-  66.666%, 83.332% { background-position: 80% 0; }
-  83.333%, 100% { background-position: 100% 0; }
-}
+@keyframes sprite-transition-12 { from { background-position: 0 0; } to { background-position: 100% 0; } }
 
 .interaction-sprite {
   position: absolute;
@@ -98,11 +86,11 @@
   width: 384px;
   height: 256px;
   background-repeat: no-repeat;
-  background-size: 400% 100%;
+  background-size: 800% 100%;
   filter: drop-shadow(0 14px 12px rgba(86, 45, 67, .18));
   pointer-events: none;
   transform: translateX(-50%);
-  animation: interaction-sprite-4 var(--interaction-duration, 3200ms) linear both;
+  animation: interaction-sprite-8 var(--interaction-duration, 3200ms) linear both;
 }
 .interaction-sprite.hug-work { background-image: url('/pets/animations/hug-work.png'); }
 .interaction-sprite.hug-meeting { background-image: url('/pets/animations/hug-meeting.png'); }
@@ -135,11 +123,15 @@
 .pet-pair.interaction-water .interaction-sprite { left: 0; bottom: 6px; width: 230px; height: 153px; transform: none; }
 .pet-pair.interaction-water.target-partner .interaction-sprite { left: auto; right: 0; }
 
-@keyframes interaction-sprite-4 {
-  0%, 24.999% { opacity: 1; background-position: 0 0; }
-  25%, 49.999% { opacity: 1; background-position: 33.333333% 0; }
-  50%, 74.999% { opacity: 1; background-position: 66.666667% 0; }
-  75%, 98% { opacity: 1; background-position: 100% 0; }
+@keyframes interaction-sprite-8 {
+  0%, 12.499% { opacity: 1; background-position: 0 0; }
+  12.5%, 24.999% { opacity: 1; background-position: 14.285714% 0; }
+  25%, 37.499% { opacity: 1; background-position: 28.571429% 0; }
+  37.5%, 49.999% { opacity: 1; background-position: 42.857143% 0; }
+  50%, 62.499% { opacity: 1; background-position: 57.142857% 0; }
+  62.5%, 74.999% { opacity: 1; background-position: 71.428571% 0; }
+  75%, 87.499% { opacity: 1; background-position: 85.714286% 0; }
+  87.5%, 98% { opacity: 1; background-position: 100% 0; }
   100% { opacity: 0; background-position: 100% 0; }
 }
 
@@ -169,6 +161,6 @@
 @media (prefers-reduced-motion: reduce) {
   .pet-sprite { animation: none; background-position: 0 0; }
   .pet-sprite.activity-transition { animation: none; background-position: 100% 0; }
-  .interaction-sprite { animation: none; background-position: 66.666667% 0; }
+  .interaction-sprite { animation: none; background-position: 57.142857% 0; }
   .waiting-cup i { animation: none; }
 }

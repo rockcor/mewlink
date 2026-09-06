@@ -5,15 +5,37 @@ local frameWidth, frameHeight = 384, 256
 local sourceDir = root .. "/art/aseprite/frames/"
 local exportDir = root .. "/public/pets/animations/"
 local projectPath = root .. "/art/aseprite/mewlink-pet-animation-master.aseprite"
+local tweenDir = app.params.tweenDir
+local python = app.params.python
+if not tweenDir or tweenDir == "" then error("Pass --script-param tweenDir=/absolute/temp/path") end
+if not python or python == "" then error("Pass --script-param python=/absolute/python/path") end
+local sourceCache = {}
+local blendCache = {}
 
 local function source(name)
+  if sourceCache[name] then return sourceCache[name] end
   local image = Image { fromFile = sourceDir .. name .. ".png" }
   if image.width ~= frameWidth or image.height ~= frameHeight then error(name .. " must be 384x256") end
+  sourceCache[name] = image
   return image
 end
 
+local function tweenPath(fromName, toName) return tweenDir .. "/" .. fromName .. "--" .. toName .. ".png" end
+
+local function blended(fromName, toName)
+  if fromName == toName then return source(fromName) end
+  local key = fromName .. "->" .. toName
+  if blendCache[key] then return blendCache[key] end
+  local result = Image { fromFile = tweenPath(fromName, toName) }
+  if result.width ~= frameWidth or result.height ~= frameHeight then error("Invalid motion tween: " .. key) end
+  blendCache[key] = result
+  return result
+end
+
 local animations = {}
-local function add(name, loop, frames) table.insert(animations, { name = name, loop = loop, frames = frames }) end
+local function add(name, loop, frames, smooth)
+  table.insert(animations, { name = name, loop = loop, frames = frames, smooth = smooth ~= false })
+end
 local function four(prefix, durations)
   local result = {}
   for index = 1, 4 do table.insert(result, { prefix .. "_" .. index, durations[index] }) end
@@ -22,13 +44,13 @@ end
 
 add("work-code", false, {
   { "code_input_none", 100 }, { "code_input_keyboard", 100 }, { "code_input_pointer", 100 }, { "code_input_both", 100 },
-})
+}, false)
 add("work-document", false, {
   { "document_input_none", 100 }, { "document_input_keyboard", 100 }, { "document_input_pointer", 100 }, { "document_input_both", 100 },
-})
+}, false)
 add("work-web", false, {
   { "web_input_none", 100 }, { "web_input_keyboard", 100 }, { "web_input_pointer", 100 }, { "web_input_both", 100 },
-})
+}, false)
 add("meeting", true, {
   { "base_meeting", 760 }, { "peak_meeting", 180 }, { "base_meeting", 620 }, { "peak_meeting", 160 },
 })
@@ -110,28 +132,78 @@ add("website-replay", true, {
   { "base_rest", 667 }, { "peak_rest", 667 }, { "bridge_rest_to_coding", 661 },
 })
 
+local function prepareMotionTweens()
+  local manifestPath = tweenDir .. "/manifest.tsv"
+  local manifest = assert(io.open(manifestPath, "w"))
+  local seen = {}
+  for _, animation in ipairs(animations) do
+    if animation.smooth then
+      for index, frameSpec in ipairs(animation.frames) do
+        local nextSpec = animation.frames[index + 1]
+        if not nextSpec then nextSpec = animation.loop and animation.frames[1] or frameSpec end
+        local fromName, toName = frameSpec[1], nextSpec[1]
+        local key = fromName .. "->" .. toName
+        if fromName ~= toName and not seen[key] then
+          seen[key] = true
+          manifest:write(sourceDir .. fromName .. ".png\t" .. sourceDir .. toName .. ".png\t" .. tweenPath(fromName, toName) .. "\n")
+        end
+      end
+    end
+  end
+  manifest:close()
+  local helper = root .. "/art/aseprite/motion-tween.py"
+  local command = string.format("%q %q --manifest %q", python, helper, manifestPath)
+  local ok, reason, code = os.execute(command)
+  if ok ~= true and ok ~= 0 then error("Motion tween generation failed: " .. tostring(reason) .. " " .. tostring(code)) end
+end
+
+prepareMotionTweens()
+
+-- Insert one motion-compensated in-between after every authored frame. Loops blend
+-- their last frame back into the first; one-shot animations ease into and
+-- hold their final pose. Total playback time stays exactly the same.
+local function expandedFrames(animation)
+  if not animation.smooth then return animation.frames end
+  local result = {}
+  for index, frameSpec in ipairs(animation.frames) do
+    local nextSpec = animation.frames[index + 1]
+    if not nextSpec then nextSpec = animation.loop and animation.frames[1] or frameSpec end
+    local halfDuration = frameSpec[2] / 2
+    table.insert(result, { image = source(frameSpec[1]), duration = halfDuration })
+    table.insert(result, { image = blended(frameSpec[1], nextSpec[1]), duration = halfDuration })
+  end
+  return result
+end
+
+for _, animation in ipairs(animations) do animation.renderFrames = expandedFrames(animation) end
+
 local sprite = Sprite(frameWidth, frameHeight, ColorMode.RGB)
 sprite.filename = projectPath
 local layer = sprite.layers[1]
-layer.name = "Approved animation frames"
+layer.name = "Smoothed animation frames"
 local frameCount = 0
 
 local function appendFrame(frameSpec)
   local frame = frameCount == 0 and sprite.frames[1] or sprite:newFrame()
   frameCount = frameCount + 1
-  sprite:newCel(layer, frame, source(frameSpec[1]), Point(0, 0))
-  frame.duration = frameSpec[2] / 1000
+  local image = frameSpec.image or source(frameSpec[1])
+  local duration = frameSpec.duration or frameSpec[2]
+  sprite:newCel(layer, frame, image, Point(0, 0))
+  frame.duration = duration / 1000
 end
 
 local function exportStrip(animation)
-  local strip = Image(frameWidth * #animation.frames, frameHeight, ColorMode.RGB)
-  for index, frameSpec in ipairs(animation.frames) do strip:drawImage(source(frameSpec[1]), Point((index - 1) * frameWidth, 0)) end
+  local strip = Image(frameWidth * #animation.renderFrames, frameHeight, ColorMode.RGB)
+  for index, frameSpec in ipairs(animation.renderFrames) do
+    local image = frameSpec.image or source(frameSpec[1])
+    strip:drawImage(image, Point((index - 1) * frameWidth, 0))
+  end
   strip:saveAs(exportDir .. animation.name .. ".png")
 end
 
 for _, animation in ipairs(animations) do
   local first = frameCount + 1
-  for _, frameSpec in ipairs(animation.frames) do appendFrame(frameSpec) end
+  for _, frameSpec in ipairs(animation.renderFrames) do appendFrame(frameSpec) end
   local tag = sprite:newTag(first, frameCount)
   tag.name = animation.name
   tag.aniDir = AniDir.FORWARD

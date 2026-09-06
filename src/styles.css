@@ -241,26 +241,6 @@ button { font: inherit; }
   border-radius: 50%;
 }
 
-.identity-badge {
-  position: absolute;
-  z-index: 4;
-  top: 13px;
-  left: 50%;
-  min-width: 29px;
-  padding: 5px 8px;
-  border: 1px solid rgba(111, 64, 89, .12);
-  border-radius: 999px;
-  background: rgba(255, 250, 247, .94);
-  box-shadow: 0 6px 16px rgba(69, 36, 55, .12);
-  color: #a45876;
-  font-size: 9px;
-  font-weight: 850;
-  text-align: center;
-  transform: translateX(-50%);
-}
-
-.partner-pet .identity-badge { color: #6656ac; }
-
 .pet-pair.interacting .pet-avatar { filter: saturate(1.08) brightness(1.03); }
 
 .pet-size-menu {

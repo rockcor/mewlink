@@ -3,8 +3,9 @@ import path from 'node:path';
 
 const frameWidth = 384;
 const frameHeight = 256;
-const fourFrame = [
-  'work-code', 'work-document', 'work-web', 'meeting', 'leisure', 'idle', 'rest',
+const inputFrame = ['work-code', 'work-document', 'work-web'];
+const eightFrame = [
+  'meeting', 'leisure', 'idle', 'rest',
   ...['work', 'meeting', 'leisure', 'idle', 'rest'].flatMap(state =>
     ['ceramic', 'tumbler', 'bottle'].map(style => `water-${state}-${style}`)),
   ...['ceramic', 'tumbler', 'bottle'].map(style => `water-drink-${style}`),
@@ -12,11 +13,12 @@ const fourFrame = [
   ...['blush', 'night', 'mint'].map(style => `hug-rest-${style}`),
 ];
 const states = ['work', 'meeting', 'leisure', 'idle', 'rest'];
-const sixFrame = states.flatMap(from => states.filter(to => to !== from).map(to => `transition-${from}-${to}`));
+const twelveFrame = states.flatMap(from => states.filter(to => to !== from).map(to => `transition-${from}-${to}`));
 const expected = new Map([
-  ...fourFrame.map(name => [name, 4]),
-  ...sixFrame.map(name => [name, 6]),
-  ['website-replay', 12],
+  ...inputFrame.map(name => [name, 4]),
+  ...eightFrame.map(name => [name, 8]),
+  ...twelveFrame.map(name => [name, 12]),
+  ['website-replay', 24],
 ]);
 
 const animationDir = path.resolve('public/pets/animations');
