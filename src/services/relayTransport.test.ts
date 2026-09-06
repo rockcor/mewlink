@@ -145,4 +145,45 @@ describe('two macOS encrypted relay', () => {
     expect(relay.bodies.join('\n')).not.toContain(sharedStatistics.id);
     expect(second.receivedSequences[first.deviceId]).toBe(2);
   });
+
+  it('catches up interactions sent while the recipient is offline', async () => {
+    const relay = fakeRelay();
+    let first = await createPairingState();
+    let second = joinPairingState(pairingInviteCode(first));
+    await registerPairCreator(first, relay.fetcher);
+    await registerPairJoiner(second, relay.fetcher);
+    first = (await syncEncryptedEvents(first, relay.fetcher)).state;
+
+    for (const action of ['hug', 'water'] as const) {
+      const sent = await sendEncryptedEvent(first, interaction(first.relationshipId, first.deviceId, action), relay.fetcher);
+      first = sent.state;
+    }
+
+    const caughtUp = await syncEncryptedEvents(second, relay.fetcher);
+    second = caughtUp.state;
+    expect(caughtUp.received.map(item => item.event.payload)).toEqual([
+      { action: 'hug' },
+      { action: 'water', cupStyle: 'tumbler' },
+    ]);
+    expect((await syncEncryptedEvents(second, relay.fetcher)).received).toHaveLength(0);
+  });
+
+  it('does not reveal an interaction to a device with the wrong relationship key', async () => {
+    const relay = fakeRelay();
+    let first = await createPairingState();
+    const second = joinPairingState(pairingInviteCode(first));
+    await registerPairCreator(first, relay.fetcher);
+    await registerPairJoiner(second, relay.fetcher);
+    first = (await syncEncryptedEvents(first, relay.fetcher)).state;
+
+    const hug = interaction(first.relationshipId, first.deviceId, 'hug');
+    await sendEncryptedEvent(first, hug, relay.fetcher);
+    const unrelated = await createPairingState();
+    const wrongKeyDevice = { ...second, relationshipKey: unrelated.relationshipKey };
+    expect((await syncEncryptedEvents(wrongKeyDevice, relay.fetcher)).received).toHaveLength(0);
+
+    const validRecipient = await syncEncryptedEvents(second, relay.fetcher);
+    expect(validRecipient.received).toHaveLength(1);
+    expect(validRecipient.received[0].event).toEqual(hug);
+  });
 });
