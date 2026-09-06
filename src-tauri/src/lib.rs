@@ -29,13 +29,49 @@ fn classify_foreground_app(value: &str) -> &'static str {
         "webex",
         "facetime",
         "gotomeeting",
+        "wemeet",
+        "tencent.meeting",
+        "voovmeeting",
+        "bluejeans",
+        "ringcentral",
+        "amazon chime",
+        "chime.exe",
+        "skype",
+        "google meet",
+        "meet.google",
+        "jitsi meet",
+        "around.co",
+        "around.exe",
     ]) {
         "meeting"
-    } else if contains(&["vlc", "quicktime", "iina", "plex", "infuse", "mpv"]) {
+    } else if contains(&[
+        "vlc",
+        "quicktime",
+        "iina",
+        "plex",
+        "infuse",
+        "mpv",
+        "movist",
+        "elmedia",
+        "potplayer",
+        "wmplayer",
+        "video.ui",
+        "apple.tv",
+        "spotify",
+        "apple.music",
+        "music.exe",
+        "apple.podcasts",
+        "audible",
+        "tidal",
+        "deezer",
+    ]) {
         "media"
     } else if contains(&[
         "vscode",
         "visual studio code",
+        "code.exe",
+        "visualstudio",
+        "devenv.exe",
         "cursor",
         "codex",
         "xcode",
@@ -43,35 +79,172 @@ fn classify_foreground_app(value: &str) -> &'static str {
         "intellij",
         "pycharm",
         "webstorm",
+        "phpstorm",
+        "clion",
+        "goland",
+        "rubymine",
+        "datagrip",
+        "rustrover",
+        "jetbrains.fleet",
         "android studio",
         "zed",
         "sublime",
+        "eclipse",
+        "netbeans",
+        "rstudio",
+        "positron",
+        "jupyterlab",
+        "jupyter notebook",
+        "neovim",
+        "nvim",
+        "macvim",
+        "emacs",
         "terminal",
+        "windowsterminal",
         "iterm",
         "warp",
+        "wezterm",
+        "alacritty",
+        "hyper.app",
+        "zeit.hyper",
+        "kitty.app",
+        "kovidgoyal.kitty",
+        "powershell",
+        "github desktop",
+        "github.githubclient",
+        "sourcetree",
+        "tower.app",
+        "fournova.tower",
+        "fork.app",
+        "danpristupov.fork",
+        "dbeaver",
+        "tableplus",
+        "postman",
+        "insomnia",
+        "docker desktop",
     ]) {
         "editor"
     } else if contains(&[
         "preview",
         "acrobat",
+        "pdfexpert",
+        "pdf expert",
+        "skim.app",
         "pdf",
         "books",
         "microsoft.word",
+        "word.exe",
         "microsoft.excel",
+        "excel.exe",
         "microsoft.powerpoint",
+        "powerpnt.exe",
+        "microsoft.onenote",
+        "onenote.exe",
         "pages",
         "numbers",
         "keynote",
+        "libreoffice",
+        "soffice",
+        "openoffice",
+        "onlyoffice",
+        "wpsoffice",
+        "kingsoft.wps",
         "com.apple.notes",
-        "notes",
+        "apple.notes",
+        "notes.exe",
+        "com.apple.mail",
+        "com.apple.ical",
+        "com.apple.reminders",
+        "thunderbird",
+        "airmail",
+        "readdle.smartemail",
+        "superhuman",
+        "fantastical",
         "microsoft.outlook",
         "outlook",
         "obsidian",
         "notion",
+        "craft.do",
+        "craft.exe",
+        "bear.app",
+        "shinyfrog.bear",
+        "ulysses",
+        "typora",
+        "ia writer",
+        "zotero",
+        "mendeley",
+        "endnote",
+        "readwise",
+        "slack",
+        "discord",
+        "larksuite",
+        "bytedance.ee.lark",
+        "feishu",
+        "dingtalk",
+        "tencent.wework",
+        "wecom",
+        "linear.app",
+        "com.linear",
+        "linear.exe",
+        "todoist",
+        "ticktick",
+        "thingsmac",
+        "omnifocus",
+        "clickup",
+        "asana",
+        "trello",
+        "monday.com",
+        "miro",
+        "whimsical",
+        "draw.io",
+        "diagrams.net",
+        "xmind",
+        "mindnode",
+        "figma",
+        "sketch.app",
+        "bohemiancoding.sketch",
+        "photoshop",
+        "illustrator",
+        "indesign",
+        "affinity designer",
+        "affinity photo",
+        "affinity publisher",
+        "adobe xd",
+        "canva",
+        "final cut pro",
+        "davinci resolve",
+        "adobe premiere",
+        "after effects",
+        "blender",
+        "openai.chat",
+        "anthropic.claude",
+        "microsoft.copilot",
     ]) {
         "reader"
     } else if contains(&[
-        "chrome", "safari", "firefox", "msedge", "edge", "arc", "brave", "opera",
+        "chrome",
+        "chromium",
+        "safari",
+        "firefox",
+        "waterfox",
+        "librewolf",
+        "floorp",
+        "msedge",
+        "microsoft edge",
+        "microsoft.edgemac",
+        "arc.app",
+        "company.thebrowser.browser",
+        "brave",
+        "opera",
+        "vivaldi",
+        "orion",
+        "sigmaos",
+        "sidekick",
+        "thebrowser.dia",
+        "perplexity.comet",
+        "duckduckgo.macos.browser",
+        "zen browser",
+        "yandex.browser",
     ]) {
         "browser"
     } else {
@@ -484,17 +657,86 @@ mod classification_tests {
     use super::classify_foreground_app;
 
     #[test]
-    fn classifies_white_collar_apps_without_exposing_names() {
-        assert_eq!(classify_foreground_app("com.microsoft.VSCode"), "editor");
-        assert_eq!(classify_foreground_app("us.zoom.xos"), "meeting");
-        assert_eq!(
-            classify_foreground_app("com.apple.QuickTimePlayerX"),
-            "media"
-        );
-        assert_eq!(classify_foreground_app("com.apple.Safari"), "browser");
-        assert_eq!(classify_foreground_app("com.apple.Preview"), "reader");
-        assert_eq!(classify_foreground_app("com.apple.Notes"), "reader");
-        assert_eq!(classify_foreground_app("com.microsoft.Outlook"), "reader");
+    fn classifies_code_apps_as_the_code_work_visual() {
+        for app in [
+            "com.microsoft.VSCode",
+            r"C:\\Program Files\\Microsoft VS Code\\Code.exe",
+            "com.todesktop.230313mzl4w4u92 Cursor",
+            "com.apple.dt.Xcode",
+            "com.jetbrains.intellij",
+            "com.jetbrains.rustrover",
+            "dev.zed.Zed",
+            "com.microsoft.WindowsTerminal_8wekyb3d8bbwe",
+            "com.postmanlabs.mac Postman",
+        ] {
+            assert_eq!(classify_foreground_app(app), "editor", "{app}");
+        }
+    }
+
+    #[test]
+    fn classifies_document_and_collaboration_apps_as_the_document_work_visual() {
+        for app in [
+            "com.apple.Preview",
+            "com.apple.Notes",
+            "com.microsoft.Outlook",
+            r"C:\\Program Files\\Microsoft Office\\root\\Office16\\WINWORD.EXE",
+            "md.obsidian",
+            "notion.id",
+            "com.tinyspeck.slackmacgap Slack",
+            "com.larksuite.suite Lark",
+            "com.alibaba.DingTalkMac DingTalk",
+            "com.tencent.WeWorkMac WeCom",
+            "com.figma.Desktop Figma",
+            "com.bohemiancoding.sketch3 Sketch",
+            "com.adobe.Photoshop Photoshop",
+            "com.apple.iCal Calendar",
+            "net.shinyfrog.bear Bear",
+            "com.anthropic.claudefordesktop Claude",
+        ] {
+            assert_eq!(classify_foreground_app(app), "reader", "{app}");
+        }
+    }
+
+    #[test]
+    fn classifies_browsers_as_the_web_work_visual() {
+        for app in [
+            "com.apple.Safari",
+            "com.google.Chrome",
+            "org.mozilla.firefox",
+            "com.microsoft.edgemac",
+            "company.thebrowser.Browser Arc",
+            "com.brave.Browser",
+            "com.vivaldi.Vivaldi",
+            "company.thebrowser.dia Dia",
+        ] {
+            assert_eq!(classify_foreground_app(app), "browser", "{app}");
+        }
+    }
+
+    #[test]
+    fn keeps_meetings_and_leisure_outside_the_three_work_visuals() {
+        for app in [
+            "us.zoom.xos",
+            "com.microsoft.teams2",
+            "com.tencent.meeting Wemeet",
+            "com.cisco.webexmeetingsapp",
+            "com.google.Chrome.app.meet Google Meet",
+        ] {
+            assert_eq!(classify_foreground_app(app), "meeting", "{app}");
+        }
+        for app in [
+            "com.apple.QuickTimePlayerX",
+            "com.colliderli.iina",
+            "org.videolan.vlc",
+            "com.spotify.client Spotify",
+        ] {
+            assert_eq!(classify_foreground_app(app), "media", "{app}");
+        }
+    }
+
+    #[test]
+    fn leaves_unlisted_apps_unknown() {
+        assert_eq!(classify_foreground_app("com.example.UnlistedApp"), "unknown");
     }
 }
 
