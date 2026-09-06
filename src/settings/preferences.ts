@@ -1,4 +1,4 @@
-import { blanketStyles, type BlanketStyle } from '../domain/types';
+import { blanketStyles, statisticsVisibilities, type BlanketStyle, type StatisticsVisibility } from '../domain/types';
 import { localUtcOffsetMinutes, normalizeUtcOffsetMinutes } from '../platform/clock';
 
 export const animationSpeeds = ['calm', 'natural', 'lively'] as const;
@@ -14,6 +14,7 @@ export interface Preferences {
   replayEnabled: boolean;
   replaySaveDirectory: string;
   replayRetentionHours: ReplayRetentionHours;
+  statisticsVisibility: StatisticsVisibility;
   timezoneMode: TimezoneMode;
   manualUtcOffsetMinutes: number;
   animationSpeed: AnimationSpeed;
@@ -36,6 +37,7 @@ export function defaultPreferences(): Preferences {
     replayEnabled: true,
     replaySaveDirectory: '',
     replayRetentionHours: 24,
+    statisticsVisibility: 'private',
     timezoneMode: 'auto',
     manualUtcOffsetMinutes: localUtcOffsetMinutes(),
     animationSpeed: 'calm',
@@ -75,6 +77,9 @@ export function loadPreferences(storage?: StorageLike): Preferences {
       replayRetentionHours: typeof value.replayRetentionHours === 'number'
         ? normalizeReplayRetentionHours(value.replayRetentionHours)
         : defaults.replayRetentionHours,
+      statisticsVisibility: statisticsVisibilities.includes(value.statisticsVisibility as StatisticsVisibility)
+        ? value.statisticsVisibility as StatisticsVisibility
+        : defaults.statisticsVisibility,
       timezoneMode: value.timezoneMode === 'manual' || value.timezoneMode === 'off' ? value.timezoneMode : 'auto',
       manualUtcOffsetMinutes: typeof value.manualUtcOffsetMinutes === 'number'
         ? normalizeUtcOffsetMinutes(value.manualUtcOffsetMinutes)

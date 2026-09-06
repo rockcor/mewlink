@@ -658,6 +658,22 @@ button { font: inherit; }
 .statistics-range button { min-width: 38px; }
 .statistics-scroll { padding: 10px 13px 17px; }
 
+.statistics-controls {
+  display: grid;
+  gap: 7px;
+  margin-bottom: 8px;
+  padding: 8px 9px;
+  border: 1px solid rgba(111, 64, 89, .08);
+  border-radius: 13px;
+  background: rgba(255, 250, 248, .78);
+}
+.statistics-owner { justify-self: start; }
+.statistics-owner button { min-width: 54px; }
+.statistics-visibility-row { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.statistics-visibility-row > span { color: #876977; font-size: 8px; font-weight: 700; }
+.statistics-visibility button { min-width: 58px; }
+.statistics-share-note { color: #a08390; font-size: 7px; text-align: right; }
+
 .statistics-empty {
   display: flex;
   align-items: center;

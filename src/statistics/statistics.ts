@@ -1,4 +1,6 @@
-import type { ActivityKind, WorkVisual } from '../domain/types';
+import type { ActivityKind, StatisticsSnapshot, WorkVisual } from '../domain/types';
+
+export type { StatisticsSnapshot } from '../domain/types';
 
 export const statisticsRanges = ['day', 'week', 'month'] as const;
 export type StatisticsRange = (typeof statisticsRanges)[number];
@@ -14,13 +16,6 @@ export interface StatisticsBucket {
 export interface StatisticsData {
   version: 1;
   buckets: StatisticsBucket[];
-}
-
-export interface StatisticsSnapshot {
-  input: { keyboard: number; pointer: number };
-  workVisual: Record<WorkVisual, number>;
-  activity: { work: number; meeting: number; idle: number };
-  bars: Array<{ label: string; keyboard: number; pointer: number }>;
 }
 
 const storageKey = 'mewlink.statistics.v1';
@@ -186,4 +181,12 @@ export function aggregateStatistics(data: StatisticsData, range: StatisticsRange
 
 export function currentStatistics(range: StatisticsRange, now = Date.now()): StatisticsSnapshot {
   return aggregateStatistics(loadStatistics(), range, now);
+}
+
+export function currentStatisticsBundle(now = Date.now()) {
+  return {
+    day: currentStatistics('day', now),
+    week: currentStatistics('week', now),
+    month: currentStatistics('month', now)
+  };
 }

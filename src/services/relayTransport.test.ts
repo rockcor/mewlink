@@ -82,6 +82,21 @@ function interaction(relationshipId: string, senderDeviceId: string, action: 'hu
   };
 }
 
+function statistics(relationshipId: string, senderDeviceId: string): PlainEvent {
+  const snapshot = (bars: number) => ({
+    input: { keyboard: 140, pointer: 36 },
+    workVisual: { code: 2_000, document: 1_000, web: 500 },
+    activity: { work: 3_500, meeting: 600, idle: 300 },
+    bars: Array.from({ length: bars }, (_, index) => ({ label: String(index), keyboard: index + 2, pointer: index + 1 }))
+  });
+  const generatedAt = new Date().toISOString();
+  return {
+    id: crypto.randomUUID(), version: 1, relationshipId, senderDeviceId, createdAt: generatedAt,
+    kind: 'statistics.snapshot',
+    payload: { visibility: 'partner', generatedAt, snapshots: { day: snapshot(6), week: snapshot(7), month: snapshot(5) } }
+  };
+}
+
 describe('two macOS encrypted relay', () => {
   it('delivers opaque interactions in both directions without duplicates', async () => {
     const relay = fakeRelay();
@@ -117,7 +132,17 @@ describe('two macOS encrypted relay', () => {
     expect(receivedWater.received).toHaveLength(1);
     expect(receivedWater.received[0].event).toEqual(water);
     expect(first.receivedSequences[second.deviceId]).toBe(1);
+
+    const sharedStatistics = statistics(first.relationshipId, first.deviceId);
+    const sentStatistics = await sendEncryptedEvent(first, sharedStatistics, relay.fetcher);
+    first = sentStatistics.state;
+    expect(JSON.stringify(sentStatistics.envelope)).not.toContain('keyboard');
+    const receivedStatistics = await syncEncryptedEvents(second, relay.fetcher);
+    second = receivedStatistics.state;
+    expect(receivedStatistics.received[0].event).toEqual(sharedStatistics);
     expect(relay.bodies.join('\n')).not.toContain(hug.id);
     expect(relay.bodies.join('\n')).not.toContain(water.id);
+    expect(relay.bodies.join('\n')).not.toContain(sharedStatistics.id);
+    expect(second.receivedSequences[first.deviceId]).toBe(2);
   });
 });

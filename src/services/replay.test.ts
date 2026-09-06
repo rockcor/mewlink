@@ -44,4 +44,13 @@ describe('time-zone aware replay', () => {
     };
     expect(buildReplay([stored(event)], 480, true, 'en')[0].label).toBe('Focused on work');
   });
+
+  it('keeps statistics summaries out of the moment replay', () => {
+    const event: PlainEvent = {
+      id: 'stats', version: 1, relationshipId: 'pair', senderDeviceId: 'partner',
+      createdAt: '2026-09-03T07:30:00.000Z', kind: 'statistics.snapshot',
+      payload: { visibility: 'private', generatedAt: '2026-09-03T07:30:00.000Z' }
+    };
+    expect(buildReplay([stored(event)])).toEqual([]);
+  });
 });

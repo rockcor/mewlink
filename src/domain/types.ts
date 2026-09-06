@@ -8,13 +8,27 @@ export const cupStyles = ['ceramic', 'tumbler', 'bottle'] as const;
 export type CupStyle = (typeof cupStyles)[number];
 export const blanketStyles = ['blush', 'night', 'mint'] as const;
 export type BlanketStyle = (typeof blanketStyles)[number];
+export const statisticsVisibilities = ['private', 'partner'] as const;
+export type StatisticsVisibility = (typeof statisticsVisibilities)[number];
 
 export interface ActivitySegment { category: ActivityKind; startedAt: string; endedAt: string }
 export interface InteractionPayload { action: InteractionKind; cupStyle?: CupStyle; blanketStyle?: BlanketStyle; phraseId?: string }
+export interface StatisticsSnapshot {
+  input: { keyboard: number; pointer: number };
+  workVisual: Record<WorkVisual, number>;
+  activity: { work: number; meeting: number; idle: number };
+  bars: Array<{ label: string; keyboard: number; pointer: number }>;
+}
+export interface StatisticsPayload {
+  visibility: StatisticsVisibility;
+  generatedAt: string;
+  snapshots?: { day: StatisticsSnapshot; week: StatisticsSnapshot; month: StatisticsSnapshot };
+}
 export interface PlainEvent {
   id: string; version: 1; relationshipId: string; senderDeviceId: string; createdAt: string;
   senderUtcOffsetMinutes?: number;
-  kind: 'activity.segment' | 'interaction'; payload: ActivitySegment | InteractionPayload;
+  kind: 'activity.segment' | 'interaction' | 'statistics.snapshot';
+  payload: ActivitySegment | InteractionPayload | StatisticsPayload;
 }
 export interface EncryptedEnvelope {
   protocolVersion: 1; relationshipId: string; senderDeviceId: string; recipientDeviceId: string;

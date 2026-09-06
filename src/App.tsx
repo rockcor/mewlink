@@ -4,7 +4,7 @@ import { getCurrentWindow } from '@tauri-apps/api/window';
 import { v4 as uuid } from 'uuid';
 import { SettingsPanel, type UpdateViewState } from './components/SettingsPanel';
 import { StatisticsPanel } from './components/StatisticsPanel';
-import type { ActivityKind, BlanketStyle, CupStyle, InteractionKind, InteractionPayload, PlainEvent, StoredEvent, WorkVisual } from './domain/types';
+import type { ActivityKind, BlanketStyle, CupStyle, InteractionKind, InteractionPayload, PlainEvent, StatisticsPayload, StatisticsVisibility, StoredEvent, WorkVisual } from './domain/types';
 import { cupStyles } from './domain/types';
 import {
   clearPairing,
@@ -24,7 +24,7 @@ import { checkForUpdate } from './services/update';
 import { pruneEventsOlderThan, putEvent } from './storage/events';
 import { buildReplay } from './services/replay';
 import { animationDurationScale, effectiveUtcOffsetMinutes, loadPreferences, savePreferences } from './settings/preferences';
-import { flushStatistics, recordActivityStatistics, recordInputStatistics } from './statistics/statistics';
+import { currentStatisticsBundle, flushStatistics, recordActivityStatistics, recordInputStatistics } from './statistics/statistics';
 import { appCopy } from './i18n';
 import './styles.css';
 import './pet.css';
@@ -81,6 +81,7 @@ export default function App() {
   const statisticsActivityRef = useRef<ActivityKind>('work');
   const statisticsWorkVisualRef = useRef<WorkVisual>('web');
   const pairingRef = useRef<PairingState | undefined>(pairing);
+  const outboundQueueRef = useRef<Promise<unknown>>(Promise.resolve());
   const incomingInteractionRef = useRef<(action: InteractionKind, cup?: CupStyle, blanket?: BlanketStyle) => void>(() => undefined);
   const receiverUtcOffsetMinutes = effectiveUtcOffsetMinutes(preferences);
   const partnerUtcOffsetMinutes = useMemo(() => [...events].reverse().find(({ direction, event }) => direction === 'in' && event.senderUtcOffsetMinutes !== undefined)?.event.senderUtcOffsetMinutes, [events]);
@@ -90,6 +91,12 @@ export default function App() {
     () => preferences.replayEnabled ? buildReplay(events, receiverUtcOffsetMinutes, preferences.timezoneMode !== 'off', preferences.language) : [],
     [events, preferences.language, preferences.replayEnabled, preferences.timezoneMode, receiverUtcOffsetMinutes]
   );
+  const partnerStatisticsSnapshots = useMemo(() => {
+    const latest = [...events].reverse().find(({ direction, event }) => direction === 'in' && event.kind === 'statistics.snapshot');
+    if (!latest) return undefined;
+    const payload = latest.event.payload as StatisticsPayload;
+    return payload.visibility === 'partner' ? payload.snapshots : undefined;
+  }, [events]);
   const current = playing ? replay[frame] : undefined;
   const partnerActivity = current?.activity ?? 'rest';
   const visualInputKind = visualInputForActivity(activity, keyboardPressed, pointerPressed);
@@ -126,9 +133,58 @@ export default function App() {
     setPairing(next);
   }, []);
 
+  const enqueueEncryptedEvent = useCallback((createEvent: (active: PairingState) => PlainEvent) => {
+    const task = outboundQueueRef.current.then(async () => {
+      const active = pairingRef.current;
+      if (!active?.partnerDeviceId) throw new Error('pairing_required');
+      const result = await sendEncryptedEvent(active, createEvent(active));
+      persistPairing(result.state);
+      await putEvent(result.stored);
+      setEvents(currentEvents => currentEvents.some(item => item.event.id === result.stored.event.id)
+        ? currentEvents
+        : [...currentEvents, result.stored]);
+      return result.stored;
+    });
+    outboundQueueRef.current = task.then(() => undefined, () => undefined);
+    return task;
+  }, [persistPairing]);
+
+  const publishStatistics = useCallback((visibility: StatisticsVisibility) => enqueueEncryptedEvent(active => {
+    const generatedAt = new Date().toISOString();
+    const payload: StatisticsPayload = visibility === 'partner'
+      ? { visibility, generatedAt, snapshots: currentStatisticsBundle() }
+      : { visibility, generatedAt };
+    return {
+      id: uuid(),
+      version: 1,
+      relationshipId: active.relationshipId,
+      senderDeviceId: active.deviceId,
+      createdAt: generatedAt,
+      senderUtcOffsetMinutes: localUtcOffsetMinutes(),
+      kind: 'statistics.snapshot',
+      payload
+    };
+  }), [enqueueEncryptedEvent]);
+
   useEffect(() => {
     void pruneEventsOlderThan(preferences.replayRetentionHours).then(setEvents);
   }, [preferences.replayRetentionHours]);
+  useEffect(() => {
+    if (!pairing?.partnerDeviceId) return;
+    let delivered = false;
+    const publish = () => {
+      void publishStatistics(preferences.statisticsVisibility).then(() => { delivered = true; }, () => undefined);
+    };
+    publish();
+    if (preferences.statisticsVisibility === 'private') {
+      const retryTimer = window.setInterval(() => { if (!delivered) publish(); }, 30_000);
+      return () => window.clearInterval(retryTimer);
+    }
+    const timer = window.setInterval(() => {
+      void publishStatistics('partner').catch(() => undefined);
+    }, 5 * 60_000);
+    return () => window.clearInterval(timer);
+  }, [pairing?.partnerDeviceId, pairing?.relationshipId, preferences.statisticsVisibility, publishStatistics]);
   useEffect(() => {
     if (!isTauriWindow) return;
     const appWindow = getCurrentWindow();
@@ -412,21 +468,17 @@ export default function App() {
       setPairingStatus(text.pairFirst);
       return;
     }
-    const event: PlainEvent = {
-      id: uuid(),
-      version: 1,
-      relationshipId: active.relationshipId,
-      senderDeviceId: active.deviceId,
-      createdAt: new Date().toISOString(),
-      senderUtcOffsetMinutes: localUtcOffsetMinutes(),
-      kind: 'interaction',
-      payload: { action, ...(action === 'water' ? { cupStyle } : { blanketStyle: preferences.blanketStyle }) }
-    };
     try {
-      const result = await sendEncryptedEvent(active, event);
-      persistPairing(result.state);
-      await putEvent(result.stored);
-      setEvents(currentEvents => [...currentEvents, result.stored]);
+      await enqueueEncryptedEvent(currentPairing => ({
+        id: uuid(),
+        version: 1,
+        relationshipId: currentPairing.relationshipId,
+        senderDeviceId: currentPairing.deviceId,
+        createdAt: new Date().toISOString(),
+        senderUtcOffsetMinutes: localUtcOffsetMinutes(),
+        kind: 'interaction',
+        payload: { action, ...(action === 'water' ? { cupStyle } : { blanketStyle: preferences.blanketStyle }) }
+      }));
       showGesture(action, action === 'hug' ? text.hugSent : text.cupSent(text.cups[cupStyle].label), 'partner', {
         cupStyle,
         blanketStyle: preferences.blanketStyle,
@@ -597,7 +649,14 @@ export default function App() {
           onCupStyleChange={setCupStyle}
           onClose={() => setSettingsOpen(false)}
         />}
-        {statisticsOpen && <StatisticsPanel language={preferences.language} onClose={() => setStatisticsOpen(false)} />}
+        {statisticsOpen && <StatisticsPanel
+          language={preferences.language}
+          connected={connected}
+          visibility={preferences.statisticsVisibility}
+          partnerSnapshots={partnerStatisticsSnapshots}
+          onVisibilityChange={statisticsVisibility => setPreferences(currentPreferences => ({ ...currentPreferences, statisticsVisibility }))}
+          onClose={() => setStatisticsOpen(false)}
+        />}
       </section>
     </main>
   );

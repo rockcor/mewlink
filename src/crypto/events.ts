@@ -24,11 +24,49 @@ function isPlainEvent(value: unknown): value is PlainEvent {
   if (event.kind === 'interaction') {
     return payload.action === 'water' || payload.action === 'hug';
   }
-  return event.kind === 'activity.segment'
-    && typeof payload.category === 'string'
-    && ['work', 'meeting', 'leisure', 'idle', 'rest', 'coding', 'reading', 'video', 'browsing'].includes(payload.category)
-    && typeof payload.startedAt === 'string'
-    && typeof payload.endedAt === 'string';
+  if (event.kind === 'activity.segment') {
+    return typeof payload.category === 'string'
+      && ['work', 'meeting', 'leisure', 'idle', 'rest', 'coding', 'reading', 'video', 'browsing'].includes(payload.category)
+      && typeof payload.startedAt === 'string'
+      && typeof payload.endedAt === 'string';
+  }
+  if (event.kind !== 'statistics.snapshot'
+    || (payload.visibility !== 'private' && payload.visibility !== 'partner')
+    || typeof payload.generatedAt !== 'string') return false;
+  if (payload.visibility === 'private') return payload.snapshots === undefined;
+  if (!payload.snapshots || typeof payload.snapshots !== 'object') return false;
+  const snapshots = payload.snapshots as Record<string, unknown>;
+  return isStatisticsSnapshot(snapshots.day, 6)
+    && isStatisticsSnapshot(snapshots.week, 7)
+    && isStatisticsSnapshot(snapshots.month, 5);
+}
+
+function isNonNegativeNumber(value: unknown): value is number {
+  return typeof value === 'number' && Number.isFinite(value) && value >= 0 && value <= 1_000_000_000;
+}
+
+function isNumberRecord(value: unknown, keys: string[]): boolean {
+  if (!value || typeof value !== 'object') return false;
+  const record = value as Record<string, unknown>;
+  return keys.every(key => isNonNegativeNumber(record[key]));
+}
+
+function isStatisticsSnapshot(value: unknown, expectedBars: number): boolean {
+  if (!value || typeof value !== 'object') return false;
+  const snapshot = value as Record<string, unknown>;
+  if (!isNumberRecord(snapshot.input, ['keyboard', 'pointer'])
+    || !isNumberRecord(snapshot.workVisual, ['code', 'document', 'web'])
+    || !isNumberRecord(snapshot.activity, ['work', 'meeting', 'idle'])
+    || !Array.isArray(snapshot.bars)
+    || snapshot.bars.length !== expectedBars) return false;
+  return snapshot.bars.every(bar => {
+    if (!bar || typeof bar !== 'object') return false;
+    const item = bar as Record<string, unknown>;
+    return typeof item.label === 'string'
+      && item.label.length <= 20
+      && isNonNegativeNumber(item.keyboard)
+      && isNonNegativeNumber(item.pointer);
+  });
 }
 
 export async function encryptEvent(event: PlainEvent, recipientDeviceId: string, sequence: number, key: Uint8Array, keyId = 'demo-session'): Promise<EncryptedEnvelope> {

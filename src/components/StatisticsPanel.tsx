@@ -1,9 +1,14 @@
 import { useEffect, useState, type CSSProperties } from 'react';
+import type { StatisticsSnapshot, StatisticsVisibility } from '../domain/types';
 import type { Language } from '../settings/preferences';
 import { currentStatistics, statisticsRanges, type StatisticsRange } from '../statistics/statistics';
 
 interface StatisticsPanelProps {
   language: Language;
+  connected: boolean;
+  visibility: StatisticsVisibility;
+  partnerSnapshots?: { day: StatisticsSnapshot; week: StatisticsSnapshot; month: StatisticsSnapshot };
+  onVisibilityChange: (visibility: StatisticsVisibility) => void;
   onClose: () => void;
 }
 
@@ -13,16 +18,30 @@ const copy = {
     input: '键盘与鼠标', keyboard: '键盘敲击', pointer: '鼠标 / 触控板', times: '次',
     workVisual: '三类工作时间', code: '代码', document: '文档', web: '网页',
     activity: '时间分布', work: '工作', meeting: '会议', idle: '空闲',
-    noData: '开始使用后，这里会出现你的节奏', weekdays: ['日', '一', '二', '三', '四', '五', '六']
+    noData: '开始使用后，这里会出现你的节奏', partnerNoData: 'TA 尚未分享统计',
+    mine: '我的', partner: 'TA 的', visibility: '谁可以看', private: '仅自己', shared: '对 TA 可见',
+    shareAfterPairing: '连接后会自动分享汇总', weekdays: ['日', '一', '二', '三', '四', '五', '六']
   },
   en: {
     title: 'Statistics', close: 'Close statistics', ranges: { day: 'Day', week: 'Week', month: 'Month' },
     input: 'Keyboard & pointer', keyboard: 'Keystrokes', pointer: 'Mouse / trackpad', times: '',
     workVisual: 'Work time by view', code: 'Code', document: 'Documents', web: 'Web',
     activity: 'Time split', work: 'Work', meeting: 'Meetings', idle: 'Free',
-    noData: 'Your rhythm will appear here as you use MewLink', weekdays: ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
+    noData: 'Your rhythm will appear here as you use MewLink', partnerNoData: 'Your partner has not shared statistics',
+    mine: 'Mine', partner: "Partner's", visibility: 'Who can see', private: 'Only me', shared: 'Visible to partner',
+    shareAfterPairing: 'Your summary will share after pairing', weekdays: ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
   }
 } as const;
+
+function emptySnapshot(range: StatisticsRange): StatisticsSnapshot {
+  const count = range === 'day' ? 6 : range === 'week' ? 7 : 5;
+  return {
+    input: { keyboard: 0, pointer: 0 },
+    workVisual: { code: 0, document: 0, web: 0 },
+    activity: { work: 0, meeting: 0, idle: 0 },
+    bars: Array.from({ length: count }, (_, index) => ({ label: String(index), keyboard: 0, pointer: 0 }))
+  };
+}
 
 function durationLabel(milliseconds: number, language: Language): string {
   if (milliseconds <= 0) return language === 'zh' ? '0 分钟' : '0 min';
@@ -62,15 +81,19 @@ function PieChart({ values, colors, label, center }: { values: number[]; colors:
   return <div className="statistics-pie" role="img" aria-label={label} style={{ '--pie-fill': `conic-gradient(${stops})` } as CSSProperties}><b>{center}</b></div>;
 }
 
-export function StatisticsPanel({ language, onClose }: StatisticsPanelProps) {
+export function StatisticsPanel({ language, connected, visibility, partnerSnapshots, onVisibilityChange, onClose }: StatisticsPanelProps) {
   const text = copy[language];
   const [range, setRange] = useState<StatisticsRange>('day');
+  const [owner, setOwner] = useState<'self' | 'partner'>('self');
   const [, setRevision] = useState(0);
   useEffect(() => {
     const timer = window.setInterval(() => setRevision(value => value + 1), 2_000);
     return () => window.clearInterval(timer);
   }, []);
-  const snapshot = currentStatistics(range);
+  useEffect(() => {
+    if (!connected) setOwner('self');
+  }, [connected]);
+  const snapshot = owner === 'self' ? currentStatistics(range) : partnerSnapshots?.[range] ?? emptySnapshot(range);
   const hasData = snapshot.input.keyboard + snapshot.input.pointer
     + Object.values(snapshot.workVisual).reduce((sum, value) => sum + value, 0)
     + Object.values(snapshot.activity).reduce((sum, value) => sum + value, 0) > 0;
@@ -89,7 +112,21 @@ export function StatisticsPanel({ language, onClose }: StatisticsPanelProps) {
     </header>
 
     <div className="settings-scroll statistics-scroll">
-      {!hasData && <div className="statistics-empty"><span>⌁</span><p>{text.noData}</p></div>}
+      <div className="statistics-controls">
+        <div className="mini-tabs statistics-owner" role="group" aria-label={text.title}>
+          <button type="button" className={owner === 'self' ? 'selected' : ''} onClick={() => setOwner('self')}>{text.mine}</button>
+          {connected && <button type="button" className={owner === 'partner' ? 'selected' : ''} onClick={() => setOwner('partner')}>{text.partner}</button>}
+        </div>
+        <div className="statistics-visibility-row">
+          <span>{text.visibility}</span>
+          <div className="mini-tabs statistics-visibility" role="group" aria-label={text.visibility}>
+            <button type="button" className={visibility === 'private' ? 'selected' : ''} onClick={() => onVisibilityChange('private')}>{text.private}</button>
+            <button type="button" className={visibility === 'partner' ? 'selected' : ''} onClick={() => onVisibilityChange('partner')}>{text.shared}</button>
+          </div>
+        </div>
+        {!connected && visibility === 'partner' && <small className="statistics-share-note">{text.shareAfterPairing}</small>}
+      </div>
+      {!hasData && <div className="statistics-empty"><span>⌁</span><p>{owner === 'partner' ? text.partnerNoData : text.noData}</p></div>}
       <article className="statistics-card input-card">
         <div className="statistics-card-title"><b>{text.input}</b><div className="statistics-legend"><span className="keyboard-dot">{text.keyboard}</span><span className="pointer-dot">{text.pointer}</span></div></div>
         <div className="input-totals"><strong>{snapshot.input.keyboard.toLocaleString()}<small>{text.times}</small></strong><i /><strong>{snapshot.input.pointer.toLocaleString()}<small>{text.times}</small></strong></div>
