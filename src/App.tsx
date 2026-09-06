@@ -16,8 +16,9 @@ import {
   savePairing,
   type PairingState,
 } from './pairing/pairing';
-import { activityProbe, classify, inputChangesForSequence, inputProbe, keyboardEventsForSequence, nextSampleDelay, POINTER_ANIMATION_HOLD_MS, POINTER_EVENTS_PER_ANIMATION, pointerClicksForSequence, pointerEventsForSequence, shouldAnimatePointer, visualInputForActivity, workVisualFor, type InputSignal } from './platform/activity';
+import { activityProbe, classify, demoInitialActivity, demoInitialWorkVisual, inputChangesForSequence, inputProbe, keyboardEventsForSequence, nextSampleDelay, POINTER_ANIMATION_HOLD_MS, POINTER_EVENTS_PER_ANIMATION, pointerClicksForSequence, pointerEventsForSequence, shouldAnimatePointer, visualInputForActivity, workVisualFor, type InputSignal } from './platform/activity';
 import { ACTIVITY_TRANSITION_MS, gestureFor, waterDrinkDelay, type GestureVariant } from './pet/interaction';
+import { transitionAssetName, useActivityPlayback } from './pet/activityPlayback';
 import { localUtcOffsetMinutes } from './platform/clock';
 import { registerPairCreator, registerPairJoiner, sendEncryptedEvent, syncEncryptedEvents } from './services/relayTransport';
 import { checkForUpdate, installUpdate } from './services/update';
@@ -45,12 +46,10 @@ function loadPendingCup(): { target: 'self' | 'partner'; style: CupStyle; placed
 }
 
 export default function App() {
-  const [activity, setActivity] = useState<ActivityKind>('work');
-  const [workVisual, setWorkVisual] = useState<WorkVisual>('web');
+  const [activity, setActivity] = useState<ActivityKind>(demoInitialActivity ?? 'work');
+  const [workVisual, setWorkVisual] = useState<WorkVisual>(demoInitialWorkVisual);
   const [keyboardPressed, setKeyboardPressed] = useState(false);
   const [pointerPressed, setPointerPressed] = useState(false);
-  const [selfTransition, setSelfTransition] = useState<{ from: ActivityKind; to: ActivityKind }>();
-  const [partnerTransition, setPartnerTransition] = useState<{ from: ActivityKind; to: ActivityKind }>();
   const [events, setEvents] = useState<StoredEvent[]>([]);
   const [playing, setPlaying] = useState(false);
   const [frame, setFrame] = useState(0);
@@ -78,8 +77,6 @@ export default function App() {
   const gestureTimer = useRef<number | undefined>(undefined);
   const noticeTimer = useRef<number | undefined>(undefined);
   const pendingUpdateRef = useRef<Update | undefined>(undefined);
-  const selfActivityRef = useRef<ActivityKind>('work');
-  const partnerActivityRef = useRef<ActivityKind>('rest');
   const statisticsActivityRef = useRef<ActivityKind>('work');
   const statisticsWorkVisualRef = useRef<WorkVisual>('web');
   const pairingRef = useRef<PairingState | undefined>(pairing);
@@ -88,7 +85,7 @@ export default function App() {
   const receiverUtcOffsetMinutes = effectiveUtcOffsetMinutes(preferences);
   const partnerUtcOffsetMinutes = useMemo(() => [...events].reverse().find(({ direction, event }) => direction === 'in' && event.senderUtcOffsetMinutes !== undefined)?.event.senderUtcOffsetMinutes, [events]);
   const inviteCode = pairing && !pairing.partnerDeviceId ? pairingInviteCode(pairing) : '';
-  const durationScale = animationDurationScale(preferences.animationSpeed);
+  const durationScale = demoInitialActivity ? 0.2 : animationDurationScale(preferences.animationSpeed);
   const replay = useMemo(
     () => preferences.replayEnabled ? buildReplay(events, receiverUtcOffsetMinutes, preferences.timezoneMode !== 'off', preferences.language) : [],
     [events, preferences.language, preferences.replayEnabled, preferences.timezoneMode, receiverUtcOffsetMinutes]
@@ -102,6 +99,22 @@ export default function App() {
   const current = playing ? replay[frame] : undefined;
   const partnerActivity = current?.activity ?? 'rest';
   const visualInputKind = visualInputForActivity(activity, keyboardPressed, pointerPressed);
+  const selfPlayback = useActivityPlayback({
+    desiredActivity: activity,
+    desiredWorkVisual: workVisual,
+    initialActivity: demoInitialActivity ?? 'work',
+    initialWorkVisual: demoInitialWorkVisual,
+    workHandsSettled: visualInputKind === 'none',
+    transitionDurationMs: Math.round(ACTIVITY_TRANSITION_MS * durationScale),
+  });
+  const partnerPlayback = useActivityPlayback({
+    desiredActivity: partnerActivity,
+    desiredWorkVisual: 'web',
+    initialActivity: 'rest',
+    initialWorkVisual: 'web',
+    workHandsSettled: true,
+    transitionDurationMs: Math.round(ACTIVITY_TRANSITION_MS * durationScale),
+  });
   const defaultNotice = connected ? text.shortcut : text.soloShortcut;
   const motionStyle = useMemo(() => ({
     '--self-pet-scale': String(preferences.selfPetScalePercent / 100),
@@ -384,22 +397,6 @@ export default function App() {
     return () => clearInterval(timer);
   }, [durationScale, playing, replay.length]);
   useEffect(() => {
-    const previous = selfActivityRef.current;
-    if (previous === activity) return;
-    selfActivityRef.current = activity;
-    setSelfTransition({ from: previous, to: activity });
-    const timer = window.setTimeout(() => setSelfTransition(undefined), Math.round(ACTIVITY_TRANSITION_MS * durationScale));
-    return () => window.clearTimeout(timer);
-  }, [activity, durationScale]);
-  useEffect(() => {
-    const previous = partnerActivityRef.current;
-    if (previous === partnerActivity) return;
-    partnerActivityRef.current = partnerActivity;
-    setPartnerTransition({ from: previous, to: partnerActivity });
-    const timer = window.setTimeout(() => setPartnerTransition(undefined), Math.round(ACTIVITY_TRANSITION_MS * durationScale));
-    return () => window.clearTimeout(timer);
-  }, [durationScale, partnerActivity]);
-  useEffect(() => {
     if (!pendingCup) return;
     const timer = window.setTimeout(() => {
       setGesture({ variant: 'water-drink', target: pendingCup.target, cupStyle: pendingCup.style });
@@ -619,9 +616,17 @@ export default function App() {
         <div className="drag-handle" data-tauri-drag-region aria-label={text.drag}>•••</div>
         <div className={`pet-pair ${connected ? 'paired' : 'solo'} ${displayedGesture ? `interacting target-${displayedGesture.target} interaction-${displayedGesture.variant.startsWith('hug') ? 'hug' : 'water'}` : ''}`}>
           <div className="pet-avatar self-pet" aria-label={text.myPet(text.status[activity])} onPointerDown={startPetDrag} onContextMenu={event => openSizeMenu(event, 'self')}>
-            {selfTransition
-              ? <span className={`pet-sprite activity-transition transition-${selfTransition.from}-${selfTransition.to}`} aria-hidden="true" />
-              : <span className={`pet-sprite ${activity} ${activity === 'work' ? `work-${workVisual}` : ''} input-${visualInputKind}`} aria-hidden="true" />}
+            <span
+              className={`pet-sprite ${selfPlayback.displayedActivity} ${selfPlayback.displayedActivity === 'work' ? `work-${selfPlayback.displayedWorkVisual}` : ''} input-${selfPlayback.transition ? 'none' : visualInputKind} ${selfPlayback.transition ? 'transition-source-frame' : ''}`}
+              aria-hidden="true"
+              onAnimationIteration={selfPlayback.handleLoopBoundary}
+            />
+            {selfPlayback.transition && <span
+              key={selfPlayback.transition.key}
+              className={`pet-sprite activity-transition ${transitionAssetName(selfPlayback.transition)}`}
+              aria-hidden="true"
+              onAnimationEnd={() => selfPlayback.completeTransition(selfPlayback.transition!.key)}
+            />}
           </div>
           {connected && <button
             className="pet-avatar partner-pet"
@@ -631,9 +636,17 @@ export default function App() {
             onDoubleClick={handlePetDoubleClick}
             onContextMenu={event => openSizeMenu(event, 'partner')}
           >
-            {partnerTransition
-              ? <span className={`pet-sprite partner-sprite activity-transition transition-${partnerTransition.from}-${partnerTransition.to}`} aria-hidden="true" />
-              : <span className={`pet-sprite partner-sprite ${partnerActivity} ${partnerActivity === 'work' ? 'work-web' : ''} ${playing ? 'replaying' : ''}`} aria-hidden="true" />}
+            <span
+              className={`pet-sprite partner-sprite ${partnerPlayback.displayedActivity} ${partnerPlayback.displayedActivity === 'work' ? `work-${partnerPlayback.displayedWorkVisual}` : ''} input-none ${playing ? 'replaying' : ''} ${partnerPlayback.transition ? 'transition-source-frame' : ''}`}
+              aria-hidden="true"
+              onAnimationIteration={partnerPlayback.handleLoopBoundary}
+            />
+            {partnerPlayback.transition && <span
+              key={partnerPlayback.transition.key}
+              className={`pet-sprite partner-sprite activity-transition ${transitionAssetName(partnerPlayback.transition)}`}
+              aria-hidden="true"
+              onAnimationEnd={() => partnerPlayback.completeTransition(partnerPlayback.transition!.key)}
+            />}
           </button>}
           {displayedGesture && <span className={`interaction-sprite ${displayedGesture.variant} target-${displayedGesture.target} cup-${displayedGesture.cupStyle ?? 'ceramic'} blanket-${displayedGesture.blanketStyle ?? preferences.blanketStyle}`} aria-hidden="true" />}
           {pendingCup && <span className={`waiting-cup target-${pendingCup.target} ${pendingCup.style}`} aria-label={text.water}><i /><i /></span>}

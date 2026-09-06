@@ -34,7 +34,9 @@ end
 
 local animations = {}
 local function add(name, loop, frames, smooth)
-  table.insert(animations, { name = name, loop = loop, frames = frames, smooth = smooth ~= false })
+  local animation = { name = name, loop = loop, frames = frames, smooth = smooth ~= false }
+  table.insert(animations, animation)
+  return animation
 end
 local function four(prefix, durations)
   local result = {}
@@ -95,6 +97,22 @@ local statePeak = {
   idle = "peak_idle",
   rest = "peak_rest",
 }
+local stateLoopLast = {
+  meeting = "peak_meeting",
+  leisure = "peak_video",
+  idle = "base_idle",
+  rest = "peak_rest",
+}
+local workVisualBase = {
+  code = "code_input_none",
+  document = "document_input_none",
+  web = "web_input_none",
+}
+local workVisualPeak = {
+  code = "code_input_both",
+  document = "document_input_both",
+  web = "web_input_both",
+}
 local bridgeOut = {
   work = "bridge_active_to_idle",
   meeting = "bridge_active_to_idle",
@@ -110,18 +128,40 @@ local bridgeIn = {
   rest = "bridge_browsing_to_rest",
 }
 local states = { "work", "meeting", "leisure", "idle", "rest" }
+local function frameFor(stateFrames, workFrames, state, workVisual)
+  if state == "work" then return workFrames[workVisual or "code"] end
+  return stateFrames[state]
+end
+
+local function addTransition(name, from, to, fromWorkVisual, toWorkVisual)
+  local animation = add(name, false, {
+    { frameFor(stateBase, workVisualBase, from, fromWorkVisual), 800 },
+    { frameFor(statePeak, workVisualPeak, from, fromWorkVisual), 800 },
+    { bridgeOut[from], 800 },
+    { bridgeIn[to], 800 },
+    { frameFor(statePeak, workVisualPeak, to, toWorkVisual), 800 },
+    { frameFor(stateBase, workVisualBase, to, toWorkVisual), 800 },
+  })
+  animation.transitionFrom = from
+  animation.transitionFromWorkVisual = fromWorkVisual
+end
+
 for _, from in ipairs(states) do
   for _, to in ipairs(states) do
     if from ~= to then
-      add("transition-" .. from .. "-" .. to, false, {
-        { stateBase[from], 800 },
-        { statePeak[from], 800 },
-        { bridgeOut[from], 800 },
-        { bridgeIn[to], 800 },
-        { statePeak[to], 800 },
-        { stateBase[to], 800 },
-      })
+      addTransition("transition-" .. from .. "-" .. to, from, to)
     end
+  end
+end
+
+
+-- Work keeps the currently classified monitor content while its hands settle.
+-- The generic transition uses the code screen; document and web get exact
+-- variants so changing activity never swaps the monitor before motion begins.
+for _, state in ipairs({ "meeting", "leisure", "idle", "rest" }) do
+  for _, visual in ipairs({ "document", "web" }) do
+    addTransition("transition-work-" .. visual .. "-" .. state, "work", state, visual, nil)
+    addTransition("transition-" .. state .. "-work-" .. visual, state, "work", nil, visual)
   end
 end
 
@@ -171,6 +211,20 @@ local function expandedFrames(animation)
     local halfDuration = frameSpec[2] / 2
     table.insert(result, { image = source(frameSpec[1]), duration = halfDuration })
     table.insert(result, { image = blended(frameSpec[1], nextSpec[1]), duration = halfDuration })
+  end
+  if animation.transitionFrom then
+    local from = animation.transitionFrom
+    local exitImage
+    if from == "work" then
+      exitImage = source(workVisualBase[animation.transitionFromWorkVisual or "code"])
+    else
+      -- Activity loops finish on the generated peak-to-base in-between. Use
+      -- that exact bitmap as the transition's first frame.
+      exitImage = blended(stateLoopLast[from], stateBase[from])
+    end
+    table.insert(result, 1, { image = exitImage, duration = 0 })
+    local duration = 4800 / #result
+    for _, frameSpec in ipairs(result) do frameSpec.duration = duration end
   end
   return result
 end

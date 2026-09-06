@@ -27,55 +27,98 @@
 .pet-sprite.meeting {
   background-image: url('/pets/animations/meeting.png');
   background-size: 800% 100%;
-  animation: sprite-loop-8 var(--pet-meeting-duration, 2500ms) steps(7, end) infinite;
+  animation: sprite-loop-8 var(--pet-meeting-duration, 2500ms) linear infinite;
 }
 .pet-sprite.leisure {
   background-image: url('/pets/animations/leisure.png');
   background-size: 800% 100%;
-  animation: sprite-loop-8 var(--pet-video-duration, 2900ms) steps(7, end) infinite;
+  animation: sprite-loop-8 var(--pet-video-duration, 2900ms) linear infinite;
 }
 .pet-sprite.idle {
   background-image: url('/pets/animations/idle.png');
   background-size: 800% 100%;
-  animation: sprite-loop-8 var(--pet-idle-duration, 3800ms) steps(7, end) infinite;
+  animation: sprite-loop-8 var(--pet-idle-duration, 3800ms) linear infinite;
 }
 .pet-sprite.rest {
   background-image: url('/pets/animations/rest.png');
   background-size: 800% 100%;
-  animation: sprite-loop-8 var(--pet-rest-duration, 4300ms) steps(7, end) infinite;
+  animation: sprite-loop-8 var(--pet-rest-duration, 4300ms) linear infinite;
 }
 .pet-sprite.replaying { filter: drop-shadow(0 13px 10px rgba(86, 45, 67, .16)) saturate(1.08); }
 
-@keyframes sprite-loop-8 { from { background-position: 0 0; } to { background-position: 100% 0; } }
+@keyframes sprite-loop-8 {
+  0%, 12.499% { background-position: 0 0; }
+  12.5%, 24.999% { background-position: 14.285714% 0; }
+  25%, 37.499% { background-position: 28.571429% 0; }
+  37.5%, 49.999% { background-position: 42.857143% 0; }
+  50%, 62.499% { background-position: 57.142857% 0; }
+  62.5%, 74.999% { background-position: 71.428571% 0; }
+  75%, 87.499% { background-position: 85.714286% 0; }
+  87.5%, 100% { background-position: 100% 0; }
+}
+
+/* Freeze the outgoing loop on the exact bitmap copied into transition frame 1. */
+.pet-sprite.transition-source-frame { animation: none; background-position: 100% 0; }
+.pet-sprite.work.transition-source-frame { background-position: 0 0; }
 
 /* Every ordered pair is its own 4.8 second Aseprite transition strip. */
 .pet-sprite.activity-transition {
   z-index: 3;
-  background-size: 1200% 100%;
-  animation: sprite-transition-12 var(--activity-transition-duration, 4800ms) steps(11, end) both;
+  background-size: 1300% 100%;
+  animation: sprite-transition-13 var(--activity-transition-duration, 4800ms) linear both;
 }
 .transition-work-meeting { background-image: url('/pets/animations/transition-work-meeting.png'); }
 .transition-work-leisure { background-image: url('/pets/animations/transition-work-leisure.png'); }
 .transition-work-idle { background-image: url('/pets/animations/transition-work-idle.png'); }
 .transition-work-rest { background-image: url('/pets/animations/transition-work-rest.png'); }
+.transition-work-document-meeting { background-image: url('/pets/animations/transition-work-document-meeting.png'); }
+.transition-work-document-leisure { background-image: url('/pets/animations/transition-work-document-leisure.png'); }
+.transition-work-document-idle { background-image: url('/pets/animations/transition-work-document-idle.png'); }
+.transition-work-document-rest { background-image: url('/pets/animations/transition-work-document-rest.png'); }
+.transition-work-web-meeting { background-image: url('/pets/animations/transition-work-web-meeting.png'); }
+.transition-work-web-leisure { background-image: url('/pets/animations/transition-work-web-leisure.png'); }
+.transition-work-web-idle { background-image: url('/pets/animations/transition-work-web-idle.png'); }
+.transition-work-web-rest { background-image: url('/pets/animations/transition-work-web-rest.png'); }
 .transition-meeting-work { background-image: url('/pets/animations/transition-meeting-work.png'); }
 .transition-meeting-leisure { background-image: url('/pets/animations/transition-meeting-leisure.png'); }
 .transition-meeting-idle { background-image: url('/pets/animations/transition-meeting-idle.png'); }
 .transition-meeting-rest { background-image: url('/pets/animations/transition-meeting-rest.png'); }
+.transition-meeting-work-document { background-image: url('/pets/animations/transition-meeting-work-document.png'); }
+.transition-meeting-work-web { background-image: url('/pets/animations/transition-meeting-work-web.png'); }
 .transition-leisure-work { background-image: url('/pets/animations/transition-leisure-work.png'); }
 .transition-leisure-meeting { background-image: url('/pets/animations/transition-leisure-meeting.png'); }
 .transition-leisure-idle { background-image: url('/pets/animations/transition-leisure-idle.png'); }
 .transition-leisure-rest { background-image: url('/pets/animations/transition-leisure-rest.png'); }
+.transition-leisure-work-document { background-image: url('/pets/animations/transition-leisure-work-document.png'); }
+.transition-leisure-work-web { background-image: url('/pets/animations/transition-leisure-work-web.png'); }
 .transition-idle-work { background-image: url('/pets/animations/transition-idle-work.png'); }
 .transition-idle-meeting { background-image: url('/pets/animations/transition-idle-meeting.png'); }
 .transition-idle-leisure { background-image: url('/pets/animations/transition-idle-leisure.png'); }
 .transition-idle-rest { background-image: url('/pets/animations/transition-idle-rest.png'); }
+.transition-idle-work-document { background-image: url('/pets/animations/transition-idle-work-document.png'); }
+.transition-idle-work-web { background-image: url('/pets/animations/transition-idle-work-web.png'); }
 .transition-rest-work { background-image: url('/pets/animations/transition-rest-work.png'); }
 .transition-rest-meeting { background-image: url('/pets/animations/transition-rest-meeting.png'); }
 .transition-rest-leisure { background-image: url('/pets/animations/transition-rest-leisure.png'); }
 .transition-rest-idle { background-image: url('/pets/animations/transition-rest-idle.png'); }
+.transition-rest-work-document { background-image: url('/pets/animations/transition-rest-work-document.png'); }
+.transition-rest-work-web { background-image: url('/pets/animations/transition-rest-work-web.png'); }
 
-@keyframes sprite-transition-12 { from { background-position: 0 0; } to { background-position: 100% 0; } }
+@keyframes sprite-transition-13 {
+  0%, 7.691% { background-position: 0 0; }
+  7.692%, 15.383% { background-position: 8.333333% 0; }
+  15.384%, 23.075% { background-position: 16.666667% 0; }
+  23.076%, 30.767% { background-position: 25% 0; }
+  30.768%, 38.459% { background-position: 33.333333% 0; }
+  38.46%, 46.151% { background-position: 41.666667% 0; }
+  46.152%, 53.843% { background-position: 50% 0; }
+  53.844%, 61.535% { background-position: 58.333333% 0; }
+  61.536%, 69.227% { background-position: 66.666667% 0; }
+  69.228%, 76.919% { background-position: 75% 0; }
+  76.92%, 84.611% { background-position: 83.333333% 0; }
+  84.612%, 92.307% { background-position: 91.666667% 0; }
+  92.308%, 100% { background-position: 100% 0; }
+}
 
 .interaction-sprite {
   position: absolute;

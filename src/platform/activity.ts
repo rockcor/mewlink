@@ -77,6 +77,24 @@ const demoInput = {
   pointerClickSequence: 0,
 };
 
+const demoActivityClass: Record<ActivityKind, NonNullable<PresenceSignal['appClass']>> = {
+  work: 'editor',
+  meeting: 'meeting',
+  leisure: 'media',
+  idle: 'unknown',
+  rest: 'unknown',
+};
+const demoTransitionPair = (() => {
+  if (typeof window === 'undefined' || !import.meta.env.DEV) return undefined;
+  const value = new URLSearchParams(window.location.search).get('transitionQa');
+  const match = value?.match(/^(work|meeting|leisure)-(work|meeting|leisure)$/);
+  if (!match || match[1] === match[2]) return undefined;
+  return { from: match[1] as ActivityKind, to: match[2] as ActivityKind, startedAt: Date.now() };
+})();
+
+export const demoInitialActivity = demoTransitionPair?.from;
+export const demoInitialWorkVisual: WorkVisual = demoTransitionPair?.from === 'work' ? 'code' : 'web';
+
 if (typeof window !== 'undefined') {
   window.addEventListener('pointerdown', () => {
     demoInput.lastInput = Date.now();
@@ -99,6 +117,10 @@ if (typeof window !== 'undefined') {
 class DemoProbe implements ActivityProbe {
   private readonly demoClasses: NonNullable<PresenceSignal['appClass']>[] = ['editor', 'reader', 'meeting', 'media', 'browser'];
   async sample(): Promise<PresenceSignal> {
+    if (demoTransitionPair) {
+      const activity = Date.now() - demoTransitionPair.startedAt < 800 ? demoTransitionPair.from : demoTransitionPair.to;
+      return { idleSeconds: 0, locked: false, appClass: demoActivityClass[activity] };
+    }
     const demoFrame = Math.floor(Date.now() / 8_000) % this.demoClasses.length;
     const idleSeconds = (Date.now() - demoInput.lastInput) / 1000;
     return { idleSeconds, locked: document.visibilityState === 'hidden', appClass: this.demoClasses[demoFrame] };
