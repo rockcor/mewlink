@@ -126,10 +126,10 @@ for _, from in ipairs(states) do
 end
 
 add("website-replay", true, {
-  { "code_input_none", 667 }, { "code_input_both", 667 }, { "bridge_active_to_idle", 667 },
-  { "base_meeting", 667 }, { "peak_meeting", 667 }, { "bridge_meeting_to_video", 667 },
-  { "base_video", 667 }, { "peak_video", 667 }, { "bridge_active_to_idle", 667 },
-  { "base_rest", 667 }, { "peak_rest", 667 }, { "bridge_rest_to_coding", 661 },
+  { "code_input_none", 667 }, { "code_input_both", 667 }, { "web_input_none", 667 },
+  { "web_input_pointer", 667 }, { "base_meeting", 667 }, { "peak_meeting", 667 },
+  { "bridge_meeting_to_video", 667 }, { "base_video", 667 }, { "peak_video", 667 },
+  { "bridge_active_to_idle", 667 }, { "base_rest", 667 }, { "peak_rest", 661 },
 })
 
 local function prepareMotionTweens()

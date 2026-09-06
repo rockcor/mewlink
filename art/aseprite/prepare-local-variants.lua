@@ -11,8 +11,11 @@ local mint = app.pixelColor.rgba(125, 205, 188, 255)
 local white = app.pixelColor.rgba(255, 255, 255, 235)
 local codeBackground = app.pixelColor.rgba(28, 25, 55, 255)
 local codePanel = app.pixelColor.rgba(53, 43, 82, 255)
+local codeGutter = app.pixelColor.rgba(45, 35, 72, 255)
 local webBackground = app.pixelColor.rgba(240, 250, 255, 255)
 local webChrome = app.pixelColor.rgba(96, 155, 205, 255)
+local webInk = app.pixelColor.rgba(68, 105, 145, 255)
+local webSun = app.pixelColor.rgba(255, 214, 111, 255)
 local transparent = app.pixelColor.rgba(0, 0, 0, 0)
 
 local function load(name) return Image { fromFile = frames .. name .. ".png" } end
@@ -29,50 +32,85 @@ end
 local function dot(image, x, y, size, color) fill(image, x, y, size, size, color) end
 
 local function screenVariant(image, kind)
-  fill(image, 48, 94, 108, 66, outline)
+  -- The monitor's actual inner display is 55,116 through 148,192. Keep every
+  -- scene inside that rectangle so no pixels from the source screen remain.
   if kind == "code" then
-    -- A nearly black editor with a gutter and dense syntax colors. Keep most
-    -- of the monitor dark so it stays distinct from the bright web scene at
-    -- the small on-desktop rendering size.
-    fill(image, 55, 101, 94, 52, codeBackground)
-    fill(image, 55, 101, 94, 9, codePanel)
-    dot(image, 60, 104, 3, blush)
-    dot(image, 67, 104, 3, cream)
-    dot(image, 74, 104, 3, mint)
-    fill(image, 58, 114, 12, 35, codePanel)
-    fill(image, 74, 115, 20, 4, blush)
-    fill(image, 98, 115, 31, 4, blue)
-    fill(image, 78, 123, 35, 4, mint)
-    fill(image, 117, 123, 22, 4, blue)
-    fill(image, 74, 131, 17, 4, cream)
-    fill(image, 95, 131, 37, 4, blush)
-    fill(image, 78, 139, 27, 4, blue)
-    fill(image, 109, 139, 30, 4, mint)
-    fill(image, 74, 147, 18, 3, blush)
-    fill(image, 96, 147, 26, 3, cream)
+    -- A nearly black editor with two tabs, a numbered gutter, a split pane,
+    -- and dense syntax colors. Large dark regions keep it unmistakable at the
+    -- small on-desktop rendering size.
+    fill(image, 55, 116, 94, 77, codeBackground)
+    fill(image, 55, 116, 94, 10, codePanel)
+    fill(image, 59, 118, 25, 7, codeBackground)
+    fill(image, 87, 119, 20, 6, codeGutter)
+    dot(image, 62, 120, 3, blush)
+    dot(image, 69, 120, 3, cream)
+    fill(image, 58, 128, 12, 61, codeGutter)
+    fill(image, 72, 128, 3, 61, codePanel)
+    -- Short bright gutter marks read as line numbers without tiny text.
+    fill(image, 61, 133, 5, 2, mint)
+    fill(image, 61, 144, 5, 2, blush)
+    fill(image, 61, 155, 5, 2, blue)
+    fill(image, 61, 166, 5, 2, cream)
+    fill(image, 61, 177, 5, 2, mint)
+    fill(image, 61, 187, 5, 2, blush)
+    -- Left editor pane.
+    fill(image, 78, 132, 12, 4, blush)
+    fill(image, 93, 132, 19, 4, blue)
+    fill(image, 83, 143, 25, 4, mint)
+    fill(image, 78, 154, 17, 4, cream)
+    fill(image, 98, 154, 14, 4, blush)
+    fill(image, 83, 165, 27, 4, blue)
+    fill(image, 78, 176, 20, 4, mint)
+    fill(image, 83, 187, 25, 3, blush)
+    -- A visibly separate terminal pane with a large prompt.
+    fill(image, 116, 128, 30, 61, codePanel)
+    fill(image, 120, 136, 4, 4, mint)
+    fill(image, 124, 140, 4, 4, mint)
+    fill(image, 129, 141, 11, 3, cream)
+    fill(image, 121, 153, 17, 3, blush)
+    fill(image, 121, 164, 12, 3, blue)
+    fill(image, 121, 175, 18, 3, cream)
+    fill(image, 121, 185, 14, 3, mint)
   elseif kind == "document" then
-    fill(image, 76, 100, 54, 54, cream)
-    fill(image, 84, 108, 35, 4, blush)
-    fill(image, 84, 119, 28, 3, blushDark)
-    fill(image, 84, 128, 37, 3, blush)
-    fill(image, 84, 137, 31, 3, blushDark)
+    fill(image, 55, 116, 94, 77, webBackground)
+    fill(image, 55, 116, 94, 12, blushDark)
+    fill(image, 55, 128, 20, 65, codePanel)
+    fill(image, 60, 135, 10, 4, blush)
+    fill(image, 60, 146, 8, 4, blue)
+    fill(image, 60, 157, 11, 4, mint)
+    fill(image, 60, 168, 8, 4, cream)
+    fill(image, 60, 179, 10, 4, blush)
+    fill(image, 79, 132, 64, 56, cream)
+    fill(image, 84, 138, 34, 5, blush)
+    fill(image, 84, 150, 50, 3, blushDark)
+    fill(image, 84, 160, 42, 3, blush)
+    fill(image, 84, 170, 48, 3, blushDark)
+    fill(image, 84, 180, 29, 3, blush)
   elseif kind == "web" then
-    -- A bright browser window with unmistakable chrome, address bar, large
-    -- image tile, and cards. Its overall value is deliberately opposite to
-    -- the dark code editor above.
-    fill(image, 55, 101, 94, 52, webBackground)
-    fill(image, 55, 101, 94, 11, webChrome)
-    dot(image, 60, 105, 3, blush)
-    dot(image, 67, 105, 3, cream)
-    fill(image, 75, 104, 68, 5, white)
-    fill(image, 60, 117, 52, 27, blue)
-    fill(image, 64, 121, 17, 14, cream)
-    fill(image, 85, 121, 22, 4, white)
-    fill(image, 85, 129, 17, 4, mint)
-    fill(image, 118, 117, 26, 8, blush)
-    fill(image, 118, 130, 26, 6, mint)
-    fill(image, 118, 141, 20, 5, webChrome)
-    fill(image, 60, 148, 52, 3, webChrome)
+    -- A bright browser with a thick tab strip, navigation buttons, address
+    -- bar, oversized image hero, and card column. Its layout and value are
+    -- deliberately opposite to the split dark editor above.
+    fill(image, 55, 116, 94, 77, webBackground)
+    fill(image, 55, 116, 94, 17, webChrome)
+    -- Raised active tab.
+    fill(image, 59, 117, 32, 7, white)
+    dot(image, 62, 119, 2, blush)
+    fill(image, 67, 119, 18, 2, webInk)
+    fill(image, 59, 126, 4, 4, white)
+    fill(image, 66, 126, 4, 4, white)
+    fill(image, 73, 125, 71, 6, white)
+    dot(image, 77, 127, 2, mint)
+    -- Large page hero makes this read as a website, not code lines.
+    fill(image, 59, 136, 55, 39, blue)
+    fill(image, 63, 141, 19, 27, webSun)
+    fill(image, 86, 141, 23, 5, white)
+    fill(image, 86, 151, 18, 4, white)
+    fill(image, 86, 161, 13, 4, mint)
+    -- Stacked cards and a wide footer block.
+    fill(image, 119, 136, 25, 12, blush)
+    fill(image, 119, 153, 25, 12, mint)
+    fill(image, 119, 170, 25, 12, webChrome)
+    fill(image, 59, 181, 55, 5, webInk)
   end
 end
 
