@@ -3,6 +3,7 @@ import { PhysicalPosition } from '@tauri-apps/api/dpi';
 import { getCurrentWindow } from '@tauri-apps/api/window';
 import { v4 as uuid } from 'uuid';
 import { SettingsPanel, type UpdateViewState } from './components/SettingsPanel';
+import { StatisticsPanel } from './components/StatisticsPanel';
 import type { ActivityKind, BlanketStyle, CupStyle, InteractionKind, InteractionPayload, PlainEvent, StoredEvent, WorkVisual } from './domain/types';
 import { cupStyles } from './domain/types';
 import {
@@ -15,7 +16,7 @@ import {
   savePairing,
   type PairingState,
 } from './pairing/pairing';
-import { activityProbe, classify, inputChangesForSequence, inputProbe, nextSampleDelay, POINTER_ANIMATION_HOLD_MS, POINTER_EVENTS_PER_ANIMATION, pointerEventsForSequence, shouldAnimatePointer, visualInputForActivity, workVisualFor, type InputSignal } from './platform/activity';
+import { activityProbe, classify, inputChangesForSequence, inputProbe, keyboardEventsForSequence, nextSampleDelay, POINTER_ANIMATION_HOLD_MS, POINTER_EVENTS_PER_ANIMATION, pointerEventsForSequence, shouldAnimatePointer, visualInputForActivity, workVisualFor, type InputSignal } from './platform/activity';
 import { ACTIVITY_TRANSITION_MS, gestureFor, waterDrinkDelay, type GestureVariant } from './pet/interaction';
 import { localUtcOffsetMinutes } from './platform/clock';
 import { registerPairCreator, registerPairJoiner, sendEncryptedEvent, syncEncryptedEvents } from './services/relayTransport';
@@ -23,6 +24,7 @@ import { checkForUpdate } from './services/update';
 import { pruneEventsOlderThan, putEvent } from './storage/events';
 import { buildReplay } from './services/replay';
 import { animationDurationScale, effectiveUtcOffsetMinutes, loadPreferences, savePreferences } from './settings/preferences';
+import { flushStatistics, recordActivityStatistics, recordInputStatistics } from './statistics/statistics';
 import { appCopy } from './i18n';
 import './styles.css';
 import './pet.css';
@@ -55,6 +57,7 @@ export default function App() {
   const [pendingCup, setPendingCup] = useState(loadPendingCup);
   const [sizeMenu, setSizeMenu] = useState<'self' | 'partner'>();
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [statisticsOpen, setStatisticsOpen] = useState(false);
   const [preferences, setPreferences] = useState(loadPreferences);
   const text = appCopy[preferences.language];
   const [updateState, setUpdateState] = useState<UpdateViewState>({ kind: 'idle', message: text.updateUnchecked });
@@ -75,6 +78,8 @@ export default function App() {
   const noticeTimer = useRef<number | undefined>(undefined);
   const selfActivityRef = useRef<ActivityKind>('work');
   const partnerActivityRef = useRef<ActivityKind>('rest');
+  const statisticsActivityRef = useRef<ActivityKind>('work');
+  const statisticsWorkVisualRef = useRef<WorkVisual>('web');
   const pairingRef = useRef<PairingState | undefined>(pairing);
   const incomingInteractionRef = useRef<(action: InteractionKind, cup?: CupStyle, blanket?: BlanketStyle) => void>(() => undefined);
   const receiverUtcOffsetMinutes = effectiveUtcOffsetMinutes(preferences);
@@ -221,6 +226,10 @@ export default function App() {
       if (stopped) return;
       if (previous) {
         const changes = inputChangesForSequence(previous, signal);
+        recordInputStatistics(
+          keyboardEventsForSequence(previous, signal),
+          pointerEventsForSequence(previous, signal)
+        );
         if (changes.keyboard) {
           setKeyboardPressed(current => !current);
           window.clearTimeout(keyboardReleaseTimer);
@@ -249,6 +258,25 @@ export default function App() {
       window.clearTimeout(timer);
       window.clearTimeout(keyboardReleaseTimer);
       window.clearTimeout(pointerReleaseTimer);
+    };
+  }, []);
+  useEffect(() => {
+    statisticsActivityRef.current = activity;
+    statisticsWorkVisualRef.current = workVisual;
+  }, [activity, workVisual]);
+  useEffect(() => {
+    let previousTick = Date.now();
+    const timer = window.setInterval(() => {
+      const now = Date.now();
+      recordActivityStatistics(statisticsActivityRef.current, statisticsWorkVisualRef.current, now - previousTick, now);
+      previousTick = now;
+    }, 1_000);
+    const flush = () => flushStatistics();
+    window.addEventListener('beforeunload', flush);
+    return () => {
+      window.clearInterval(timer);
+      window.removeEventListener('beforeunload', flush);
+      flushStatistics();
     };
   }, []);
   useEffect(() => { window.localStorage.setItem('mewlink.cupStyle', cupStyle); }, [cupStyle]);
@@ -379,6 +407,7 @@ export default function App() {
   async function send(action: InteractionKind) {
     const active = pairingRef.current;
     if (!active?.partnerDeviceId) {
+      setStatisticsOpen(false);
       setSettingsOpen(true);
       setPairingStatus(text.pairFirst);
       return;
@@ -476,7 +505,7 @@ export default function App() {
 
   return (
     <main className="desktop-pet" style={motionStyle}>
-      <section className={`pet-zone ${settingsOpen ? 'settings-open' : ''}`} aria-label={connected ? text.petZone : text.soloPetZone} lang={preferences.language === 'zh' ? 'zh-CN' : 'en'}>
+      <section className={`pet-zone ${settingsOpen || statisticsOpen ? 'settings-open' : ''}`} aria-label={connected ? text.petZone : text.soloPetZone} lang={preferences.language === 'zh' ? 'zh-CN' : 'en'}>
         <div className={`hover-ui ${connected ? 'paired' : 'solo'}`}>
           <div className="status-row" aria-live="polite">
             <div className="status-pill self-status">
@@ -503,7 +532,11 @@ export default function App() {
                 {text.replay}
               </button>
             )}
-            <button className="settings-action" type="button" onClick={() => setSettingsOpen(true)}>
+            <button className="statistics-action" type="button" onClick={() => { setSettingsOpen(false); setStatisticsOpen(true); }}>
+              <span aria-hidden="true">▥</span>
+              {text.statistics}
+            </button>
+            <button className="settings-action" type="button" onClick={() => { setStatisticsOpen(false); setSettingsOpen(true); }}>
               <span aria-hidden="true">⚙</span>
               {text.settings}
             </button>
@@ -564,6 +597,7 @@ export default function App() {
           onCupStyleChange={setCupStyle}
           onClose={() => setSettingsOpen(false)}
         />}
+        {statisticsOpen && <StatisticsPanel language={preferences.language} onClose={() => setStatisticsOpen(false)} />}
       </section>
     </main>
   );

@@ -647,6 +647,115 @@ button { font: inherit; }
 }
 .feedback-footer button:disabled { opacity: .45; cursor: not-allowed; }
 
+.statistics-header-actions {
+  display: flex !important;
+  grid-auto-flow: column;
+  align-items: center;
+  gap: 8px !important;
+}
+
+.statistics-header .statistics-range { display: flex; }
+.statistics-range button { min-width: 38px; }
+.statistics-scroll { padding: 10px 13px 17px; }
+
+.statistics-empty {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  margin-bottom: 8px;
+  padding: 7px 10px;
+  border-radius: 10px;
+  background: #f7edf1;
+  color: #9a7887;
+  font-size: 9px;
+}
+
+.statistics-empty span { color: #d986a5; font-size: 16px; }
+.statistics-empty p { margin: 0; }
+
+.statistics-card {
+  padding: 11px 12px;
+  border: 1px solid rgba(111, 64, 89, .09);
+  border-radius: 15px;
+  background: rgba(255, 255, 255, .78);
+  box-shadow: 0 7px 18px rgba(78, 46, 62, .05);
+}
+
+.statistics-card > b,
+.statistics-card-title > b { color: #664655; font-size: 11px; }
+.statistics-card-title { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.statistics-legend { display: flex; gap: 10px; }
+.statistics-legend span,
+.pie-legend > span { position: relative; padding-left: 9px; color: #927381; font-size: 7px; }
+.statistics-legend span::before,
+.pie-legend > span::before {
+  position: absolute;
+  top: 50%;
+  left: 0;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  content: '';
+  transform: translateY(-50%);
+}
+.keyboard-dot::before { background: #d96f98; }
+.pointer-dot::before { background: #72b7bd; }
+
+.input-totals {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: 7px;
+}
+.input-totals strong { color: #704b5e; font-size: 14px; }
+.input-totals strong:first-child { color: #bd5d84; }
+.input-totals strong:last-child { color: #4d969d; }
+.input-totals strong small { margin-left: 2px; font-size: 7px; font-weight: 650; }
+.input-totals > i { width: 1px; height: 12px; background: #eadde2; }
+
+.statistics-bars {
+  display: flex;
+  align-items: flex-end;
+  gap: 9px;
+  height: 67px;
+  margin-top: 7px;
+  padding-top: 4px;
+  border-bottom: 1px solid #eadfe3;
+}
+.statistics-bar-group { display: grid; flex: 1; height: 100%; grid-template-rows: 1fr 11px; gap: 2px; }
+.statistics-bar-pair { display: flex; align-items: flex-end; justify-content: center; gap: 3px; min-height: 0; }
+.statistics-bar-pair i { width: min(10px, 38%); min-height: 1px; border-radius: 4px 4px 1px 1px; transition: height 220ms ease; }
+.statistics-bar-pair .keyboard-bar { background: linear-gradient(#e591ae, #cf668e); }
+.statistics-bar-pair .pointer-bar { background: linear-gradient(#8ac7cc, #5fa9b0); }
+.statistics-bar-group > small { color: #a38b95; font-size: 6px; text-align: center; white-space: nowrap; }
+
+.statistics-pie-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 8px; }
+.pie-card-body { display: grid; grid-template-columns: 75px 1fr; align-items: center; gap: 9px; margin-top: 9px; }
+.statistics-pie {
+  --pie-fill: conic-gradient(#eadfe4 0 100%);
+  position: relative;
+  display: grid;
+  place-items: center;
+  width: 72px;
+  height: 72px;
+  border-radius: 50%;
+  background: var(--pie-fill);
+}
+.statistics-pie::after { position: absolute; inset: 13px; border-radius: 50%; background: #fffaf8; content: ''; }
+.statistics-pie > b { z-index: 1; max-width: 46px; color: #6f5060; font-size: 7px; line-height: 1.2; text-align: center; }
+.pie-legend { display: grid; gap: 7px; }
+.pie-legend > span { display: grid; gap: 1px; padding-left: 10px; }
+.pie-legend > span::before { top: 6px; }
+.pie-legend b { color: #745563; font-size: 8px; }
+.pie-legend small { color: #a08792; font-size: 7px; }
+.code-dot::before { background: #874e79; }
+.document-dot::before { background: #e18aa7; }
+.web-dot::before { background: #72b7bd; }
+.work-dot::before { background: #d96f98; }
+.meeting-dot::before { background: #7e72c7; }
+.idle-dot::before { background: #e0b36e; }
+
 @keyframes update-pulse { 50% { opacity: .35; } }
 
 @media (prefers-reduced-motion: reduce) {

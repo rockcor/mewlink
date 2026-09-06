@@ -56,6 +56,11 @@ export const pointerEventsForSequence = (previous: InputSignal, current: InputSi
     ? current.pointerSequence - previous.pointerSequence
     : 1;
 
+export const keyboardEventsForSequence = (previous: InputSignal, current: InputSignal) =>
+  current.keyboardSequence >= previous.keyboardSequence
+    ? current.keyboardSequence - previous.keyboardSequence
+    : 1;
+
 class TauriProbe implements ActivityProbe { async sample() { return invoke<PresenceSignal>('presence_signal'); } }
 class TauriInputProbe implements InputProbe { async sample() { return invoke<InputSignal>('input_signal'); } }
 
