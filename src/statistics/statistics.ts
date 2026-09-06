@@ -14,11 +14,12 @@ export interface StatisticsBucket {
 }
 
 export interface StatisticsData {
-  version: 1;
+  version: 2;
   buckets: StatisticsBucket[];
 }
 
-const storageKey = 'mewlink.statistics.v1';
+const storageKey = 'mewlink.statistics.v2';
+const legacyStorageKey = 'mewlink.statistics.v1';
 const hourMs = 60 * 60 * 1_000;
 const dayMs = 24 * hourMs;
 const maxHistoryMs = 35 * dayMs;
@@ -26,7 +27,7 @@ let liveData: StatisticsData | undefined;
 let flushTimer: number | undefined;
 
 export function emptyStatisticsData(): StatisticsData {
-  return { version: 1, buckets: [] };
+  return { version: 2, buckets: [] };
 }
 
 function emptyBucket(hour: number): StatisticsBucket {
@@ -54,10 +55,15 @@ function loadStatistics(): StatisticsData {
   if (liveData) return liveData;
   if (typeof localStorage === 'undefined') return liveData = emptyStatisticsData();
   try {
-    const parsed = JSON.parse(localStorage.getItem(storageKey) ?? 'null') as Partial<StatisticsData> | null;
-    liveData = parsed?.version === 1 && Array.isArray(parsed.buckets)
-      ? { version: 1, buckets: parsed.buckets.filter(isBucket) }
-      : emptyStatisticsData();
+    const current = JSON.parse(localStorage.getItem(storageKey) ?? 'null') as Partial<StatisticsData> | null;
+    if (current?.version === 2 && Array.isArray(current.buckets)) {
+      liveData = { version: 2, buckets: current.buckets.filter(isBucket) };
+    } else {
+      const legacy = JSON.parse(localStorage.getItem(legacyStorageKey) ?? 'null') as { version?: number; buckets?: unknown[] } | null;
+      liveData = legacy?.version === 1 && Array.isArray(legacy.buckets)
+        ? { version: 2, buckets: legacy.buckets.filter(isBucket).map(bucket => ({ ...bucket, pointer: 0 })) }
+        : emptyStatisticsData();
+    }
   } catch {
     liveData = emptyStatisticsData();
   }

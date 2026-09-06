@@ -15,7 +15,7 @@ interface StatisticsPanelProps {
 const copy = {
   zh: {
     title: '统计', close: '关闭统计', ranges: { day: '日', week: '周', month: '月' },
-    input: '键盘与鼠标', keyboard: '键盘敲击', pointer: '鼠标 / 触控板', times: '次',
+    input: '键盘与点击', keyboard: '键盘敲击', pointer: '鼠标 / 触控板点击', times: '次',
     workVisual: '三类工作时间', code: '代码', document: '文档', web: '网页',
     activity: '时间分布', work: '工作', meeting: '会议', idle: '空闲',
     noData: '开始使用后，这里会出现你的节奏', partnerNoData: 'TA 尚未分享统计',
@@ -24,7 +24,7 @@ const copy = {
   },
   en: {
     title: 'Statistics', close: 'Close statistics', ranges: { day: 'Day', week: 'Week', month: 'Month' },
-    input: 'Keyboard & pointer', keyboard: 'Keystrokes', pointer: 'Mouse / trackpad', times: '',
+    input: 'Keyboard & clicks', keyboard: 'Keystrokes', pointer: 'Mouse / trackpad clicks', times: '',
     workVisual: 'Work time by view', code: 'Code', document: 'Documents', web: 'Web',
     activity: 'Time split', work: 'Work', meeting: 'Meetings', idle: 'Free',
     noData: 'Your rhythm will appear here as you use MewLink', partnerNoData: 'Your partner has not shared statistics',

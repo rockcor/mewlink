@@ -4,7 +4,7 @@ import type { ActivityKind, WorkVisual } from '../domain/types';
 export type InputKind = 'keyboard' | 'pointer' | 'none';
 export type InputMotion = InputKind | 'both';
 export interface PresenceSignal { idleSeconds: number; locked: boolean; appClass?: 'editor' | 'reader' | 'meeting' | 'media' | 'browser' | 'unknown'; inputKind?: InputKind }
-export interface InputSignal { keyboardSequence: number; pointerSequence: number; recentKind: InputKind }
+export interface InputSignal { keyboardSequence: number; pointerSequence: number; pointerClickSequence: number; recentKind: InputKind }
 export interface InputChanges { keyboard: boolean; pointer: boolean }
 export interface ActivityProbe { sample(): Promise<PresenceSignal> }
 export interface InputProbe { sample(): Promise<InputSignal> }
@@ -56,6 +56,11 @@ export const pointerEventsForSequence = (previous: InputSignal, current: InputSi
     ? current.pointerSequence - previous.pointerSequence
     : 1;
 
+export const pointerClicksForSequence = (previous: InputSignal, current: InputSignal) =>
+  current.pointerClickSequence >= previous.pointerClickSequence
+    ? current.pointerClickSequence - previous.pointerClickSequence
+    : 1;
+
 export const keyboardEventsForSequence = (previous: InputSignal, current: InputSignal) =>
   current.keyboardSequence >= previous.keyboardSequence
     ? current.keyboardSequence - previous.keyboardSequence
@@ -69,10 +74,17 @@ const demoInput = {
   recentKind: 'none' as InputKind,
   keyboardSequence: 0,
   pointerSequence: 0,
+  pointerClickSequence: 0,
 };
 
 if (typeof window !== 'undefined') {
-  ['pointerdown', 'pointermove', 'wheel'].forEach(name => window.addEventListener(name, () => {
+  window.addEventListener('pointerdown', () => {
+    demoInput.lastInput = Date.now();
+    demoInput.recentKind = 'pointer';
+    demoInput.pointerSequence += 1;
+    demoInput.pointerClickSequence += 1;
+  }, { passive: true });
+  ['pointermove', 'wheel'].forEach(name => window.addEventListener(name, () => {
     demoInput.lastInput = Date.now();
     demoInput.recentKind = 'pointer';
     demoInput.pointerSequence += 1;
@@ -98,6 +110,7 @@ class DemoInputProbe implements InputProbe {
     return {
       keyboardSequence: demoInput.keyboardSequence,
       pointerSequence: demoInput.pointerSequence,
+      pointerClickSequence: demoInput.pointerClickSequence,
       recentKind: Date.now() - demoInput.lastInput <= 120 ? demoInput.recentKind : 'none',
     };
   }
@@ -105,4 +118,4 @@ class DemoInputProbe implements InputProbe {
 
 const isTauri = typeof window !== 'undefined' && '__TAURI_INTERNALS__' in window;
 export const activityProbe: ActivityProbe = isTauri ? new TauriProbe() : typeof window !== 'undefined' ? new DemoProbe() : { sample: async () => ({ idleSeconds: 0, locked: false, appClass: 'unknown' }) };
-export const inputProbe: InputProbe = isTauri ? new TauriInputProbe() : typeof window !== 'undefined' ? new DemoInputProbe() : { sample: async () => ({ keyboardSequence: 0, pointerSequence: 0, recentKind: 'none' }) };
+export const inputProbe: InputProbe = isTauri ? new TauriInputProbe() : typeof window !== 'undefined' ? new DemoInputProbe() : { sample: async () => ({ keyboardSequence: 0, pointerSequence: 0, pointerClickSequence: 0, recentKind: 'none' }) };

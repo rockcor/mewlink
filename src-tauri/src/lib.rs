@@ -14,6 +14,7 @@ struct PresenceSignal {
 struct InputSignal {
     keyboard_sequence: u64,
     pointer_sequence: u64,
+    pointer_click_sequence: u64,
     recent_kind: &'static str,
 }
 
@@ -148,6 +149,11 @@ mod platform {
                 SCROLL_WHEEL,
                 OTHER_MOUSE_DOWN,
                 OTHER_MOUSE_DRAGGED,
+            ]),
+            pointer_click_sequence: event_count(&[
+                LEFT_MOUSE_DOWN,
+                RIGHT_MOUSE_DOWN,
+                OTHER_MOUSE_DOWN,
             ]),
             recent_kind: recent_input_kind(),
         }
@@ -305,6 +311,8 @@ mod platform {
     static LAST_INPUT_TICK: AtomicU64 = AtomicU64::new(u64::MAX);
     static KEYBOARD_SEQUENCE: AtomicU64 = AtomicU64::new(0);
     static POINTER_SEQUENCE: AtomicU64 = AtomicU64::new(0);
+    static POINTER_CLICK_SEQUENCE: AtomicU64 = AtomicU64::new(0);
+    static LAST_POINTER_BUTTONS: AtomicU64 = AtomicU64::new(0);
 
     pub(super) fn sample() -> PresenceSignal {
         let (idle_seconds, _) = input_state();
@@ -317,7 +325,13 @@ mod platform {
 
     pub(super) fn input_sample() -> InputSignal {
         let (idle_seconds, input_tick) = input_state();
-        let recent_kind = recent_input_kind(input_tick, idle_seconds);
+        let (pointer_buttons, pointer_presses) = pointer_button_state();
+        let previous_buttons = LAST_POINTER_BUTTONS.swap(pointer_buttons, Ordering::Relaxed);
+        let fresh_clicks = ((pointer_buttons & !previous_buttons) | pointer_presses).count_ones();
+        if fresh_clicks > 0 {
+            POINTER_CLICK_SEQUENCE.fetch_add(u64::from(fresh_clicks), Ordering::Relaxed);
+        }
+        let recent_kind = recent_input_kind(input_tick, idle_seconds, pointer_buttons != 0);
         match recent_kind {
             "keyboard" => {
                 KEYBOARD_SEQUENCE.fetch_add(1, Ordering::Relaxed);
@@ -330,6 +344,7 @@ mod platform {
         InputSignal {
             keyboard_sequence: KEYBOARD_SEQUENCE.load(Ordering::Relaxed),
             pointer_sequence: POINTER_SEQUENCE.load(Ordering::Relaxed),
+            pointer_click_sequence: POINTER_CLICK_SEQUENCE.load(Ordering::Relaxed),
             recent_kind,
         }
     }
@@ -360,7 +375,11 @@ mod platform {
         }
     }
 
-    fn recent_input_kind(input_tick: u64, idle_seconds: u64) -> &'static str {
+    fn recent_input_kind(
+        input_tick: u64,
+        idle_seconds: u64,
+        pointer_button_down: bool,
+    ) -> &'static str {
         if idle_seconds > 2 {
             return "none";
         }
@@ -372,11 +391,6 @@ mod platform {
         };
         let previous_cursor = LAST_CURSOR.swap(packed_cursor, Ordering::Relaxed);
         let previous_tick = LAST_INPUT_TICK.swap(input_tick, Ordering::Relaxed);
-        let pointer_button_down = unsafe {
-            GetAsyncKeyState(VK_LBUTTON as i32) < 0
-                || GetAsyncKeyState(VK_RBUTTON as i32) < 0
-                || GetAsyncKeyState(VK_MBUTTON as i32) < 0
-        };
         if packed_cursor != u64::MAX
             && previous_cursor != u64::MAX
             && packed_cursor != previous_cursor
@@ -390,6 +404,28 @@ mod platform {
         } else {
             "none"
         }
+    }
+
+    fn pointer_button_state() -> (u64, u64) {
+        let keys = [VK_LBUTTON, VK_RBUTTON, VK_MBUTTON];
+        keys.iter()
+            .enumerate()
+            .fold((0, 0), |(down, pressed), (index, key)| {
+                let state = unsafe { GetAsyncKeyState(*key as i32) } as u16;
+                let bit = 1_u64 << index;
+                (
+                    if state & 0x8000 != 0 {
+                        down | bit
+                    } else {
+                        down
+                    },
+                    if state & 0x0001 != 0 {
+                        pressed | bit
+                    } else {
+                        pressed
+                    },
+                )
+            })
     }
 
     fn input_state() -> (u64, u64) {
@@ -437,6 +473,7 @@ mod platform {
         InputSignal {
             keyboard_sequence: 0,
             pointer_sequence: 0,
+            pointer_click_sequence: 0,
             recent_kind: "none",
         }
     }
