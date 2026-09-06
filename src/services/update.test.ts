@@ -8,9 +8,15 @@ describe('update checks', () => {
   });
 
   it('detects a newer published version', async () => {
-    const fetcher = async () => new Response(JSON.stringify({ version: '0.3.0' }), { status: 200 });
+    const fetcher = async () => new Response(JSON.stringify({
+      version: '0.3.0',
+      platforms: {
+        'darwin-aarch64': { signature: 'signed', url: 'https://example.com/MewLink.app.tar.gz' }
+      }
+    }), { status: 200 });
     const result = await checkForUpdate(fetcher as typeof fetch, Promise.resolve('0.2.0'));
     expect(result.available).toBe(true);
     expect(result.manifest.version).toBe('0.3.0');
+    expect(result.manifest.downloadUrl).toBe('https://example.com/MewLink.app.tar.gz');
   });
 });

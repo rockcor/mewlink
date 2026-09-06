@@ -5,9 +5,10 @@ import type { PairingState } from '../pairing/pairing';
 import { animationSpeeds, formatUtcOffset, replayRetentionOptions } from '../settings/preferences';
 
 export interface UpdateViewState {
-  kind: 'idle' | 'checking' | 'current' | 'available' | 'error';
+  kind: 'idle' | 'checking' | 'current' | 'available' | 'downloading' | 'installing' | 'error';
   message: string;
   downloadUrl?: string;
+  canInstall?: boolean;
 }
 
 interface SettingsPanelProps {
@@ -25,6 +26,7 @@ interface SettingsPanelProps {
   cupStyle: CupStyle;
   onChange: (next: Preferences) => void;
   onCheckUpdate: () => void;
+  onInstallUpdate: () => void;
   onFeedbackChange: (value: string) => void;
   onShareFeedback: () => void;
   onCreatePairing: () => void;
@@ -44,7 +46,7 @@ const copy = {
     petsConnected: '两只宠物已经连在一起', compareNumber: '请和 TA 核对下方号码', disconnect: '解除绑定', safetyNumber: '核对号码',
     replay: '时差重放', replayNote: '两人连接后自动识别时差，上线时重放错过的片刻',
     recording: '回放录像', recordingNote: '只保存宠物回放，不录制真实屏幕', saveLocation: '保存位置', chooseFolder: '选择', defaultFolder: '应用默认文件夹', retention: '保留时长', hours: (hours: number) => `${hours} 小时`, chooseFolderTitle: '选择回放录像保存位置',
-    update: '自动更新', updateNote: '启动时检查，有新版本就提醒你', goUpdate: '前往更新', checkNow: '立即检查',
+    update: '自动更新', updateNote: '启动时检查，新版本可直接安装并重启', goUpdate: '前往更新', installNow: '立即更新', checkNow: '立即检查',
     timezone: '时区', timezoneNote: '自动识别双方时差，可随时关闭', auto: '自动', manual: '手动', off: '关闭', me: '你', partnerPending: 'TA · 连接后识别', step: '每格 15 分钟', hideClocks: '重放中不显示双方时间', manualAria: '手动时区 UTC 偏移',
     petSize: '宠物大小', petSizeNote: '两只宠物可分别调整，也可右键宠物修改', selfPet: '我的宠物', partnerPet: 'TA 的宠物', petSizeAria: '宠物大小',
     props: '互动道具', propsNote: '只有水杯和被子可以更换', cup: '水杯', blanket: '被子', blankets: { blush: '樱粉', night: '星夜', mint: '薄荷' },
@@ -58,7 +60,7 @@ const copy = {
     petsConnected: 'Your two companions are connected', compareNumber: 'Compare the number below with your partner', disconnect: 'Unpair', safetyNumber: 'Safety number',
     replay: 'Time-zone replay', replayNote: 'Detects your time difference and replays moments you missed',
     recording: 'Replay recordings', recordingNote: 'Saves companion replays, never your real screen', saveLocation: 'Save location', chooseFolder: 'Choose', defaultFolder: 'App default folder', retention: 'Keep for', hours: (hours: number) => `${hours}h`, chooseFolderTitle: 'Choose where to save replay recordings',
-    update: 'Automatic updates', updateNote: 'Check at launch and let you know when an update is ready', goUpdate: 'Get update', checkNow: 'Check now',
+    update: 'Automatic updates', updateNote: 'Check at launch, install in place, then restart', goUpdate: 'Get update', installNow: 'Install now', checkNow: 'Check now',
     timezone: 'Time zone', timezoneNote: 'Detect your time difference automatically or turn it off', auto: 'Auto', manual: 'Manual', off: 'Off', me: 'You', partnerPending: 'Partner · after pairing', step: '15-minute steps', hideClocks: 'Hide both local times during replay', manualAria: 'Manual UTC offset',
     petSize: 'Companion size', petSizeNote: 'Adjust each companion here or by right-clicking it', selfPet: 'Mine', partnerPet: 'Partner', petSizeAria: 'Companion size',
     props: 'Interaction props', propsNote: 'Only mugs and blankets can be changed', cup: 'Mug', blanket: 'Blanket', blankets: { blush: 'Blush', night: 'Night', mint: 'Mint' },
@@ -82,6 +84,7 @@ export function SettingsPanel({
   cupStyle,
   onChange,
   onCheckUpdate,
+  onInstallUpdate,
   onFeedbackChange,
   onShareFeedback,
   onCreatePairing,
@@ -171,7 +174,7 @@ export function SettingsPanel({
           <div><b>{text.update}</b><small>{text.updateNote}</small></div>
           <button type="button" className={`switch ${preferences.autoUpdate ? 'on' : ''}`} role="switch" aria-checked={preferences.autoUpdate} onClick={() => patchPreferences({ autoUpdate: !preferences.autoUpdate })}><span /></button>
         </article>
-        <div className="update-line"><span className={`update-dot ${updateState.kind}`}/><small>{updateState.message}</small>{updateState.downloadUrl ? <a href={updateState.downloadUrl} target="_blank" rel="noreferrer">{text.goUpdate}</a> : <button type="button" onClick={onCheckUpdate} disabled={updateState.kind === 'checking'}>{text.checkNow}</button>}</div>
+        <div className="update-line"><span className={`update-dot ${updateState.kind}`}/><small>{updateState.message}</small>{updateState.canInstall ? <button type="button" onClick={onInstallUpdate} disabled={updateState.kind !== 'available'}>{text.installNow}</button> : updateState.downloadUrl ? <a href={updateState.downloadUrl} target="_blank" rel="noreferrer">{text.goUpdate}</a> : <button type="button" onClick={onCheckUpdate} disabled={updateState.kind === 'checking' || updateState.kind === 'downloading' || updateState.kind === 'installing'}>{text.checkNow}</button>}</div>
 
         <article className="setting-block">
           <div className="setting-title"><div><b>{text.timezone}</b><small>{text.timezoneNote}</small></div><div className="mini-tabs"><button type="button" className={preferences.timezoneMode === 'auto' ? 'selected' : ''} onClick={() => patchPreferences({ timezoneMode: 'auto' })}>{text.auto}</button><button type="button" className={preferences.timezoneMode === 'manual' ? 'selected' : ''} onClick={() => patchPreferences({ timezoneMode: 'manual' })}>{text.manual}</button><button type="button" className={preferences.timezoneMode === 'off' ? 'selected' : ''} onClick={() => patchPreferences({ timezoneMode: 'off' })}>{text.off}</button></div></div>

@@ -20,7 +20,8 @@ import { activityProbe, classify, inputChangesForSequence, inputProbe, keyboardE
 import { ACTIVITY_TRANSITION_MS, gestureFor, waterDrinkDelay, type GestureVariant } from './pet/interaction';
 import { localUtcOffsetMinutes } from './platform/clock';
 import { registerPairCreator, registerPairJoiner, sendEncryptedEvent, syncEncryptedEvents } from './services/relayTransport';
-import { checkForUpdate } from './services/update';
+import { checkForUpdate, installUpdate } from './services/update';
+import type { Update } from '@tauri-apps/plugin-updater';
 import { pruneEventsOlderThan, putEvent } from './storage/events';
 import { buildReplay } from './services/replay';
 import { animationDurationScale, effectiveUtcOffsetMinutes, loadPreferences, savePreferences } from './settings/preferences';
@@ -76,6 +77,7 @@ export default function App() {
   const clickTimer = useRef<number | undefined>(undefined);
   const gestureTimer = useRef<number | undefined>(undefined);
   const noticeTimer = useRef<number | undefined>(undefined);
+  const pendingUpdateRef = useRef<Update | undefined>(undefined);
   const selfActivityRef = useRef<ActivityKind>('work');
   const partnerActivityRef = useRef<ActivityKind>('rest');
   const statisticsActivityRef = useRef<ActivityKind>('work');
@@ -119,13 +121,32 @@ export default function App() {
     setUpdateState({ kind: 'checking', message: text.updateChecking });
     try {
       const result = await checkForUpdate();
+      pendingUpdateRef.current = result.installable;
       setUpdateState(result.available
-        ? { kind: 'available', message: text.updateAvailable(result.manifest.version), downloadUrl: result.manifest.downloadUrl }
+        ? { kind: 'available', message: text.updateAvailable(result.manifest.version), downloadUrl: result.manifest.downloadUrl, canInstall: Boolean(result.installable) }
         : { kind: 'current', message: text.updateCurrent(result.currentVersion) });
     } catch {
       setUpdateState({ kind: 'error', message: text.updateError });
     }
   }, [text]);
+
+  const installPendingUpdate = useCallback(async () => {
+    const update = pendingUpdateRef.current;
+    if (!update) {
+      await runUpdateCheck();
+      return;
+    }
+    try {
+      await installUpdate(update, progress => {
+        setUpdateState(progress.phase === 'installing'
+          ? { kind: 'installing', message: text.updateInstalling, canInstall: true }
+          : { kind: 'downloading', message: text.updateDownloading(progress.percent), canInstall: true });
+      });
+    } catch {
+      pendingUpdateRef.current = undefined;
+      setUpdateState({ kind: 'error', message: text.updateInstallError });
+    }
+  }, [runUpdateCheck, text]);
 
   const persistPairing = useCallback((next: PairingState) => {
     pairingRef.current = next;
@@ -639,6 +660,7 @@ export default function App() {
           cupStyle={cupStyle}
           onChange={setPreferences}
           onCheckUpdate={() => { void runUpdateCheck(); }}
+          onInstallUpdate={() => { void installPendingUpdate(); }}
           onFeedbackChange={value => { setFeedback(value); setFeedbackStatus(''); }}
           onShareFeedback={() => { void shareFeedback(); }}
           onCreatePairing={() => { void createPairing(); }}

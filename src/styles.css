@@ -498,6 +498,8 @@ button { font: inherit; }
 .update-line button:disabled { opacity: .55; cursor: wait; }
 .update-dot { width: 7px; height: 7px; border-radius: 50%; background: #c9b9c0; }
 .update-dot.checking { background: #e1ac69; animation: update-pulse 900ms ease-in-out infinite; }
+.update-dot.downloading,
+.update-dot.installing { background: #e1ac69; animation: update-pulse 900ms ease-in-out infinite; }
 .update-dot.current { background: #74a984; }
 .update-dot.available { background: #d986a5; }
 .update-dot.error { background: #c47a7a; }
