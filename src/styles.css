@@ -559,6 +559,39 @@ button { font: inherit; }
 .timezone-detected.timezone-off span:last-child { text-align: center; }
 .replay-setting small { max-width: 280px; }
 
+.recording-location,
+.recording-retention {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-top: 10px;
+}
+
+.recording-location > span { display: grid; min-width: 0; gap: 2px; }
+.recording-location small,
+.recording-retention > small { color: #a58a96; font-size: 8px; }
+.recording-location b {
+  max-width: 210px;
+  overflow: hidden;
+  color: #765765;
+  font-size: 9px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.recording-location > button {
+  flex: 0 0 auto;
+  padding: 7px 10px;
+  border: 0;
+  border-radius: 9px;
+  background: #efdce4;
+  color: #8b526a;
+  font-size: 9px;
+  font-weight: 750;
+  cursor: pointer;
+}
+.recording-retention .mini-tabs button { padding: 6px 7px; }
+
 .setting-title output {
   flex: 0 0 auto;
   color: #a45876;

@@ -1,7 +1,8 @@
+import { open } from '@tauri-apps/plugin-dialog';
 import { blanketStyles, cupStyles, type CupStyle } from '../domain/types';
 import type { AnimationSpeed, Preferences } from '../settings/preferences';
 import type { PairingState } from '../pairing/pairing';
-import { animationSpeeds, formatUtcOffset } from '../settings/preferences';
+import { animationSpeeds, formatUtcOffset, replayRetentionOptions } from '../settings/preferences';
 
 export interface UpdateViewState {
   kind: 'idle' | 'checking' | 'current' | 'available' | 'error';
@@ -42,6 +43,7 @@ const copy = {
     createInvite: '生成邀请码', or: '或', pasteInvite: '粘贴 TA 发来的邀请码', invite: '邀请码', connectAction: '连接', myInvite: '我的邀请码', copyInvite: '复制邀请码', cancel: '取消',
     petsConnected: '两只宠物已经连在一起', compareNumber: '请和 TA 核对下方号码', disconnect: '解除绑定', safetyNumber: '核对号码',
     replay: '时差重放', replayNote: '两人连接后自动识别时差，上线时重放错过的片刻',
+    recording: '回放录像', recordingNote: '只保存宠物回放，不录制真实屏幕', saveLocation: '保存位置', chooseFolder: '选择', defaultFolder: '应用默认文件夹', retention: '保留时长', hours: (hours: number) => `${hours} 小时`, chooseFolderTitle: '选择回放录像保存位置',
     update: '自动更新', updateNote: '启动时检查，有新版本就提醒你', goUpdate: '前往更新', checkNow: '立即检查',
     timezone: '时区', timezoneNote: '自动识别双方时差，可随时关闭', auto: '自动', manual: '手动', off: '关闭', me: '你', partnerPending: 'TA · 连接后识别', step: '每格 15 分钟', hideClocks: '重放中不显示双方时间', manualAria: '手动时区 UTC 偏移',
     petSize: '宠物大小', petSizeNote: '两只宠物可分别调整，也可右键宠物修改', selfPet: '我的宠物', partnerPet: 'TA 的宠物', petSizeAria: '宠物大小',
@@ -55,6 +57,7 @@ const copy = {
     createInvite: 'Create invite', or: 'or', pasteInvite: "Paste your partner's invite", invite: 'Invite code', connectAction: 'Connect', myInvite: 'My invite', copyInvite: 'Copy invite', cancel: 'Cancel',
     petsConnected: 'Your two companions are connected', compareNumber: 'Compare the number below with your partner', disconnect: 'Unpair', safetyNumber: 'Safety number',
     replay: 'Time-zone replay', replayNote: 'Detects your time difference and replays moments you missed',
+    recording: 'Replay recordings', recordingNote: 'Saves companion replays, never your real screen', saveLocation: 'Save location', chooseFolder: 'Choose', defaultFolder: 'App default folder', retention: 'Keep for', hours: (hours: number) => `${hours}h`, chooseFolderTitle: 'Choose where to save replay recordings',
     update: 'Automatic updates', updateNote: 'Check at launch and let you know when an update is ready', goUpdate: 'Get update', checkNow: 'Check now',
     timezone: 'Time zone', timezoneNote: 'Detect your time difference automatically or turn it off', auto: 'Auto', manual: 'Manual', off: 'Off', me: 'You', partnerPending: 'Partner · after pairing', step: '15-minute steps', hideClocks: 'Hide both local times during replay', manualAria: 'Manual UTC offset',
     petSize: 'Companion size', petSizeNote: 'Adjust each companion here or by right-clicking it', selfPet: 'Mine', partnerPet: 'Partner', petSizeAria: 'Companion size',
@@ -92,6 +95,22 @@ export function SettingsPanel({
   const text = copy[preferences.language];
   const speedLabels: Record<AnimationSpeed, string> = text.speeds;
   const patchPreferences = (patch: Partial<Preferences>) => onChange({ ...preferences, ...patch });
+  const directoryLabel = preferences.replaySaveDirectory
+    ? preferences.replaySaveDirectory.split(/[\\/]/).filter(Boolean).pop() ?? preferences.replaySaveDirectory
+    : text.defaultFolder;
+  const chooseReplayDirectory = async () => {
+    try {
+      const selected = await open({
+        directory: true,
+        multiple: false,
+        title: text.chooseFolderTitle,
+        ...(preferences.replaySaveDirectory ? { defaultPath: preferences.replaySaveDirectory } : {})
+      });
+      if (typeof selected === 'string') patchPreferences({ replaySaveDirectory: selected });
+    } catch {
+      // The browser preview cannot open the native folder chooser.
+    }
+  };
 
   return (
     <section className="settings-panel" role="dialog" aria-modal="true" aria-labelledby="settings-title" lang={preferences.language === 'zh' ? 'zh-CN' : 'en'}>
@@ -132,6 +151,20 @@ export function SettingsPanel({
         <article className="setting-row replay-setting">
           <div><b>{text.replay}</b><small>{text.replayNote}</small></div>
           <button type="button" className={`switch ${preferences.replayEnabled ? 'on' : ''}`} role="switch" aria-checked={preferences.replayEnabled} onClick={() => patchPreferences({ replayEnabled: !preferences.replayEnabled })}><span /></button>
+        </article>
+
+        <article className="setting-block recording-setting">
+          <div className="setting-title"><div><b>{text.recording}</b><small>{text.recordingNote}</small></div></div>
+          <div className="recording-location">
+            <span><small>{text.saveLocation}</small><b title={preferences.replaySaveDirectory || undefined}>{directoryLabel}</b></span>
+            <button type="button" onClick={() => { void chooseReplayDirectory(); }}>{text.chooseFolder}</button>
+          </div>
+          <div className="recording-retention">
+            <small>{text.retention}</small>
+            <div className="mini-tabs" role="group" aria-label={text.retention}>
+              {replayRetentionOptions.map(hours => <button key={hours} type="button" className={preferences.replayRetentionHours === hours ? 'selected' : ''} onClick={() => patchPreferences({ replayRetentionHours: hours })}>{text.hours(hours)}</button>)}
+            </div>
+          </div>
         </article>
 
         <article className="setting-row">

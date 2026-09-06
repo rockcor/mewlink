@@ -14,6 +14,7 @@
   },
   "dependencies": {
     "@tauri-apps/api": "^2.8.0",
+    "@tauri-apps/plugin-dialog": "~2.7.3",
     "idb": "^8.0.3",
     "libsodium-wrappers-sumo": "^0.8.4",
     "react": "^19.1.1",

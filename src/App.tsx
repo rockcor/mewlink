@@ -20,7 +20,7 @@ import { ACTIVITY_TRANSITION_MS, gestureFor, waterDrinkDelay, type GestureVarian
 import { localUtcOffsetMinutes } from './platform/clock';
 import { registerPairCreator, registerPairJoiner, sendEncryptedEvent, syncEncryptedEvents } from './services/relayTransport';
 import { checkForUpdate } from './services/update';
-import { listEvents, putEvent } from './storage/events';
+import { pruneEventsOlderThan, putEvent } from './storage/events';
 import { buildReplay } from './services/replay';
 import { animationDurationScale, effectiveUtcOffsetMinutes, loadPreferences, savePreferences } from './settings/preferences';
 import { appCopy } from './i18n';
@@ -121,7 +121,9 @@ export default function App() {
     setPairing(next);
   }, []);
 
-  useEffect(() => { void listEvents().then(setEvents); }, []);
+  useEffect(() => {
+    void pruneEventsOlderThan(preferences.replayRetentionHours).then(setEvents);
+  }, [preferences.replayRetentionHours]);
   useEffect(() => {
     if (!isTauriWindow) return;
     const appWindow = getCurrentWindow();

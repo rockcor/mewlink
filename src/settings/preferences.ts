@@ -6,10 +6,14 @@ export type AnimationSpeed = (typeof animationSpeeds)[number];
 export type TimezoneMode = 'auto' | 'manual' | 'off';
 export const languages = ['zh', 'en'] as const;
 export type Language = (typeof languages)[number];
+export const replayRetentionOptions = [12, 24, 36, 48] as const;
+export type ReplayRetentionHours = (typeof replayRetentionOptions)[number];
 
 export interface Preferences {
   autoUpdate: boolean;
   replayEnabled: boolean;
+  replaySaveDirectory: string;
+  replayRetentionHours: ReplayRetentionHours;
   timezoneMode: TimezoneMode;
   manualUtcOffsetMinutes: number;
   animationSpeed: AnimationSpeed;
@@ -30,6 +34,8 @@ export function defaultPreferences(): Preferences {
   return {
     autoUpdate: true,
     replayEnabled: true,
+    replaySaveDirectory: '',
+    replayRetentionHours: 24,
     timezoneMode: 'auto',
     manualUtcOffsetMinutes: localUtcOffsetMinutes(),
     animationSpeed: 'calm',
@@ -45,6 +51,13 @@ export function normalizePetScalePercent(value: number): number {
   return Math.min(110, Math.max(70, Math.round(value / 5) * 5));
 }
 
+export function normalizeReplayRetentionHours(value: number): ReplayRetentionHours {
+  if (!Number.isFinite(value)) return 24;
+  return replayRetentionOptions.reduce((closest, option) =>
+    Math.abs(option - value) < Math.abs(closest - value) ? option : closest
+  );
+}
+
 export function loadPreferences(storage?: StorageLike): Preferences {
   const defaults = defaultPreferences();
   const source = storage ?? (typeof localStorage === 'undefined' ? undefined : localStorage);
@@ -58,6 +71,10 @@ export function loadPreferences(storage?: StorageLike): Preferences {
     return {
       autoUpdate: typeof value.autoUpdate === 'boolean' ? value.autoUpdate : defaults.autoUpdate,
       replayEnabled: typeof value.replayEnabled === 'boolean' ? value.replayEnabled : defaults.replayEnabled,
+      replaySaveDirectory: typeof value.replaySaveDirectory === 'string' ? value.replaySaveDirectory : defaults.replaySaveDirectory,
+      replayRetentionHours: typeof value.replayRetentionHours === 'number'
+        ? normalizeReplayRetentionHours(value.replayRetentionHours)
+        : defaults.replayRetentionHours,
       timezoneMode: value.timezoneMode === 'manual' || value.timezoneMode === 'off' ? value.timezoneMode : 'auto',
       manualUtcOffsetMinutes: typeof value.manualUtcOffsetMinutes === 'number'
         ? normalizeUtcOffsetMinutes(value.manualUtcOffsetMinutes)

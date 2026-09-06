@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { animationDurationScale, effectiveUtcOffsetMinutes, formatUtcOffset, loadPreferences, normalizePetScalePercent, savePreferences } from './preferences';
+import { animationDurationScale, effectiveUtcOffsetMinutes, formatUtcOffset, loadPreferences, normalizePetScalePercent, normalizeReplayRetentionHours, savePreferences } from './preferences';
 
 function memoryStorage(initial?: string) {
   let value = initial ?? null;
@@ -17,11 +17,13 @@ describe('desktop preferences', () => {
 
   it('persists replay, manual timezone, and update preferences', () => {
     const storage = memoryStorage();
-    savePreferences({ autoUpdate: false, replayEnabled: false, timezoneMode: 'manual', manualUtcOffsetMinutes: 330, animationSpeed: 'natural', selfPetScalePercent: 85, partnerPetScalePercent: 95, blanketStyle: 'night', language: 'en' }, storage);
+    savePreferences({ autoUpdate: false, replayEnabled: false, replaySaveDirectory: '/tmp/mewlink-replays', replayRetentionHours: 36, timezoneMode: 'manual', manualUtcOffsetMinutes: 330, animationSpeed: 'natural', selfPetScalePercent: 85, partnerPetScalePercent: 95, blanketStyle: 'night', language: 'en' }, storage);
     const saved = loadPreferences(storage);
     expect(effectiveUtcOffsetMinutes(saved)).toBe(330);
     expect(saved.autoUpdate).toBe(false);
     expect(saved.replayEnabled).toBe(false);
+    expect(saved.replaySaveDirectory).toBe('/tmp/mewlink-replays');
+    expect(saved.replayRetentionHours).toBe(36);
     expect(saved.selfPetScalePercent).toBe(85);
     expect(saved.partnerPetScalePercent).toBe(95);
     expect(saved.blanketStyle).toBe('night');
@@ -36,7 +38,7 @@ describe('desktop preferences', () => {
 
   it('lets people turn automatic timezone detection off', () => {
     const storage = memoryStorage();
-    savePreferences({ autoUpdate: true, replayEnabled: true, timezoneMode: 'off', manualUtcOffsetMinutes: 0, animationSpeed: 'calm', selfPetScalePercent: 100, partnerPetScalePercent: 100, blanketStyle: 'blush', language: 'zh' }, storage);
+    savePreferences({ autoUpdate: true, replayEnabled: true, replaySaveDirectory: '', replayRetentionHours: 24, timezoneMode: 'off', manualUtcOffsetMinutes: 0, animationSpeed: 'calm', selfPetScalePercent: 100, partnerPetScalePercent: 100, blanketStyle: 'blush', language: 'zh' }, storage);
     expect(loadPreferences(storage).timezoneMode).toBe('off');
   });
 
@@ -50,6 +52,12 @@ describe('desktop preferences', () => {
     const saved = loadPreferences(memoryStorage(JSON.stringify({ petScalePercent: 80 })));
     expect(saved.selfPetScalePercent).toBe(80);
     expect(saved.partnerPetScalePercent).toBe(80);
+  });
+
+  it('keeps replay retention on supported 12-hour steps', () => {
+    expect(normalizeReplayRetentionHours(12)).toBe(12);
+    expect(normalizeReplayRetentionHours(31)).toBe(36);
+    expect(normalizeReplayRetentionHours(90)).toBe(48);
   });
 
   it('falls back safely when stored data is malformed', () => {
