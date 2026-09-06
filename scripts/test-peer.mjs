@@ -24,7 +24,7 @@ const post = async body => {
 await post({ operation: 'join', relationshipId: invite.r, deviceId });
 const key = sodium.from_base64(invite.k, sodium.base64_variants.URLSAFE_NO_PADDING);
 
-async function send(action, sequence) {
+async function send(kind, payload, sequence) {
   const event = {
     id: crypto.randomUUID(),
     version: 1,
@@ -32,8 +32,8 @@ async function send(action, sequence) {
     senderDeviceId: deviceId,
     createdAt: new Date().toISOString(),
     senderUtcOffsetMinutes: -new Date().getTimezoneOffset(),
-    kind: 'interaction',
-    payload: action === 'water' ? { action, cupStyle: 'tumbler' } : { action },
+    kind,
+    payload,
   };
   const header = {
     protocolVersion: 1,
@@ -61,6 +61,7 @@ async function send(action, sequence) {
   });
 }
 
-await send('hug', 1);
-await send('water', 2);
-console.log('Test peer connected and sent one hug plus one water reminder.');
+await send('interaction', { action: 'hug' }, 1);
+await send('interaction', { action: 'water', cupStyle: 'tumbler' }, 2);
+await send('profile.skin', { skin: 'sky' }, 3);
+console.log('Test peer connected and sent one hug, one water reminder, and a sky skin update.');

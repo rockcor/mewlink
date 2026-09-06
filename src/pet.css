@@ -45,6 +45,8 @@
   animation: sprite-loop-8 var(--pet-rest-duration, 4300ms) linear infinite;
 }
 .pet-sprite.replaying { filter: drop-shadow(0 13px 10px rgba(86, 45, 67, .16)) saturate(1.08); }
+.self-pet .pet-sprite { filter: var(--self-pet-skin-filter, brightness(1)) drop-shadow(0 13px 10px rgba(86, 45, 67, .16)); }
+.partner-pet .pet-sprite { filter: var(--partner-pet-skin-filter, brightness(1)) drop-shadow(0 13px 10px rgba(86, 45, 67, .16)); }
 
 @keyframes sprite-loop-8 {
   0%, 12.499% { background-position: 0 0; }

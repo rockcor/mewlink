@@ -59,6 +59,17 @@ describe('encrypted event compatibility', () => {
     await expect(decryptEvent(envelope, key)).resolves.toEqual(event);
   });
 
+  it('encrypts and validates a companion skin update', async () => {
+    const key = await newDemoKey();
+    const event: PlainEvent = {
+      id: crypto.randomUUID(), version: 1, relationshipId: 'relationshipTest01', senderDeviceId: 'skinDevice000001',
+      createdAt: new Date().toISOString(), kind: 'profile.skin', payload: { skin: 'lavender' }
+    };
+    const envelope = await encryptEvent(event, 'recipientDevice001', 3, key);
+    expect(JSON.stringify(envelope)).not.toContain('lavender');
+    await expect(decryptEvent(envelope, key)).resolves.toEqual(event);
+  });
+
   it('rejects malformed decrypted statistics', async () => {
     const key = await newDemoKey();
     const malformed = {
@@ -66,7 +77,7 @@ describe('encrypted event compatibility', () => {
       createdAt: new Date().toISOString(), kind: 'statistics.snapshot',
       payload: { visibility: 'partner', generatedAt: new Date().toISOString(), snapshots: { ...statisticsSnapshots, day: { ...statisticsSnapshots.day, bars: [] } } }
     } as PlainEvent;
-    const envelope = await encryptEvent(malformed, 'recipientDevice001', 3, key);
+    const envelope = await encryptEvent(malformed, 'recipientDevice001', 4, key);
     await expect(decryptEvent(envelope, key)).rejects.toThrow('metadata mismatch');
   });
 });

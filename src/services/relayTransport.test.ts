@@ -97,6 +97,13 @@ function statistics(relationshipId: string, senderDeviceId: string): PlainEvent 
   };
 }
 
+function skin(relationshipId: string, senderDeviceId: string): PlainEvent {
+  return {
+    id: crypto.randomUUID(), version: 1, relationshipId, senderDeviceId, createdAt: new Date().toISOString(),
+    kind: 'profile.skin', payload: { skin: 'sky' }
+  };
+}
+
 describe('two macOS encrypted relay', () => {
   it('delivers opaque interactions in both directions without duplicates', async () => {
     const relay = fakeRelay();
@@ -140,10 +147,19 @@ describe('two macOS encrypted relay', () => {
     const receivedStatistics = await syncEncryptedEvents(second, relay.fetcher);
     second = receivedStatistics.state;
     expect(receivedStatistics.received[0].event).toEqual(sharedStatistics);
+
+    const sharedSkin = skin(first.relationshipId, first.deviceId);
+    const sentSkin = await sendEncryptedEvent(first, sharedSkin, relay.fetcher);
+    first = sentSkin.state;
+    expect(JSON.stringify(sentSkin.envelope)).not.toContain('sky');
+    const receivedSkin = await syncEncryptedEvents(second, relay.fetcher);
+    second = receivedSkin.state;
+    expect(receivedSkin.received[0].event).toEqual(sharedSkin);
     expect(relay.bodies.join('\n')).not.toContain(hug.id);
     expect(relay.bodies.join('\n')).not.toContain(water.id);
     expect(relay.bodies.join('\n')).not.toContain(sharedStatistics.id);
-    expect(second.receivedSequences[first.deviceId]).toBe(2);
+    expect(relay.bodies.join('\n')).not.toContain(sharedSkin.id);
+    expect(second.receivedSequences[first.deviceId]).toBe(3);
   });
 
   it('catches up interactions sent while the recipient is offline', async () => {

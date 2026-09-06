@@ -4,7 +4,7 @@ import { getCurrentWindow } from '@tauri-apps/api/window';
 import { v4 as uuid } from 'uuid';
 import { SettingsPanel, type UpdateViewState } from './components/SettingsPanel';
 import { StatisticsPanel } from './components/StatisticsPanel';
-import type { ActivityKind, BlanketStyle, CupStyle, InteractionKind, InteractionPayload, PlainEvent, StatisticsPayload, StatisticsVisibility, StoredEvent, WorkVisual } from './domain/types';
+import type { ActivityKind, BlanketStyle, CupStyle, InteractionKind, InteractionPayload, PetSkin, PlainEvent, StatisticsPayload, StatisticsVisibility, StoredEvent, WorkVisual } from './domain/types';
 import { cupStyles } from './domain/types';
 import {
   clearPairing,
@@ -19,12 +19,14 @@ import {
 import { activityProbe, classify, demoInitialActivity, demoInitialWorkVisual, inputChangesForSequence, inputProbe, keyboardEventsForSequence, nextSampleDelay, POINTER_ANIMATION_HOLD_MS, POINTER_EVENTS_PER_ANIMATION, pointerClicksForSequence, pointerEventsForSequence, shouldAnimatePointer, visualInputForActivity, workVisualFor, type InputSignal } from './platform/activity';
 import { ACTIVITY_TRANSITION_MS, gestureFor, waterDrinkDelay, type GestureVariant } from './pet/interaction';
 import { transitionAssetName, useActivityPlayback } from './pet/activityPlayback';
+import { petSkinFilters } from './pet/skins';
 import { localUtcOffsetMinutes } from './platform/clock';
 import { registerPairCreator, registerPairJoiner, sendEncryptedEvent, syncEncryptedEvents } from './services/relayTransport';
 import { checkForUpdate, installUpdate } from './services/update';
 import type { Update } from '@tauri-apps/plugin-updater';
 import { pruneEventsOlderThan, putEvent } from './storage/events';
 import { buildReplay } from './services/replay';
+import { latestPartnerSkin } from './services/profile';
 import { animationDurationScale, effectiveUtcOffsetMinutes, loadPreferences, savePreferences } from './settings/preferences';
 import { currentStatisticsBundle, flushStatistics, recordActivityStatistics, recordInputStatistics } from './statistics/statistics';
 import { appCopy } from './i18n';
@@ -96,6 +98,7 @@ export default function App() {
     const payload = latest.event.payload as StatisticsPayload;
     return payload.visibility === 'partner' ? payload.snapshots : undefined;
   }, [events]);
+  const partnerSkin = useMemo(() => latestPartnerSkin(events, pairing?.relationshipId), [events, pairing?.relationshipId]);
   const current = playing ? replay[frame] : undefined;
   const partnerActivity = current?.activity ?? 'rest';
   const visualInputKind = visualInputForActivity(activity, keyboardPressed, pointerPressed);
@@ -119,6 +122,8 @@ export default function App() {
   const motionStyle = useMemo(() => ({
     '--self-pet-scale': String(preferences.selfPetScalePercent / 100),
     '--partner-pet-scale': String(preferences.partnerPetScalePercent / 100),
+    '--self-pet-skin-filter': petSkinFilters[preferences.selfPetSkin],
+    '--partner-pet-skin-filter': petSkinFilters[partnerSkin],
     '--pet-breathe-duration': `${Math.round(3_600 * durationScale)}ms`,
     '--pet-read-duration': `${Math.round(3_100 * durationScale)}ms`,
     '--pet-meeting-duration': `${Math.round(2_500 * durationScale)}ms`,
@@ -128,7 +133,7 @@ export default function App() {
     '--pet-idle-duration': `${Math.round(3_800 * durationScale)}ms`,
     '--interaction-duration': `${Math.round(3_200 * durationScale)}ms`,
     '--activity-transition-duration': `${Math.round(ACTIVITY_TRANSITION_MS * durationScale)}ms`
-  }) as CSSProperties, [durationScale, preferences.partnerPetScalePercent, preferences.selfPetScalePercent]);
+  }) as CSSProperties, [durationScale, partnerSkin, preferences.partnerPetScalePercent, preferences.selfPetScalePercent, preferences.selfPetSkin]);
 
   const runUpdateCheck = useCallback(async () => {
     setUpdateState({ kind: 'checking', message: text.updateChecking });
@@ -200,6 +205,19 @@ export default function App() {
     };
   }), [enqueueEncryptedEvent]);
 
+  const publishPetSkin = useCallback((skin: PetSkin) => enqueueEncryptedEvent(active => {
+    const createdAt = new Date().toISOString();
+    return {
+      id: uuid(),
+      version: 1,
+      relationshipId: active.relationshipId,
+      senderDeviceId: active.deviceId,
+      createdAt,
+      kind: 'profile.skin',
+      payload: { skin }
+    };
+  }), [enqueueEncryptedEvent]);
+
   useEffect(() => {
     void pruneEventsOlderThan(preferences.replayRetentionHours).then(setEvents);
   }, [preferences.replayRetentionHours]);
@@ -219,6 +237,16 @@ export default function App() {
     }, 5 * 60_000);
     return () => window.clearInterval(timer);
   }, [pairing?.partnerDeviceId, pairing?.relationshipId, preferences.statisticsVisibility, publishStatistics]);
+  useEffect(() => {
+    if (!pairing?.partnerDeviceId) return;
+    let delivered = false;
+    const publish = () => {
+      void publishPetSkin(preferences.selfPetSkin).then(() => { delivered = true; }, () => undefined);
+    };
+    publish();
+    const retryTimer = window.setInterval(() => { if (!delivered) publish(); }, 30_000);
+    return () => window.clearInterval(retryTimer);
+  }, [pairing?.partnerDeviceId, pairing?.relationshipId, preferences.selfPetSkin, publishPetSkin]);
   useEffect(() => {
     if (!isTauriWindow) return;
     const appWindow = getCurrentWindow();

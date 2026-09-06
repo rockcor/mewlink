@@ -61,12 +61,12 @@ type PlainEvent = {
   id: string; version: 1; relationshipId: string;
   senderDeviceId: string; createdAt: string;
   senderUtcOffsetMinutes?: number;
-  kind: 'activity.segment' | 'interaction' | 'receipt';
-  payload: ActivityPayload | InteractionPayload | ReceiptPayload;
+  kind: 'activity.segment' | 'interaction' | 'profile.skin' | 'statistics.snapshot';
+  payload: ActivityPayload | InteractionPayload | PetSkinPayload | StatisticsPayload;
 };
 ```
 
-`senderUtcOffsetMinutes` 是发送当时按 15 分钟取整的 UTC 偏移，只存在于 E2EE 密文内；不读取或同步城市、时区名称。接收端根据事件绝对时间和自己的历史夏令时偏移换算回放时钟；旧事件缺少该字段时只显示接收方本地时间。`activity.segment` 含类别、取整后的开始/结束时间；`interaction` 含允许列表中的动作、可选杯型、可选被子样式和可选本地化短语 ID，不允许任意文本进入 MVP；`receipt` 仅确认事件 ID 与状态。客户端验证版本、字段长度、允许值、时间偏差和签名后再持久化。事件 ID 使用 UUIDv7（骨架暂用 UUIDv4）。同一 ID 幂等；每设备序号防重放；协议升级采用显式版本，未知版本隔离而非丢弃。
+`senderUtcOffsetMinutes` 是发送当时按 15 分钟取整的 UTC 偏移，只存在于 E2EE 密文内；不读取或同步城市、时区名称。接收端根据事件绝对时间和自己的历史夏令时偏移换算回放时钟；旧事件缺少该字段时只显示接收方本地时间。`activity.segment` 含类别、取整后的开始/结束时间；`interaction` 含允许列表中的动作、可选杯型、可选被子样式和可选本地化短语 ID，不允许任意文本进入 MVP；`profile.skin` 仅含允许列表中的宠物配色，绑定完成和配色变化时发送，并从重放内容中排除；`statistics.snapshot` 仅携带用户所选可见范围对应的统计摘要。客户端验证版本、字段长度、允许值、时间偏差和签名后再持久化。事件 ID 使用 UUIDv7（骨架暂用 UUIDv4）。同一 ID 幂等；每设备序号防重放；协议升级采用显式版本，未知版本隔离而非丢弃。
 
 ## 8. 数据模型
 

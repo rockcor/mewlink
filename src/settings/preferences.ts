@@ -1,4 +1,4 @@
-import { blanketStyles, statisticsVisibilities, type BlanketStyle, type StatisticsVisibility } from '../domain/types';
+import { blanketStyles, petSkins, statisticsVisibilities, type BlanketStyle, type PetSkin, type StatisticsVisibility } from '../domain/types';
 import { localUtcOffsetMinutes, normalizeUtcOffsetMinutes } from '../platform/clock';
 
 export const animationSpeeds = ['calm', 'natural', 'lively'] as const;
@@ -20,6 +20,7 @@ export interface Preferences {
   animationSpeed: AnimationSpeed;
   selfPetScalePercent: number;
   partnerPetScalePercent: number;
+  selfPetSkin: PetSkin;
   blanketStyle: BlanketStyle;
   language: Language;
 }
@@ -43,6 +44,7 @@ export function defaultPreferences(): Preferences {
     animationSpeed: 'calm',
     selfPetScalePercent: 100,
     partnerPetScalePercent: 100,
+    selfPetSkin: 'cream',
     blanketStyle: 'blush',
     language: systemLanguage()
   };
@@ -93,6 +95,7 @@ export function loadPreferences(storage?: StorageLike): Preferences {
       partnerPetScalePercent: typeof value.partnerPetScalePercent === 'number'
         ? normalizePetScalePercent(value.partnerPetScalePercent)
         : legacyScale ?? defaults.partnerPetScalePercent,
+      selfPetSkin: petSkins.includes(value.selfPetSkin as PetSkin) ? value.selfPetSkin as PetSkin : defaults.selfPetSkin,
       blanketStyle: blanketStyles.includes(value.blanketStyle as BlanketStyle) ? value.blanketStyle as BlanketStyle : defaults.blanketStyle,
       language: languages.includes(value.language as Language) ? value.language as Language : defaults.language
     };

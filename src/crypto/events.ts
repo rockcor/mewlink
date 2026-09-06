@@ -1,4 +1,4 @@
-import type { EncryptedEnvelope, PlainEvent } from '../domain/types';
+import { petSkins, type EncryptedEnvelope, type PlainEvent } from '../domain/types';
 
 type Sodium = typeof import('libsodium-wrappers-sumo').default;
 let sodiumPromise: Promise<Sodium> | undefined;
@@ -30,6 +30,7 @@ function isPlainEvent(value: unknown): value is PlainEvent {
       && typeof payload.startedAt === 'string'
       && typeof payload.endedAt === 'string';
   }
+  if (event.kind === 'profile.skin') return petSkins.includes(payload.skin as (typeof petSkins)[number]);
   if (event.kind !== 'statistics.snapshot'
     || (payload.visibility !== 'private' && payload.visibility !== 'partner')
     || typeof payload.generatedAt !== 'string') return false;

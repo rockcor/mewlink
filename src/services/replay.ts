@@ -15,7 +15,7 @@ const normalizeActivity = (category: string): ActivityKind => {
 export function buildReplay(events: StoredEvent[], receiverUtcOffsetMinutes?: number, showTimezone = true, language: Language = 'zh'): ReplayItem[] {
   const localizedLabels = labels[language];
   return events.filter(stored => stored.direction === 'in').sort((left, right) => Date.parse(left.event.createdAt) - Date.parse(right.event.createdAt)).flatMap(({ event }) => {
-    if (event.kind === 'statistics.snapshot') return [];
+    if (event.kind === 'statistics.snapshot' || event.kind === 'profile.skin') return [];
     const payload = event.payload as InteractionPayload | ActivitySegment;
     const key = event.kind === 'interaction' ? (payload as InteractionPayload).action : normalizeActivity((payload as ActivitySegment).category);
     if (!(key in localizedLabels)) return [];

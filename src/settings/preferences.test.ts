@@ -17,7 +17,7 @@ describe('desktop preferences', () => {
 
   it('persists replay, manual timezone, and update preferences', () => {
     const storage = memoryStorage();
-    savePreferences({ autoUpdate: false, replayEnabled: false, replaySaveDirectory: '/tmp/mewlink-replays', replayRetentionHours: 36, statisticsVisibility: 'partner', timezoneMode: 'manual', manualUtcOffsetMinutes: 330, animationSpeed: 'natural', selfPetScalePercent: 85, partnerPetScalePercent: 95, blanketStyle: 'night', language: 'en' }, storage);
+    savePreferences({ autoUpdate: false, replayEnabled: false, replaySaveDirectory: '/tmp/mewlink-replays', replayRetentionHours: 36, statisticsVisibility: 'partner', timezoneMode: 'manual', manualUtcOffsetMinutes: 330, animationSpeed: 'natural', selfPetScalePercent: 85, partnerPetScalePercent: 95, selfPetSkin: 'sky', blanketStyle: 'night', language: 'en' }, storage);
     const saved = loadPreferences(storage);
     expect(effectiveUtcOffsetMinutes(saved)).toBe(330);
     expect(saved.autoUpdate).toBe(false);
@@ -27,6 +27,7 @@ describe('desktop preferences', () => {
     expect(saved.statisticsVisibility).toBe('partner');
     expect(saved.selfPetScalePercent).toBe(85);
     expect(saved.partnerPetScalePercent).toBe(95);
+    expect(saved.selfPetSkin).toBe('sky');
     expect(saved.blanketStyle).toBe('night');
     expect(saved.language).toBe('en');
     expect(formatUtcOffset(saved.manualUtcOffsetMinutes)).toBe('UTC+05:30');
@@ -40,7 +41,7 @@ describe('desktop preferences', () => {
 
   it('lets people turn automatic timezone detection off', () => {
     const storage = memoryStorage();
-    savePreferences({ autoUpdate: true, replayEnabled: true, replaySaveDirectory: '', replayRetentionHours: 24, statisticsVisibility: 'private', timezoneMode: 'off', manualUtcOffsetMinutes: 0, animationSpeed: 'calm', selfPetScalePercent: 100, partnerPetScalePercent: 100, blanketStyle: 'blush', language: 'zh' }, storage);
+    savePreferences({ autoUpdate: true, replayEnabled: true, replaySaveDirectory: '', replayRetentionHours: 24, statisticsVisibility: 'private', timezoneMode: 'off', manualUtcOffsetMinutes: 0, animationSpeed: 'calm', selfPetScalePercent: 100, partnerPetScalePercent: 100, selfPetSkin: 'cream', blanketStyle: 'blush', language: 'zh' }, storage);
     expect(loadPreferences(storage).timezoneMode).toBe('off');
   });
 
