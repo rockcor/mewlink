@@ -37,7 +37,7 @@ button { font: inherit; }
 .hover-ui {
   position: absolute;
   z-index: 5;
-  top: 8px;
+  top: 20px;
   left: 50%;
   display: grid;
   justify-items: center;
@@ -49,6 +49,15 @@ button { font: inherit; }
   transform-origin: 50% 100%;
   transition: opacity 150ms ease, transform 180ms cubic-bezier(.2, .8, .2, 1);
 }
+
+.hover-ui.solo {
+  top: 54px;
+  display: flex;
+  justify-content: center;
+  gap: 6px;
+}
+
+.hover-ui.solo .status-row { width: auto; }
 
 .status-row {
   display: flex;

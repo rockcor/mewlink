@@ -475,7 +475,7 @@ export default function App() {
   return (
     <main className="desktop-pet" style={motionStyle}>
       <section className={`pet-zone ${settingsOpen ? 'settings-open' : ''}`} aria-label={connected ? text.petZone : text.soloPetZone} lang={preferences.language === 'zh' ? 'zh-CN' : 'en'}>
-        <div className="hover-ui">
+        <div className={`hover-ui ${connected ? 'paired' : 'solo'}`}>
           <div className="status-row" aria-live="polite">
             <div className="status-pill self-status">
               <span>●</span>
