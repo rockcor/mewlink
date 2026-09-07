@@ -6,6 +6,10 @@
     "darwin-aarch64": {
       "signature": "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVTRGJubHgvODMwbEd1SUNtUmdzK1h4cnJoREx4SS94RnJHc1hET3hqSHQvRjZhQmd2ZXhzQWthUXlrcThvL0U4Q0toVjduUzMxOGFMby9mR1NSMDgrOGZxcWZ2ZXNFaVFrPQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzg4ODEwMDcyCWZpbGU6TWV3TGluay5hcHAudGFyLmd6CnJWRE9kOWFuZFMwR0tYcGowRWd6Mk9aN3BOOHZWNVFUSTQzUTkzeWtZMHIyU0pHR2JkR0ErZkkrM3pNTEJiNDJXcFkzYUZLS0IrYklRUVFoK2hHNENBPT0K",
       "url": "https://mewlink.jshmhsb.chatgpt.site/downloads/MewLink-macOS-0.3.18.app.tar.gz"
+    },
+    "windows-x86_64": {
+      "signature": "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVTRGJubHgvODMwbEZ6YjBGN0YzdXBja2RGU1JpWUdiY3pvZjk1cnIvdU8yUjlIbHNqN2F1Y3d4L25XYXpDdlF3b3F0cDA1WnFpNy9QOUZCMzdFOFphK2VMdzFNd2VJU1FNPQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzg4ODExMjk1CWZpbGU6TWV3TGlua18wLjMuMThfeDY0X2VuLVVTLm1zaQpnN1JleGg0Q0ViVHdYTjNRUmFqTmNIU3dtOW5ySjVNNFdhOGswRnZaQWQwMGhPT3lGYlZSSFZmTVJZSUtpdWhrODRhQTdaMFFHMkR4Q1hVU2MrSVRDZz09Cg==",
+      "url": "https://github.com/rockcor/mewlink/releases/download/v0.3.18/MewLink_0.3.18_x64_en-US.msi"
     }
   }
 }
