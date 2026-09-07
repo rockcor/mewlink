@@ -6,4 +6,5 @@ export const petSkinFilters: Record<PetSkin, string> = {
   mint: 'hue-rotate(136deg) saturate(.9) brightness(1.03)',
   sky: 'hue-rotate(205deg) saturate(.9) brightness(1.03)',
   lavender: 'hue-rotate(276deg) saturate(.94) brightness(1.02)',
+  luka: 'saturate(.52) brightness(1.055) contrast(1.025)',
 };

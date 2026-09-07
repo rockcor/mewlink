@@ -17,7 +17,7 @@ describe('desktop preferences', () => {
 
   it('persists replay, manual timezone, and update preferences', () => {
     const storage = memoryStorage();
-    savePreferences({ autoUpdate: false, replayEnabled: false, replaySaveDirectory: '/tmp/mewlink-replays', replayRetentionHours: 36, statisticsVisibility: 'partner', timezoneMode: 'manual', manualUtcOffsetMinutes: 330, animationSpeed: 'natural', selfPetScalePercent: 85, partnerPetScalePercent: 95, selfPetSkin: 'sky', blanketStyle: 'night', language: 'en' }, storage);
+    savePreferences({ autoUpdate: false, replayEnabled: false, replaySaveDirectory: '/tmp/mewlink-replays', replayRetentionHours: 36, statisticsVisibility: 'partner', timezoneMode: 'manual', manualUtcOffsetMinutes: 330, animationSpeed: 'natural', selfPetScalePercent: 85, partnerPetScalePercent: 95, selfPetSkin: 'luka', blanketStyle: 'night', language: 'en' }, storage);
     const saved = loadPreferences(storage);
     expect(effectiveUtcOffsetMinutes(saved)).toBe(330);
     expect(saved.autoUpdate).toBe(false);
@@ -27,7 +27,7 @@ describe('desktop preferences', () => {
     expect(saved.statisticsVisibility).toBe('partner');
     expect(saved.selfPetScalePercent).toBe(85);
     expect(saved.partnerPetScalePercent).toBe(95);
-    expect(saved.selfPetSkin).toBe('sky');
+    expect(saved.selfPetSkin).toBe('luka');
     expect(saved.blanketStyle).toBe('night');
     expect(saved.language).toBe('en');
     expect(formatUtcOffset(saved.manualUtcOffsetMinutes)).toBe('UTC+05:30');

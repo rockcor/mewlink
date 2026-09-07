@@ -617,7 +617,7 @@ button { font: inherit; }
 
 .pet-color-options {
   display: grid;
-  grid-template-columns: repeat(5, minmax(0, 1fr));
+  grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 6px;
   margin-top: 11px;
 }
@@ -640,6 +640,7 @@ button { font: inherit; }
 .pet-color-swatch.mint { background: #bde4ce; }
 .pet-color-swatch.sky { background: #bcdcf2; }
 .pet-color-swatch.lavender { background: #d8c5ee; }
+.pet-color-swatch.luka { background: linear-gradient(135deg, #fff9e9 0 62%, #c8c2b8 63% 100%); }
 
 .prop-picker { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-top: 10px; }
 .prop-picker > b { color: #765765; font-size: 9px; }

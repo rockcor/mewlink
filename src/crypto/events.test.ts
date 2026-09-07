@@ -63,10 +63,10 @@ describe('encrypted event compatibility', () => {
     const key = await newDemoKey();
     const event: PlainEvent = {
       id: crypto.randomUUID(), version: 1, relationshipId: 'relationshipTest01', senderDeviceId: 'skinDevice000001',
-      createdAt: new Date().toISOString(), kind: 'profile.skin', payload: { skin: 'lavender' }
+      createdAt: new Date().toISOString(), kind: 'profile.skin', payload: { skin: 'luka' }
     };
     const envelope = await encryptEvent(event, 'recipientDevice001', 3, key);
-    expect(JSON.stringify(envelope)).not.toContain('lavender');
+    expect(JSON.stringify(envelope)).not.toContain('luka');
     await expect(decryptEvent(envelope, key)).resolves.toEqual(event);
   });
 
