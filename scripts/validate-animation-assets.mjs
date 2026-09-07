@@ -1,6 +1,6 @@
-import { readFile, stat } from 'node:fs/promises';
+import { stat } from 'node:fs/promises';
 import path from 'node:path';
-import { inflateSync } from 'node:zlib';
+import sharp from 'sharp';
 
 const frameWidth = 384;
 const frameHeight = 256;
@@ -38,66 +38,30 @@ const expected = new Map([
 ]);
 
 const animationDir = path.resolve('public/pets/animations');
-const pngSignature = '89504e470d0a1a0a';
 
 for (const [name, frames] of expected) {
   const filename = path.join(animationDir, `${name}.png`);
-  const [contents, info] = await Promise.all([readFile(filename), stat(filename)]);
-  if (contents.subarray(0, 8).toString('hex') !== pngSignature) throw new Error(`${name}: invalid PNG signature`);
-  const width = contents.readUInt32BE(16);
-  const height = contents.readUInt32BE(20);
-  const colorType = contents[25];
+  const [metadata, info] = await Promise.all([sharp(filename).metadata(), stat(filename)]);
+  const { width, height } = metadata;
+  if (metadata.format !== 'png') throw new Error(`${name}: invalid PNG animation strip`);
   if (width !== frameWidth * frames || height !== frameHeight) {
     throw new Error(`${name}: expected ${frameWidth * frames}x${frameHeight}, got ${width}x${height}`);
   }
-  if (colorType !== 6 && colorType !== 4) throw new Error(`${name}: PNG has no alpha channel`);
+  if (!metadata.hasAlpha) throw new Error(`${name}: PNG has no alpha channel`);
   if (info.size < 1024) throw new Error(`${name}: suspiciously small export`);
 }
 
 const decoded = new Map();
-const paeth = (left, up, upperLeft) => {
-  const estimate = left + up - upperLeft;
-  const leftDistance = Math.abs(estimate - left);
-  const upDistance = Math.abs(estimate - up);
-  const upperLeftDistance = Math.abs(estimate - upperLeft);
-  return leftDistance <= upDistance && leftDistance <= upperLeftDistance ? left : upDistance <= upperLeftDistance ? up : upperLeft;
-};
 
 async function decodeRgba(name) {
   if (decoded.has(name)) return decoded.get(name);
-  const contents = await readFile(path.join(animationDir, `${name}.png`));
-  const width = contents.readUInt32BE(16);
-  const height = contents.readUInt32BE(20);
-  if (contents[24] !== 8 || contents[25] !== 6 || contents[28] !== 0) throw new Error(`${name}: continuity check requires non-interlaced 8-bit RGBA`);
-  const chunks = [];
-  for (let offset = 8; offset < contents.length;) {
-    const length = contents.readUInt32BE(offset);
-    const type = contents.toString('ascii', offset + 4, offset + 8);
-    if (type === 'IDAT') chunks.push(contents.subarray(offset + 8, offset + 8 + length));
-    offset += length + 12;
-    if (type === 'IEND') break;
-  }
-  const packed = inflateSync(Buffer.concat(chunks));
-  const stride = width * 4;
-  const pixels = Buffer.alloc(stride * height);
-  for (let y = 0; y < height; y += 1) {
-    const sourceOffset = y * (stride + 1);
-    const targetOffset = y * stride;
-    const filter = packed[sourceOffset];
-    for (let x = 0; x < stride; x += 1) {
-      const raw = packed[sourceOffset + x + 1];
-      const left = x >= 4 ? pixels[targetOffset + x - 4] : 0;
-      const up = y > 0 ? pixels[targetOffset + x - stride] : 0;
-      const upperLeft = y > 0 && x >= 4 ? pixels[targetOffset + x - stride - 4] : 0;
-      const value = filter === 0 ? raw
-        : filter === 1 ? raw + left
-          : filter === 2 ? raw + up
-            : filter === 3 ? raw + Math.floor((left + up) / 2)
-              : filter === 4 ? raw + paeth(left, up, upperLeft)
-                : Number.NaN;
-      if (Number.isNaN(value)) throw new Error(`${name}: unsupported PNG filter ${filter}`);
-      pixels[targetOffset + x] = value & 0xff;
-    }
+  const { data: pixels, info } = await sharp(path.join(animationDir, `${name}.png`))
+    .ensureAlpha()
+    .raw()
+    .toBuffer({ resolveWithObject: true });
+  const { width, height } = info;
+  for (let offset = 0; offset < pixels.length; offset += 4) {
+    if (pixels[offset + 3] === 0) pixels.fill(0, offset, offset + 3);
   }
   const result = { width, height, pixels };
   decoded.set(name, result);
