@@ -1,6 +1,15 @@
 import { decryptEvent, encryptEvent } from '../crypto/events';
 import type { EncryptedEnvelope, PlainEvent, StoredEvent } from '../domain/types';
-import { pairingKey, relayTokenHash, type PairingState } from '../pairing/pairing';
+import {
+  createPairingJoinRequest,
+  openPairingInvite,
+  pairingCodeHash,
+  pairingKey,
+  relayTokenHash,
+  sealPairingInvite,
+  type PairingJoinRequest,
+  type PairingState,
+} from '../pairing/pairing';
 
 export const RELAY_ENDPOINT = import.meta.env.VITE_RELAY_ENDPOINT || (import.meta.env.DEV
   ? 'http://localhost:3000/api/relay'
@@ -17,6 +26,7 @@ interface SyncResponse {
   cursor: number;
   devices: string[];
   messages: RelayMessage[];
+  pairingRequest?: { deviceId: string; publicKey: string };
 }
 
 export class RelayError extends Error {
@@ -39,6 +49,8 @@ async function checked(response: Response) {
     const value = await response.json() as { error?: string };
     if (value.error === 'invite_expired') message = '邀请码已经过期';
     if (value.error === 'pair_full') message = '这组邀请码已经连接了两台设备';
+    if (value.error === 'pairing_busy') message = '这个配对码正在被使用，请稍后再试';
+    if (value.error === 'pairing_rejected') message = '配对码无效或已经过期';
     if (value.error === 'slow_down') message = '发送得太快了，请稍后再试';
   } catch {
     // Keep the friendly fallback message.
@@ -47,6 +59,7 @@ async function checked(response: Response) {
 }
 
 export async function registerPairCreator(state: PairingState, fetcher: Fetcher = fetch) {
+  if (!state.inviteCode) throw new RelayError('请重新生成配对码', 400);
   await checked(await fetcher(RELAY_ENDPOINT, {
     method: 'POST',
     headers: headers(),
@@ -54,10 +67,49 @@ export async function registerPairCreator(state: PairingState, fetcher: Fetcher 
       operation: 'create',
       relationshipId: state.relationshipId,
       tokenHash: await relayTokenHash(state.relayToken),
+      pairingCodeHash: await pairingCodeHash(state.inviteCode),
       deviceId: state.deviceId,
       inviteExpiresAt: Math.floor(state.inviteExpiresAt / 1000),
     }),
   }));
+}
+
+export async function requestPairingJoin(request: PairingJoinRequest, fetcher: Fetcher = fetch) {
+  await checked(await fetcher(RELAY_ENDPOINT, {
+    method: 'POST',
+    headers: headers(),
+    body: JSON.stringify({
+      operation: 'request_join',
+      pairingCodeHash: request.codeHash,
+      deviceId: request.deviceId,
+      publicKey: request.publicKey,
+    }),
+  }));
+}
+
+export async function claimPairingJoin(request: PairingJoinRequest, fetcher: Fetcher = fetch) {
+  const response = await checked(await fetcher(RELAY_ENDPOINT, {
+    method: 'POST',
+    headers: headers(),
+    body: JSON.stringify({ operation: 'claim_join', pairingCodeHash: request.codeHash, deviceId: request.deviceId }),
+  }));
+  const payload = await response.json() as { pending?: boolean; sealedInvite?: unknown };
+  return typeof payload.sealedInvite === 'string' ? payload.sealedInvite : undefined;
+}
+
+export async function joinWithPairingCode(code: string, fetcher: Fetcher = fetch) {
+  const request = await createPairingJoinRequest(code);
+  await requestPairingJoin(request, fetcher);
+  for (let attempt = 0; attempt < 90; attempt += 1) {
+    const sealedInvite = await claimPairingJoin(request, fetcher);
+    if (sealedInvite) {
+      const state = await openPairingInvite(request, sealedInvite);
+      await registerPairJoiner(state, fetcher);
+      return state;
+    }
+    await new Promise(resolve => setTimeout(resolve, 1_000));
+  }
+  throw new RelayError('等待超时，请确认对方的 MewLink 保持打开', 408);
 }
 
 export async function registerPairJoiner(state: PairingState, fetcher: Fetcher = fetch) {
@@ -84,6 +136,20 @@ export async function syncEncryptedEvents(state: PairingState, fetcher: Fetcher 
   url.searchParams.set('after', String(state.relayCursor));
   const response = await checked(await fetcher(url, { headers: headers(state) }));
   const payload = await response.json() as Partial<SyncResponse>;
+  const pairingRequest = payload.pairingRequest;
+  if (!state.partnerDeviceId && pairingRequest && typeof pairingRequest.deviceId === 'string' && typeof pairingRequest.publicKey === 'string') {
+    const sealedInvite = await sealPairingInvite(state, pairingRequest.publicKey);
+    await checked(await fetcher(RELAY_ENDPOINT, {
+      method: 'POST',
+      headers: headers(state),
+      body: JSON.stringify({
+        operation: 'approve_join',
+        relationshipId: state.relationshipId,
+        deviceId: pairingRequest.deviceId,
+        sealedInvite,
+      }),
+    }));
+  }
   const cursor = Number.isSafeInteger(payload.cursor) && (payload.cursor ?? 0) >= state.relayCursor ? payload.cursor as number : state.relayCursor;
   const devices = Array.isArray(payload.devices) ? payload.devices.filter(device => typeof device === 'string' && device !== state.deviceId) : [];
   const receivedSequences = { ...state.receivedSequences };

@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties, type PointerEvent as ReactPointerEvent, type WheelEvent as ReactWheelEvent } from 'react';
-import { PhysicalPosition } from '@tauri-apps/api/dpi';
+import { invoke } from '@tauri-apps/api/core';
 import { getCurrentWindow } from '@tauri-apps/api/window';
 import { v4 as uuid } from 'uuid';
 import { SettingsPanel, type UpdateViewState } from './components/SettingsPanel';
@@ -9,7 +9,6 @@ import { cupStyles } from './domain/types';
 import {
   clearPairing,
   createPairingState,
-  joinPairingState,
   loadPairing,
   pairingInviteCode,
   pairingSafetyCode,
@@ -21,7 +20,7 @@ import { ACTIVITY_TRANSITION_MS, gestureFor, waterDrinkDelay, type GestureVarian
 import { transitionAssetName, useActivityPlayback } from './pet/activityPlayback';
 import { petSkinFilters } from './pet/skins';
 import { localUtcOffsetMinutes } from './platform/clock';
-import { registerPairCreator, registerPairJoiner, sendEncryptedEvent, syncEncryptedEvents } from './services/relayTransport';
+import { joinWithPairingCode, registerPairCreator, sendEncryptedEvent, syncEncryptedEvents } from './services/relayTransport';
 import { checkForUpdate, installUpdate } from './services/update';
 import { submitFeedback } from './services/feedback';
 import type { Update } from '@tauri-apps/plugin-updater';
@@ -31,8 +30,10 @@ import { latestPartnerSkin } from './services/profile';
 import { animationDurationScale, effectiveUtcOffsetMinutes, loadPreferences, savePreferences, scalePetWithPinch } from './settings/preferences';
 import { currentStatisticsBundle, flushStatistics, recordActivityStatistics, recordInputStatistics } from './statistics/statistics';
 import { appCopy } from './i18n';
+import { queueDesktopWindow, setDesktopPanel } from './platform/desktopPanel';
 import './styles.css';
 import './pet.css';
+import './settings-panel.css';
 
 const windowPositionKey = 'mewlink.windowPosition.v1';
 const pendingCupKey = 'mewlink.pendingCup.v1';
@@ -270,10 +271,12 @@ export default function App() {
       try {
         const saved = JSON.parse(window.localStorage.getItem(windowPositionKey) ?? 'null') as { x?: unknown; y?: unknown } | null;
         if (saved && typeof saved.x === 'number' && Number.isFinite(saved.x) && typeof saved.y === 'number' && Number.isFinite(saved.y)) {
-          await appWindow.setPosition(new PhysicalPosition(saved.x, saved.y));
+          await queueDesktopWindow(() => invoke('restore_pet_position', { x: Math.round(saved.x as number), y: Math.round(saved.y as number) }));
         }
-        const stopListening = await appWindow.onMoved(({ payload }) => {
-          window.localStorage.setItem(windowPositionKey, JSON.stringify({ x: payload.x, y: payload.y }));
+        const stopListening = await appWindow.onMoved(() => {
+          void invoke<{ x: number; y: number }>('pet_window_position').then(position => {
+            window.localStorage.setItem(windowPositionKey, JSON.stringify(position));
+          }).catch(() => undefined);
         });
         if (active) unlisten = stopListening;
         else stopListening();
@@ -284,6 +287,12 @@ export default function App() {
     void setup();
     return () => { active = false; unlisten?.(); };
   }, []);
+  useEffect(() => {
+    if (!isTauriWindow) return;
+    void setDesktopPanel(settingsOpen || statisticsOpen).catch(error => {
+      console.error('Could not adjust settings window', error);
+    });
+  }, [settingsOpen, statisticsOpen]);
   useEffect(() => {
     if (!pairing) {
       setSafetyCode('');
@@ -505,8 +514,7 @@ export default function App() {
   async function joinPairing() {
     setPairingStatus(text.connecting);
     try {
-      const next = joinPairingState(joinCode);
-      await registerPairJoiner(next);
+      const next = await joinWithPairingCode(joinCode);
       persistPairing(next);
       setJoinCode('');
       setPairingStatus(text.connected);

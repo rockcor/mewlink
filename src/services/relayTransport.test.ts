@@ -1,12 +1,14 @@
 import { describe, expect, it } from 'vitest';
 import type { EncryptedEnvelope, PlainEvent } from '../domain/types';
-import { createPairingState, joinPairingState, pairingInviteCode, relayTokenHash } from '../pairing/pairing';
-import { registerPairCreator, registerPairJoiner, sendEncryptedEvent, syncEncryptedEvents } from './relayTransport';
+import { createPairingJoinRequest, createPairingState, openPairingInvite, pairingInviteCode, relayTokenHash } from '../pairing/pairing';
+import { claimPairingJoin, registerPairCreator, registerPairJoiner, requestPairingJoin, sendEncryptedEvent, syncEncryptedEvents } from './relayTransport';
 
 interface Relationship {
   tokenHash: string;
+  pairingCodeHash: string;
   devices: Set<string>;
   messages: Array<{ relayId: number; envelope: EncryptedEnvelope }>;
+  pairingRequest?: { deviceId: string; publicKey: string; sealedInvite?: string };
 }
 
 function json(data: unknown, status = 200) {
@@ -31,10 +33,25 @@ function fakeRelay() {
       const relationshipId = body.relationshipId as string;
       relationships.set(relationshipId, {
         tokenHash: body.tokenHash as string,
+        pairingCodeHash: body.pairingCodeHash as string,
         devices: new Set([body.deviceId as string]),
         messages: [],
       });
       return json({ ok: true });
+    }
+
+    if (body?.operation === 'request_join') {
+      const relationship = [...relationships.values()].find(item => item.pairingCodeHash === body.pairingCodeHash);
+      if (!relationship) return json({ error: 'pairing_rejected' }, 403);
+      relationship.pairingRequest = { deviceId: body.deviceId as string, publicKey: body.publicKey as string };
+      return json({ ok: true });
+    }
+
+    if (body?.operation === 'claim_join') {
+      const relationship = [...relationships.values()].find(item => item.pairingCodeHash === body.pairingCodeHash);
+      const pairingRequest = relationship?.pairingRequest;
+      if (!pairingRequest || pairingRequest.deviceId !== body.deviceId) return json({ error: 'pairing_rejected' }, 403);
+      return json(pairingRequest.sealedInvite ? { sealedInvite: pairingRequest.sealedInvite } : { pending: true });
     }
 
     const envelope = body?.envelope as EncryptedEnvelope | undefined;
@@ -44,6 +61,12 @@ function fakeRelay() {
 
     if (body?.operation === 'join') {
       relationship.devices.add(body.deviceId as string);
+      return json({ ok: true });
+    }
+
+    if (body?.operation === 'approve_join') {
+      if (!relationship.pairingRequest || relationship.pairingRequest.deviceId !== body.deviceId) return json({ error: 'pairing_rejected' }, 403);
+      relationship.pairingRequest.sealedInvite = body.sealedInvite as string;
       return json({ ok: true });
     }
 
@@ -60,6 +83,9 @@ function fakeRelay() {
         cursor: messages.at(-1)?.relayId ?? after,
         devices: [...relationship.devices].filter(device => device !== deviceId),
         messages,
+        ...(![...relationship.devices].some(device => device !== deviceId) && relationship.pairingRequest ? {
+          pairingRequest: { deviceId: relationship.pairingRequest.deviceId, publicKey: relationship.pairingRequest.publicKey },
+        } : {}),
       });
     }
 
@@ -67,6 +93,20 @@ function fakeRelay() {
   };
 
   return { fetcher, bodies };
+}
+
+async function pairThroughCode(relay: ReturnType<typeof fakeRelay>) {
+  let first = await createPairingState();
+  await registerPairCreator(first, relay.fetcher);
+  const request = await createPairingJoinRequest(pairingInviteCode(first));
+  await requestPairingJoin(request, relay.fetcher);
+  first = (await syncEncryptedEvents(first, relay.fetcher)).state;
+  const sealedInvite = await claimPairingJoin(request, relay.fetcher);
+  expect(sealedInvite).toBeTypeOf('string');
+  const second = await openPairingInvite(request, sealedInvite as string);
+  await registerPairJoiner(second, relay.fetcher);
+  first = (await syncEncryptedEvents(first, relay.fetcher)).state;
+  return { first, second };
 }
 
 function interaction(relationshipId: string, senderDeviceId: string, action: 'hug' | 'water'): PlainEvent {
@@ -107,13 +147,10 @@ function skin(relationshipId: string, senderDeviceId: string): PlainEvent {
 describe('two macOS encrypted relay', () => {
   it('delivers opaque interactions in both directions without duplicates', async () => {
     const relay = fakeRelay();
-    let first = await createPairingState();
-    let second = joinPairingState(pairingInviteCode(first));
-    await registerPairCreator(first, relay.fetcher);
-    await registerPairJoiner(second, relay.fetcher);
-
-    first = (await syncEncryptedEvents(first, relay.fetcher)).state;
+    let { first, second } = await pairThroughCode(relay);
     expect(first.partnerDeviceId).toBe(second.deviceId);
+    expect(relay.bodies.join('\n')).not.toContain(first.relationshipKey);
+    expect(relay.bodies.join('\n')).not.toContain(first.relayToken);
 
     const hug = interaction(first.relationshipId, first.deviceId, 'hug');
     const sentHug = await sendEncryptedEvent(first, hug, relay.fetcher);
@@ -164,11 +201,7 @@ describe('two macOS encrypted relay', () => {
 
   it('catches up interactions sent while the recipient is offline', async () => {
     const relay = fakeRelay();
-    let first = await createPairingState();
-    let second = joinPairingState(pairingInviteCode(first));
-    await registerPairCreator(first, relay.fetcher);
-    await registerPairJoiner(second, relay.fetcher);
-    first = (await syncEncryptedEvents(first, relay.fetcher)).state;
+    let { first, second } = await pairThroughCode(relay);
 
     for (const action of ['hug', 'water'] as const) {
       const sent = await sendEncryptedEvent(first, interaction(first.relationshipId, first.deviceId, action), relay.fetcher);
@@ -186,11 +219,7 @@ describe('two macOS encrypted relay', () => {
 
   it('does not reveal an interaction to a device with the wrong relationship key', async () => {
     const relay = fakeRelay();
-    let first = await createPairingState();
-    const second = joinPairingState(pairingInviteCode(first));
-    await registerPairCreator(first, relay.fetcher);
-    await registerPairJoiner(second, relay.fetcher);
-    first = (await syncEncryptedEvents(first, relay.fetcher)).state;
+    const { first, second } = await pairThroughCode(relay);
 
     const hug = interaction(first.relationshipId, first.deviceId, 'hug');
     await sendEncryptedEvent(first, hug, relay.fetcher);

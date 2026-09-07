@@ -389,8 +389,18 @@ button { font: inherit; }
   overflow-wrap: anywhere;
 }
 
+.pairing-code-input.short-code {
+  min-height: 47px;
+  resize: none;
+  text-align: center;
+  letter-spacing: .16em;
+  font-size: 15px;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+
 .pairing-code-input:focus { border-color: rgba(217, 134, 165, .75); box-shadow: 0 0 0 3px rgba(217, 134, 165, .12); }
-.pairing-code-input.invite-code { min-height: 62px; margin-top: 11px; color: #896a77; }
+.pairing-code-input.invite-code { min-height: 47px; margin-top: 11px; color: #896a77; }
 .pairing-actions { display: flex; align-items: center; gap: 6px; }
 .pairing-actions .pairing-primary { flex: 1; }
 

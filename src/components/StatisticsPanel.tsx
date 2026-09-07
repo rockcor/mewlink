@@ -1,4 +1,5 @@
 import { useEffect, useState, type CSSProperties } from 'react';
+import { PanelFrame } from './PanelFrame';
 import type { StatisticsSnapshot, StatisticsVisibility } from '../domain/types';
 import type { Language } from '../settings/preferences';
 import { currentStatistics, statisticsRanges, type StatisticsRange } from '../statistics/statistics';
@@ -102,18 +103,14 @@ export function StatisticsPanel({ language, connected, visibility, partnerSnapsh
   const workValues = [snapshot.workVisual.code, snapshot.workVisual.document, snapshot.workVisual.web, aiTime, mewlinkTime];
   const activityValues = [snapshot.activity.work, snapshot.activity.meeting, snapshot.activity.idle];
 
-  return <section className="settings-panel statistics-panel" role="dialog" aria-modal="true" aria-labelledby="statistics-title" lang={language === 'zh' ? 'zh-CN' : 'en'}>
-    <header className="settings-header statistics-header">
-      <div><small>MewLink</small><h2 id="statistics-title">{text.title}</h2></div>
-      <div className="statistics-header-actions">
+  return <PanelFrame className="statistics-panel" title={text.title} closeLabel={text.close} language={language} onClose={onClose} navigation={
+      <div className="statistics-navigation">
         <div className="mini-tabs statistics-range" role="group" aria-label={text.title}>
           {statisticsRanges.map(option => <button key={option} type="button" className={range === option ? 'selected' : ''} onClick={() => setRange(option)}>{text.ranges[option]}</button>)}
         </div>
-        <button type="button" className="settings-close" onClick={onClose} aria-label={text.close}>×</button>
       </div>
-    </header>
-
-    <div className="settings-scroll statistics-scroll">
+    }>
+    <div className="statistics-scroll">
       <div className="statistics-controls">
         <div className="mini-tabs statistics-owner" role="group" aria-label={text.title}>
           <button type="button" className={owner === 'self' ? 'selected' : ''} onClick={() => setOwner('self')}>{text.mine}</button>
@@ -152,5 +149,5 @@ export function StatisticsPanel({ language, connected, visibility, partnerSnapsh
         </article>
       </div>
     </div>
-  </section>;
+  </PanelFrame>;
 }

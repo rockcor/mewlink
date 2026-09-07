@@ -1,5 +1,6 @@
 use serde::Serialize;
 use tauri::{Manager, PhysicalPosition};
+mod window_layout;
 
 #[derive(Debug, PartialEq, Eq, Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -831,7 +832,14 @@ pub fn run() {
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_process::init())
         .plugin(tauri_plugin_updater::Builder::new().build())
-        .invoke_handler(tauri::generate_handler![presence_signal, input_signal])
+        .manage(window_layout::DesktopLayout::default())
+        .invoke_handler(tauri::generate_handler![
+            presence_signal,
+            input_signal,
+            window_layout::set_panel_open,
+            window_layout::pet_window_position,
+            window_layout::restore_pet_position
+        ])
         .setup(|app| {
             if let Some(window) = app.get_webview_window("main") {
                 if let Some(monitor) = window.current_monitor()? {

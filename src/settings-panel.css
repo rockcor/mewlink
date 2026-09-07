@@ -1,0 +1,134 @@
+/* The border and greeting are exported from the editable Aseprite projects. */
+.pixel-panel {
+  position: fixed;
+  inset: 8px;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 0;
+  max-width: 720px;
+  max-height: 820px;
+  margin: auto;
+  border: 8px solid transparent;
+  border-image: url('/ui/settings-frame.png') 8 fill / 8px / 0 stretch;
+  border-radius: 0;
+  background: transparent;
+  isolation: isolate;
+  font-size: 13px;
+  color: #654451;
+  animation: settings-reveal 180ms cubic-bezier(.2,.7,.2,1) both;
+  transform-origin: bottom right;
+}
+.pixel-panel [hidden] { display: none !important; }
+.pixel-panel .settings-header {
+  flex: 0 0 66px;
+  justify-content: flex-start;
+  gap: 10px;
+  padding: 7px 12px;
+  min-height: 0;
+  background: #ffe9de;
+  border-bottom: 2px solid #edc5bd;
+  cursor: grab;
+  user-select: none;
+  -webkit-user-select: none;
+}
+.pixel-panel .settings-header:active { cursor: grabbing; }
+.pixel-panel .settings-header h2 { font-size: 20px; letter-spacing: .04em; color: #754c5e; }
+.pixel-panel .settings-header small { font-size: 9px; letter-spacing: .18em; color: #ae778b; }
+.settings-mascot {
+  flex: 0 0 48px;
+  width: 48px;
+  height: 48px;
+  background: url('/ui/settings-open.png') 100% 0 / 1200% 100%;
+  image-rendering: pixelated;
+  animation: settings-greeting 480ms steps(11) both;
+}
+.pixel-panel .settings-close {
+  flex: 0 0 36px;
+  width: 36px;
+  height: 36px;
+  margin-left: auto;
+  border: 2px solid #ba8496;
+  border-radius: 4px;
+  background: #fffaf1;
+  box-shadow: 0 2px 0 #ba8496;
+  color: #8e566d;
+  font-size: 25px;
+}
+.pixel-panel .settings-close:hover { background: #ffdbdf; }
+.pixel-panel .settings-close:active { box-shadow: none; translate: 0 2px; }
+.pixel-panel :focus-visible { outline: 2px solid #884f70; outline-offset: 2px; }
+.settings-navigation {
+  flex: 0 0 auto;
+  display: flex;
+  gap: 6px;
+  padding: 12px 14px;
+  background: #fff3e9;
+  border-bottom: 1px solid #f0ded1;
+}
+.settings-navigation button {
+  flex: 1;
+  min-width: 0;
+  padding: 9px 2px;
+  border: 1px solid transparent;
+  border-radius: 4px;
+  color: #9a7480;
+  font-size: 12px;
+  font-weight: 700;
+  background: transparent;
+  cursor: pointer;
+}
+.settings-navigation button[aria-selected='true'] {
+  color: #804b62;
+  border-color: #daa4b4;
+  box-shadow: 0 2px 0 #daa4b4;
+  background: #ffe3dc;
+}
+.pixel-panel .settings-scroll {
+  flex: 1 1 auto;
+  min-height: 0;
+  height: auto;
+  padding: 4px 18px 20px;
+  background: #fffaf1;
+  scrollbar-gutter: stable;
+}
+.pixel-panel .setting-row, .pixel-panel .setting-block { padding: 18px 0; border-bottom-color: #eee0d5; }
+.pixel-panel .setting-title > div, .pixel-panel .setting-row > div { min-width: 0; }
+.pixel-panel .setting-title b, .pixel-panel .setting-row b { font-size: 14px; }
+.pixel-panel .setting-title small, .pixel-panel .setting-row small { font-size: 11px; line-height: 1.55; color: #947880; }
+.pixel-panel .mini-tabs { display: flex; flex-direction: row; flex-shrink: 0; }
+.pixel-panel .mini-tabs, .pixel-panel .speed-options { border-radius: 5px; background: #f5e9e1; }
+.pixel-panel .mini-tabs button, .pixel-panel .speed-options button { min-height: 31px; font-size: 11px; border-radius: 3px; }
+.pixel-panel .pet-color-options { grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; }
+.pixel-panel .pet-color-options button { border-radius: 5px; min-height: 58px; background: #fffdfa; }
+.pixel-panel .pet-color-options button.selected { border-color: #b97996; background: #ffebe5; }
+.pixel-panel .pet-color-options small { font-size: 11px; }
+.pixel-panel .pet-size-slider.named { grid-template-columns: 78px 1fr 44px; gap: 10px; margin-top: 14px; }
+.pixel-panel .pet-size-slider.named > span, .pixel-panel .pet-size-slider.named output { font-size: 11px; }
+.pixel-panel .prop-picker > b, .pixel-panel .recording-location b, .pixel-panel .recording-retention > small { font-size: 11px; }
+.pixel-panel .pairing-code-input { font-size: 11px; min-height: 90px; border-radius: 5px; }
+.pixel-panel .pairing-code-input.short-code { min-height: 44px; font-size: 18px; letter-spacing: .18em; }
+.pixel-panel .pairing-primary, .pixel-panel .pairing-secondary { font-size: 13px; min-height: 36px; border-radius: 5px; }
+.pixel-panel .pairing-status, .pixel-panel .pairing-connected small, .pixel-panel .timezone-detected { font-size: 11px; }
+.pixel-panel .update-line { margin: 0; padding: 12px 0; align-items: flex-start; }
+.pixel-panel .update-line small, .pixel-panel .update-line button, .pixel-panel .update-line a { font-size: 11px; line-height: 1.5; }
+.pixel-panel .feedback-block textarea { min-height: 100px; font-size: 12px; border-radius: 5px; }
+.pixel-panel .feedback-nickname input { font-size: 12px; min-height: 34px; border-radius: 5px; }
+.pixel-panel .feedback-footer button { font-size: 12px; min-height: 34px; border-radius: 5px; }
+.pixel-panel .statistics-navigation { flex: 0 0 auto; padding: 12px 16px; background: #fff3e9; }
+.pixel-panel .statistics-navigation .mini-tabs { justify-content: center; }
+.pixel-panel .statistics-navigation button { flex: 1; }
+.settings-resize { position: absolute; bottom: 0; right: 0; width: 18px; height: 18px; cursor: nwse-resize; background: repeating-linear-gradient(135deg, transparent 0 3px, #c89aab 3px 5px, transparent 5px 7px); clip-path: polygon(100% 0, 100% 100%, 0 100%); }
+@keyframes settings-reveal { from { opacity: .4; transform: scale(.985) translateY(3px); } to { opacity: 1; transform: none; } }
+@keyframes settings-greeting { from { background-position: 0 0; } to { background-position: 100% 0; } }
+@media (max-width: 460px) {
+  .pixel-panel { inset: 4px; }
+  .pixel-panel .settings-scroll { padding-left: 12px; padding-right: 12px; }
+  .pixel-panel .setting-title { flex-wrap: wrap; }
+  .pixel-panel .setting-title > .mini-tabs { margin-left: auto; }
+  .pixel-panel .settings-header { flex-basis: 58px; }
+  .settings-navigation { padding: 8px 10px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .pixel-panel, .settings-mascot { animation: none; }
+}
