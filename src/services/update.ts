@@ -4,7 +4,7 @@ import type { DownloadEvent, Update } from '@tauri-apps/plugin-updater';
 export const UPDATE_MANIFEST_URL = import.meta.env.DEV
   ? '/updates/latest.json'
   : 'https://mewlink.jshmhsb.chatgpt.site/updates/latest.json';
-export const FALLBACK_APP_VERSION = '0.3.15';
+export const FALLBACK_APP_VERSION = '0.3.16';
 
 interface UpdatePlatform {
   signature: string;
@@ -46,27 +46,10 @@ async function currentVersion(): Promise<string> {
   return FALLBACK_APP_VERSION;
 }
 
-export async function checkForUpdate(
-  fetcher: typeof fetch = fetch,
-  version = currentVersion()
+async function checkPublishedManifest(
+  fetcher: typeof fetch,
+  version: Promise<string>
 ): Promise<UpdateCheckResult> {
-  if (typeof window !== 'undefined' && '__TAURI_INTERNALS__' in window && fetcher === fetch) {
-    const [{ check }, current] = await Promise.all([
-      import('@tauri-apps/plugin-updater'),
-      version
-    ]);
-    const update = await check({ timeout: 15_000 });
-    if (!update) {
-      return { currentVersion: current, manifest: { version: current }, available: false };
-    }
-    return {
-      currentVersion: current,
-      manifest: { version: update.version, notes: update.body },
-      available: true,
-      installable: update
-    };
-  }
-
   const response = await fetcher(UPDATE_MANIFEST_URL, { cache: 'no-store' });
   if (!response.ok) throw new Error(`update manifest returned ${response.status}`);
   const manifest = await response.json() as Partial<UpdateManifest>;
@@ -85,6 +68,42 @@ export async function checkForUpdate(
     manifest: { ...(manifest as UpdateManifest), platforms, downloadUrl },
     available: compareVersions(manifest.version, current) > 0
   };
+}
+
+export async function checkForUpdate(
+  fetcher: typeof fetch = fetch,
+  version = currentVersion()
+): Promise<UpdateCheckResult> {
+  if (typeof window !== 'undefined' && '__TAURI_INTERNALS__' in window && fetcher === fetch) {
+    const [{ check }, current] = await Promise.all([
+      import('@tauri-apps/plugin-updater'),
+      version
+    ]);
+    let nativeError: unknown;
+    for (let attempt = 0; attempt < 2; attempt += 1) {
+      try {
+        const update = await check({ timeout: 20_000 });
+        if (!update) {
+          return { currentVersion: current, manifest: { version: current }, available: false };
+        }
+        return {
+          currentVersion: current,
+          manifest: { version: update.version, notes: update.body },
+          available: true,
+          installable: update
+        };
+      } catch (error) {
+        nativeError = error;
+      }
+    }
+    try {
+      return await checkPublishedManifest(fetcher, Promise.resolve(current));
+    } catch {
+      throw nativeError;
+    }
+  }
+
+  return checkPublishedManifest(fetcher, version);
 }
 
 export async function installUpdate(

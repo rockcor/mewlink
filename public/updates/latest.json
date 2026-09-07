@@ -1,11 +1,11 @@
 {
-  "version": "0.3.15",
-  "notes": "更新 MewLink 像素图标与屏幕标识，并完善工作状态动画。",
-  "pub_date": "2026-09-07T06:22:16Z",
+  "version": "0.3.16",
+  "notes": "修复自动更新检查：失败时自动重试，并提供官网版本检查备用路径。",
+  "pub_date": "2026-09-07T06:33:39Z",
   "platforms": {
     "darwin-aarch64": {
-      "signature": "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVTRGJubHgvODMwbEpyU1VTU3lJTndBclZoYXpXNWUzME54RG1XT2wyeUxjdTU0cEs3WXFma0ZYYjZtbEVaWlJ6a1JoL3dTSzJJeDYvS1VaYUVTUHhKZ2lFY2E2cGl1RXd3PQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzg4NzYyMTMwCWZpbGU6TWV3TGluay5hcHAudGFyLmd6CkpscmNNTzViTllIR0ZWcUd6RzM2VVMwbXI4NzZHVEhVLzY2UFA1TlJIM2VzenNrQnBTdjZJQ1ZBSnNaM1IrZU9vYlZWVVRJeWNZSk82V1JRcXRKMUNRPT0K",
-      "url": "https://mewlink.jshmhsb.chatgpt.site/downloads/MewLink-macOS-0.3.15.app.tar.gz"
+      "signature": "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVTRGJubHgvODMwbEZhYVkrWEZqY2pVUmVMWkFVZ1Y3L0VIL1A5SWVyY2pGelkzNGIwbVlwYjZzZHVkYyt1MjIxc2pPWlluTjF2a3VWM1FpY0pqN2JzSDdSd0RCNkVIc2dVPQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzg4NzYyODA2CWZpbGU6TWV3TGluay5hcHAudGFyLmd6ClhPUDVwcWZ6VkFINEw3bmlOM1JnUjRaUkg0dmhtRjBOUGVIbHRIMjFhQ2VmUEtDQW9odzFaM0FxUFlFd3NXbGl1ZTZ6RERaYzAzQVE2eWNVOHk5N0RnPT0K",
+      "url": "https://mewlink.jshmhsb.chatgpt.site/downloads/MewLink-macOS-0.3.16.app.tar.gz"
     }
   }
 }
