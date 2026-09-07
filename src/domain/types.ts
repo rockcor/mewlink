@@ -1,6 +1,6 @@
 export const activityKinds = ['work', 'meeting', 'leisure', 'idle', 'rest'] as const;
 export type ActivityKind = (typeof activityKinds)[number];
-export const workVisuals = ['code', 'document', 'web', 'ai'] as const;
+export const workVisuals = ['code', 'document', 'web', 'ai', 'mewlink'] as const;
 export type WorkVisual = (typeof workVisuals)[number];
 export const interactionKinds = ['water', 'hug'] as const;
 export type InteractionKind = (typeof interactionKinds)[number];

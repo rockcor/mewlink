@@ -59,6 +59,7 @@ function isStatisticsSnapshot(value: unknown, expectedBars: number): boolean {
   if (!isNumberRecord(snapshot.input, ['keyboard', 'pointer'])
     || !isNumberRecord(workVisual, ['code', 'document', 'web'])
     || (workVisual?.ai !== undefined && !isNonNegativeNumber(workVisual.ai))
+    || (workVisual?.mewlink !== undefined && !isNonNegativeNumber(workVisual.mewlink))
     || !isNumberRecord(snapshot.activity, ['work', 'meeting', 'idle'])
     || !Array.isArray(snapshot.bars)
     || snapshot.bars.length !== expectedBars) return false;

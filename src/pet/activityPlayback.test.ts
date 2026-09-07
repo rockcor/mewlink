@@ -18,5 +18,7 @@ describe('activity transition assets', () => {
     expect(transitionAssetName({ from: 'leisure', to: 'work', fromWorkVisual: 'code', toWorkVisual: 'web' })).toBe('transition-leisure-work-web');
     expect(transitionAssetName({ from: 'work', to: 'meeting', fromWorkVisual: 'ai', toWorkVisual: 'code' })).toBe('transition-work-ai-meeting');
     expect(transitionAssetName({ from: 'rest', to: 'work', fromWorkVisual: 'code', toWorkVisual: 'ai' })).toBe('transition-rest-work-ai');
+    expect(transitionAssetName({ from: 'work', to: 'idle', fromWorkVisual: 'mewlink', toWorkVisual: 'code' })).toBe('transition-work-mewlink-idle');
+    expect(transitionAssetName({ from: 'meeting', to: 'work', fromWorkVisual: 'code', toWorkVisual: 'mewlink' })).toBe('transition-meeting-work-mewlink');
   });
 });

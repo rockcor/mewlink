@@ -3,15 +3,20 @@ import type { ActivityKind, WorkVisual } from '../domain/types';
 
 export type InputKind = 'keyboard' | 'pointer' | 'none';
 export type InputMotion = InputKind | 'both';
-export interface PresenceSignal { idleSeconds: number; locked: boolean; appClass?: 'editor' | 'reader' | 'meeting' | 'media' | 'browser' | 'ai' | 'unknown'; inputKind?: InputKind }
+export interface PresenceSignal { idleSeconds: number; locked: boolean; appClass?: 'editor' | 'reader' | 'meeting' | 'media' | 'browser' | 'ai' | 'mewlink' | 'unknown'; inputKind?: InputKind }
 export interface InputSignal { keyboardSequence: number; pointerSequence: number; pointerClickSequence: number; recentKind: InputKind }
 export interface InputChanges { keyboard: boolean; pointer: boolean }
+export interface InputBurstSample { at: number; keyboard: number; pointer: number }
 export interface ActivityProbe { sample(): Promise<PresenceSignal> }
 export interface InputProbe { sample(): Promise<InputSignal> }
 
 export const POINTER_ANIMATION_INTERVAL_MS = 180;
 export const POINTER_ANIMATION_HOLD_MS = 110;
 export const POINTER_EVENTS_PER_ANIMATION = 4;
+export const INPUT_STRESS_WINDOW_MS = 1_200;
+export const INPUT_STRESS_HOLD_MS = 1_800;
+export const KEYBOARD_STRESS_THRESHOLD = 8;
+export const POINTER_STRESS_THRESHOLD = 72;
 
 export const shouldAnimatePointer = (lastAnimationAt: number, now: number) =>
   now - lastAnimationAt >= POINTER_ANIMATION_INTERVAL_MS;
@@ -20,7 +25,7 @@ export const classify = (signal: PresenceSignal): ActivityKind => {
   if (signal.locked || signal.idleSeconds >= 600) return 'rest';
   if (signal.idleSeconds >= 120) return 'idle';
   const map: Record<NonNullable<PresenceSignal['appClass']>, ActivityKind> = {
-    editor: 'work', reader: 'work', meeting: 'meeting', media: 'leisure', browser: 'work', ai: 'work', unknown: 'work'
+    editor: 'work', reader: 'work', meeting: 'meeting', media: 'leisure', browser: 'work', ai: 'work', mewlink: 'work', unknown: 'work'
   };
   return map[signal.appClass ?? 'unknown'];
 };
@@ -41,10 +46,24 @@ export const visualInputForActivity = (activity: ActivityKind, keyboard: boolean
 };
 
 export const workVisualFor = (signal: PresenceSignal): WorkVisual => {
+  if (signal.appClass === 'mewlink') return 'mewlink';
   if (signal.appClass === 'ai') return 'ai';
   if (signal.appClass === 'editor') return 'code';
   if (signal.appClass === 'reader') return 'document';
   return 'web';
+};
+
+export const trimInputBurst = (samples: InputBurstSample[], now: number) =>
+  samples.filter(sample => sample.at >= now - INPUT_STRESS_WINDOW_MS);
+
+export const inputBurstReached = (samples: InputBurstSample[]) => {
+  let keyboard = 0;
+  let pointer = 0;
+  for (const sample of samples) {
+    keyboard += sample.keyboard;
+    pointer += sample.pointer;
+  }
+  return keyboard >= KEYBOARD_STRESS_THRESHOLD || pointer >= POINTER_STRESS_THRESHOLD;
 };
 
 export const inputChangesForSequence = (previous: InputSignal, current: InputSignal): InputChanges => ({
@@ -116,7 +135,7 @@ if (typeof window !== 'undefined') {
 }
 
 class DemoProbe implements ActivityProbe {
-  private readonly demoClasses: NonNullable<PresenceSignal['appClass']>[] = ['editor', 'reader', 'ai', 'meeting', 'media', 'browser'];
+  private readonly demoClasses: NonNullable<PresenceSignal['appClass']>[] = ['editor', 'reader', 'ai', 'mewlink', 'meeting', 'media', 'browser'];
   async sample(): Promise<PresenceSignal> {
     if (demoTransitionPair) {
       const activity = Date.now() - demoTransitionPair.startedAt < 800 ? demoTransitionPair.from : demoTransitionPair.to;

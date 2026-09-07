@@ -142,7 +142,64 @@ local function screenVariant(image, kind)
     fill(image, 119, 153, 25, 12, mint)
     fill(image, 119, 170, 25, 12, webChrome)
     fill(image, 59, 181, 55, 5, webInk)
+  elseif kind == "mewlink" then
+    -- MewLink's own screen uses a large, readable dog-head mark. The floppy
+    -- ears and tiny muzzle echo the desktop companion without adding text.
+    fill(image, 55, 116, 94, 77, codeBackground)
+    fill(image, 55, 116, 94, 10, blushDark)
+    dot(image, 61, 120, 3, cream)
+    dot(image, 68, 120, 3, mint)
+    fill(image, 126, 120, 15, 3, cream)
+    roundBox(image, 67, 130, 70, 55, codePanel)
+    roundBox(image, 71, 134, 62, 47, app.pixelColor.rgba(106, 71, 126, 255))
+
+    -- Left and right floppy ears.
+    roundBox(image, 76, 143, 16, 25, outline)
+    roundBox(image, 79, 146, 11, 19, blush)
+    fill(image, 77, 153, 4, 11, outline)
+    roundBox(image, 112, 143, 16, 25, outline)
+    roundBox(image, 114, 146, 11, 19, blush)
+    fill(image, 124, 153, 4, 11, outline)
+
+    -- Cream dog head, eyes, cheeks, and the same pixel muzzle as the pet.
+    roundBox(image, 85, 137, 35, 37, outline)
+    roundBox(image, 88, 140, 29, 31, cream)
+    fill(image, 91, 137, 23, 5, cream)
+    dot(image, 94, 150, 4, outline)
+    dot(image, 107, 150, 4, outline)
+    dot(image, 91, 159, 4, blush)
+    dot(image, 111, 159, 4, blush)
+    fill(image, 100, 158, 5, 4, outline)
+    fill(image, 97, 162, 4, 3, outline)
+    fill(image, 104, 162, 4, 3, outline)
+
+    -- Small connected sparkles make the mark feel alive at desktop scale.
+    dot(image, 75, 136, 3, mint)
+    dot(image, 129, 137, 3, blue)
+    fill(image, 73, 173, 18, 3, blush)
+    fill(image, 114, 174, 15, 3, mint)
   end
+end
+
+local function eraseWithEdges(image, x, y, width, height)
+  for py = y, y + height - 1 do
+    local left = image:getPixel(x - 1, py)
+    local right = image:getPixel(x + width, py)
+    for px = x, x + width - 1 do
+      image:putPixel(px, py, px < x + width / 2 and left or right)
+    end
+  end
+end
+
+local function tenseFace(image)
+  -- Only replace the two existing eyes. The head, mouth, cheeks, arms, and
+  -- every prop stay pixel-identical, so the expression cannot drift.
+  eraseWithEdges(image, 197, 96, 18, 19)
+  eraseWithEdges(image, 253, 96, 18, 19)
+  local left = { {200, 98}, {203, 101}, {206, 104}, {203, 107}, {200, 110} }
+  local right = { {263, 98}, {260, 101}, {257, 104}, {260, 107}, {263, 110} }
+  for _, point in ipairs(left) do dot(image, point[1], point[2], 3, outline) end
+  for _, point in ipairs(right) do dot(image, point[1], point[2], 3, outline) end
 end
 
 local function face(image, expression)
@@ -214,6 +271,18 @@ for _, name in ipairs(workNames) do
   local ai = load(name)
   screenVariant(ai, "ai")
   save(ai, "ai_" .. name)
+  local mewlink = load(name)
+  screenVariant(mewlink, "mewlink")
+  save(mewlink, "mewlink_" .. name)
+
+  for _, variant in ipairs({
+    { "code", code }, { "document", document }, { "web", web },
+    { "ai", ai }, { "mewlink", mewlink },
+  }) do
+    local stressed = Image(variant[2])
+    tenseFace(stressed)
+    save(stressed, variant[1] .. "_" .. name .. "_stress")
+  end
 end
 
 local states = {
@@ -260,4 +329,4 @@ for _, style in ipairs(cupStyles) do
   end
 end
 
-print("Prepared work screen variants and state-preserving water animation frames")
+print("Prepared five work screens, tense input expressions, and state-preserving water animation frames")

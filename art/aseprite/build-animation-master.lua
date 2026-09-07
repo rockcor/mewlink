@@ -56,6 +56,15 @@ add("work-web", false, {
 add("work-ai", false, {
   { "ai_input_none", 100 }, { "ai_input_keyboard", 100 }, { "ai_input_pointer", 100 }, { "ai_input_both", 100 },
 }, false)
+add("work-mewlink", false, {
+  { "mewlink_input_none", 100 }, { "mewlink_input_keyboard", 100 }, { "mewlink_input_pointer", 100 }, { "mewlink_input_both", 100 },
+}, false)
+for _, visual in ipairs({ "code", "document", "web", "ai", "mewlink" }) do
+  add("work-" .. visual .. "-stress", false, {
+    { visual .. "_input_none_stress", 100 }, { visual .. "_input_keyboard_stress", 100 },
+    { visual .. "_input_pointer_stress", 100 }, { visual .. "_input_both_stress", 100 },
+  }, false)
+end
 add("meeting", true, {
   { "base_meeting", 760 }, { "peak_meeting", 180 }, { "base_meeting", 620 }, { "peak_meeting", 160 },
 })
@@ -111,12 +120,14 @@ local workVisualBase = {
   document = "document_input_none",
   web = "web_input_none",
   ai = "ai_input_none",
+  mewlink = "mewlink_input_none",
 }
 local workVisualPeak = {
   code = "code_input_both",
   document = "document_input_both",
   web = "web_input_both",
   ai = "ai_input_both",
+  mewlink = "mewlink_input_both",
 }
 local bridgeOut = {
   work = "bridge_active_to_idle",
@@ -164,7 +175,7 @@ end
 -- The generic transition uses the code screen; document and web get exact
 -- variants so changing activity never swaps the monitor before motion begins.
 for _, state in ipairs({ "meeting", "leisure", "idle", "rest" }) do
-  for _, visual in ipairs({ "document", "web", "ai" }) do
+  for _, visual in ipairs({ "document", "web", "ai", "mewlink" }) do
     addTransition("transition-work-" .. visual .. "-" .. state, "work", state, visual, nil)
     addTransition("transition-" .. state .. "-work-" .. visual, state, "work", nil, visual)
   end

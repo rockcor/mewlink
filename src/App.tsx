@@ -16,7 +16,7 @@ import {
   savePairing,
   type PairingState,
 } from './pairing/pairing';
-import { activityProbe, classify, demoInitialActivity, demoInitialWorkVisual, inputChangesForSequence, inputProbe, keyboardEventsForSequence, nextSampleDelay, POINTER_ANIMATION_HOLD_MS, POINTER_EVENTS_PER_ANIMATION, pointerClicksForSequence, pointerEventsForSequence, shouldAnimatePointer, visualInputForActivity, workVisualFor, type InputSignal } from './platform/activity';
+import { activityProbe, classify, demoInitialActivity, demoInitialWorkVisual, inputBurstReached, inputChangesForSequence, inputProbe, INPUT_STRESS_HOLD_MS, keyboardEventsForSequence, nextSampleDelay, POINTER_ANIMATION_HOLD_MS, POINTER_EVENTS_PER_ANIMATION, pointerClicksForSequence, pointerEventsForSequence, shouldAnimatePointer, trimInputBurst, visualInputForActivity, workVisualFor, type InputBurstSample, type InputSignal } from './platform/activity';
 import { ACTIVITY_TRANSITION_MS, gestureFor, waterDrinkDelay, type GestureVariant } from './pet/interaction';
 import { transitionAssetName, useActivityPlayback } from './pet/activityPlayback';
 import { petSkinFilters } from './pet/skins';
@@ -52,6 +52,7 @@ export default function App() {
   const [workVisual, setWorkVisual] = useState<WorkVisual>(demoInitialWorkVisual);
   const [keyboardPressed, setKeyboardPressed] = useState(false);
   const [pointerPressed, setPointerPressed] = useState(false);
+  const [inputStressed, setInputStressed] = useState(false);
   const [events, setEvents] = useState<StoredEvent[]>([]);
   const [playing, setPlaying] = useState(false);
   const [frame, setFrame] = useState(0);
@@ -122,6 +123,12 @@ export default function App() {
     workHandsSettled: true,
     transitionDurationMs: Math.round(ACTIVITY_TRANSITION_MS * durationScale),
   });
+  useEffect(() => {
+    const image = new Image();
+    image.decoding = 'async';
+    image.src = `/pets/animations/work-${workVisual}-stress.png`;
+    return () => { image.src = ''; };
+  }, [workVisual]);
   const motionStyle = useMemo(() => ({
     '--self-pet-scale': String(preferences.selfPetScalePercent / 100),
     '--partner-pet-scale': String(preferences.partnerPetScalePercent / 100),
@@ -337,18 +344,22 @@ export default function App() {
     let timer: number | undefined;
     let keyboardReleaseTimer: number | undefined;
     let pointerReleaseTimer: number | undefined;
+    let stressReleaseTimer: number | undefined;
     let lastPointerAnimationAt = Number.NEGATIVE_INFINITY;
     let pendingPointerEvents = 0;
     let lastPointerEventAt = Number.NEGATIVE_INFINITY;
     let stopped = false;
     let previous: InputSignal | undefined;
+    let burstSamples: InputBurstSample[] = [];
     const sample = async () => {
       const signal = await inputProbe.sample();
       if (stopped) return;
       if (previous) {
         const changes = inputChangesForSequence(previous, signal);
+        const keyboardEvents = keyboardEventsForSequence(previous, signal);
+        const pointerEvents = pointerEventsForSequence(previous, signal);
         recordInputStatistics(
-          keyboardEventsForSequence(previous, signal),
+          keyboardEvents,
           pointerClicksForSequence(previous, signal)
         );
         if (changes.keyboard) {
@@ -357,9 +368,18 @@ export default function App() {
           keyboardReleaseTimer = window.setTimeout(() => setKeyboardPressed(false), 110);
         }
         const now = performance.now();
+        burstSamples = trimInputBurst(burstSamples, now);
+        if (keyboardEvents > 0 || pointerEvents > 0) {
+          burstSamples.push({ at: now, keyboard: keyboardEvents, pointer: pointerEvents });
+          if (inputBurstReached(burstSamples)) {
+            setInputStressed(true);
+            window.clearTimeout(stressReleaseTimer);
+            stressReleaseTimer = window.setTimeout(() => setInputStressed(false), INPUT_STRESS_HOLD_MS);
+          }
+        }
         if (changes.pointer) {
           if (now - lastPointerEventAt > 260) pendingPointerEvents = 0;
-          pendingPointerEvents += pointerEventsForSequence(previous, signal);
+          pendingPointerEvents += pointerEvents;
           lastPointerEventAt = now;
         }
         if (pendingPointerEvents >= POINTER_EVENTS_PER_ANIMATION && shouldAnimatePointer(lastPointerAnimationAt, now)) {
@@ -379,6 +399,7 @@ export default function App() {
       window.clearTimeout(timer);
       window.clearTimeout(keyboardReleaseTimer);
       window.clearTimeout(pointerReleaseTimer);
+      window.clearTimeout(stressReleaseTimer);
     };
   }, []);
   useEffect(() => {
@@ -701,7 +722,7 @@ export default function App() {
             onWheel={event => handlePetPinch(event, 'self')}
           >
             <span
-              className={`pet-sprite ${selfPlayback.displayedActivity} ${selfPlayback.displayedActivity === 'work' ? `work-${selfPlayback.displayedWorkVisual}` : ''} input-${selfPlayback.transition ? 'none' : visualInputKind} ${selfPlayback.transition ? 'transition-source-frame' : ''}`}
+              className={`pet-sprite ${selfPlayback.displayedActivity} ${selfPlayback.displayedActivity === 'work' ? `work-${selfPlayback.displayedWorkVisual}` : ''} input-${selfPlayback.transition ? 'none' : visualInputKind} ${inputStressed && !selfPlayback.transition ? 'input-stressed' : ''} ${selfPlayback.transition ? 'transition-source-frame' : ''}`}
               aria-hidden="true"
               onAnimationIteration={selfPlayback.handleLoopBoundary}
             />

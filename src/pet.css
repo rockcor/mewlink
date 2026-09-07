@@ -19,6 +19,12 @@
 .pet-sprite.work-document { background-image: url('/pets/animations/work-document.png'); }
 .pet-sprite.work-web { background-image: url('/pets/animations/work-web.png'); }
 .pet-sprite.work-ai { background-image: url('/pets/animations/work-ai.png'); }
+.pet-sprite.work-mewlink { background-image: url('/pets/animations/work-mewlink.png'); }
+.pet-sprite.work-code.input-stressed { background-image: url('/pets/animations/work-code-stress.png'); }
+.pet-sprite.work-document.input-stressed { background-image: url('/pets/animations/work-document-stress.png'); }
+.pet-sprite.work-web.input-stressed { background-image: url('/pets/animations/work-web-stress.png'); }
+.pet-sprite.work-ai.input-stressed { background-image: url('/pets/animations/work-ai-stress.png'); }
+.pet-sprite.work-mewlink.input-stressed { background-image: url('/pets/animations/work-mewlink-stress.png'); }
 .pet-sprite.work.input-none { background-position: 0 0; }
 .pet-sprite.work.input-keyboard { background-position: 33.333333% 0; }
 .pet-sprite.work.input-pointer { background-position: 66.666667% 0; }
@@ -86,6 +92,10 @@
 .transition-work-ai-leisure { background-image: url('/pets/animations/transition-work-ai-leisure.png'); }
 .transition-work-ai-idle { background-image: url('/pets/animations/transition-work-ai-idle.png'); }
 .transition-work-ai-rest { background-image: url('/pets/animations/transition-work-ai-rest.png'); }
+.transition-work-mewlink-meeting { background-image: url('/pets/animations/transition-work-mewlink-meeting.png'); }
+.transition-work-mewlink-leisure { background-image: url('/pets/animations/transition-work-mewlink-leisure.png'); }
+.transition-work-mewlink-idle { background-image: url('/pets/animations/transition-work-mewlink-idle.png'); }
+.transition-work-mewlink-rest { background-image: url('/pets/animations/transition-work-mewlink-rest.png'); }
 .transition-meeting-work { background-image: url('/pets/animations/transition-meeting-work.png'); }
 .transition-meeting-leisure { background-image: url('/pets/animations/transition-meeting-leisure.png'); }
 .transition-meeting-idle { background-image: url('/pets/animations/transition-meeting-idle.png'); }
@@ -93,6 +103,7 @@
 .transition-meeting-work-document { background-image: url('/pets/animations/transition-meeting-work-document.png'); }
 .transition-meeting-work-web { background-image: url('/pets/animations/transition-meeting-work-web.png'); }
 .transition-meeting-work-ai { background-image: url('/pets/animations/transition-meeting-work-ai.png'); }
+.transition-meeting-work-mewlink { background-image: url('/pets/animations/transition-meeting-work-mewlink.png'); }
 .transition-leisure-work { background-image: url('/pets/animations/transition-leisure-work.png'); }
 .transition-leisure-meeting { background-image: url('/pets/animations/transition-leisure-meeting.png'); }
 .transition-leisure-idle { background-image: url('/pets/animations/transition-leisure-idle.png'); }
@@ -100,6 +111,7 @@
 .transition-leisure-work-document { background-image: url('/pets/animations/transition-leisure-work-document.png'); }
 .transition-leisure-work-web { background-image: url('/pets/animations/transition-leisure-work-web.png'); }
 .transition-leisure-work-ai { background-image: url('/pets/animations/transition-leisure-work-ai.png'); }
+.transition-leisure-work-mewlink { background-image: url('/pets/animations/transition-leisure-work-mewlink.png'); }
 .transition-idle-work { background-image: url('/pets/animations/transition-idle-work.png'); }
 .transition-idle-meeting { background-image: url('/pets/animations/transition-idle-meeting.png'); }
 .transition-idle-leisure { background-image: url('/pets/animations/transition-idle-leisure.png'); }
@@ -107,6 +119,7 @@
 .transition-idle-work-document { background-image: url('/pets/animations/transition-idle-work-document.png'); }
 .transition-idle-work-web { background-image: url('/pets/animations/transition-idle-work-web.png'); }
 .transition-idle-work-ai { background-image: url('/pets/animations/transition-idle-work-ai.png'); }
+.transition-idle-work-mewlink { background-image: url('/pets/animations/transition-idle-work-mewlink.png'); }
 .transition-rest-work { background-image: url('/pets/animations/transition-rest-work.png'); }
 .transition-rest-meeting { background-image: url('/pets/animations/transition-rest-meeting.png'); }
 .transition-rest-leisure { background-image: url('/pets/animations/transition-rest-leisure.png'); }
@@ -114,6 +127,7 @@
 .transition-rest-work-document { background-image: url('/pets/animations/transition-rest-work-document.png'); }
 .transition-rest-work-web { background-image: url('/pets/animations/transition-rest-work-web.png'); }
 .transition-rest-work-ai { background-image: url('/pets/animations/transition-rest-work-ai.png'); }
+.transition-rest-work-mewlink { background-image: url('/pets/animations/transition-rest-work-mewlink.png'); }
 
 @keyframes sprite-transition-13 {
   0%, 7.691% { background-position: 0 0; }

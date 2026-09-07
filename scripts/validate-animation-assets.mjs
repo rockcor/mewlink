@@ -4,7 +4,9 @@ import { inflateSync } from 'node:zlib';
 
 const frameWidth = 384;
 const frameHeight = 256;
-const inputFrame = ['work-code', 'work-document', 'work-web', 'work-ai'];
+const workVisuals = ['code', 'document', 'web', 'ai', 'mewlink'];
+const inputFrame = workVisuals.map(visual => `work-${visual}`);
+const stressedInputFrame = workVisuals.map(visual => `work-${visual}-stress`);
 const eightFrame = [
   'meeting', 'leisure', 'idle', 'rest',
   ...['work', 'meeting', 'leisure', 'idle', 'rest'].flatMap(state =>
@@ -22,13 +24,14 @@ const transitionSpecs = states.flatMap(from => states.filter(to => to !== from).
   toWorkVisual: 'code',
 })));
 for (const state of states.filter(state => state !== 'work')) {
-  for (const visual of ['document', 'web', 'ai']) {
+  for (const visual of workVisuals.filter(visual => visual !== 'code')) {
     transitionSpecs.push({ name: `transition-work-${visual}-${state}`, from: 'work', to: state, fromWorkVisual: visual, toWorkVisual: 'code' });
     transitionSpecs.push({ name: `transition-${state}-work-${visual}`, from: state, to: 'work', fromWorkVisual: 'code', toWorkVisual: visual });
   }
 }
 const expected = new Map([
   ...inputFrame.map(name => [name, 4]),
+  ...stressedInputFrame.map(name => [name, 4]),
   ...eightFrame.map(name => [name, 8]),
   ...transitionSpecs.map(({ name }) => [name, 13]),
   ['website-replay', 24],
@@ -111,7 +114,7 @@ function framePixels(image, frameIndex) {
 }
 
 const workCode = await decodeRgba('work-code');
-for (const visual of ['document', 'web', 'ai']) {
+for (const visual of workVisuals.filter(visual => visual !== 'code')) {
   const variant = await decodeRgba(`work-${visual}`);
   let changedScreenPixels = 0;
   for (let frame = 0; frame < 4; frame += 1) {
@@ -127,6 +130,25 @@ for (const visual of ['document', 'web', 'ai']) {
     }
   }
   if (changedScreenPixels < 100) throw new Error(`work-${visual}: monitor content is not visually distinct`);
+}
+
+for (const visual of workVisuals) {
+  const normal = await decodeRgba(`work-${visual}`);
+  const stressed = await decodeRgba(`work-${visual}-stress`);
+  let changedEyePixels = 0;
+  for (let frame = 0; frame < 4; frame += 1) {
+    for (let y = 0; y < frameHeight; y += 1) {
+      for (let x = 0; x < frameWidth; x += 1) {
+        const offset = (y * normal.width + frame * frameWidth + x) * 4;
+        if (normal.pixels.subarray(offset, offset + 4).equals(stressed.pixels.subarray(offset, offset + 4))) continue;
+        const insideEyePatch = y >= 96 && y <= 114
+          && ((x >= 197 && x <= 214) || (x >= 253 && x <= 270));
+        if (!insideEyePatch) throw new Error(`work-${visual}-stress: frame ${frame + 1} changed the locked rig at ${x},${y}`);
+        changedEyePixels += 1;
+      }
+    }
+  }
+  if (changedEyePixels < 80) throw new Error(`work-${visual}-stress: tense expression is not visually distinct`);
 }
 
 const stateAsset = state => state === 'work' ? 'work-code' : state;

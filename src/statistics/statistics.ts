@@ -37,7 +37,7 @@ function emptyBucket(hour: number): StatisticsBucket {
     keyboard: 0,
     pointer: 0,
     activityMs: { work: 0, meeting: 0, leisure: 0, idle: 0, rest: 0 },
-    workVisualMs: { code: 0, document: 0, web: 0, ai: 0 }
+    workVisualMs: { code: 0, document: 0, web: 0, ai: 0, mewlink: 0 }
   };
 }
 
@@ -63,7 +63,7 @@ function normalizeBucket(value: unknown, resetPointer = false): StatisticsBucket
     },
     workVisualMs: {
       code: nonNegative(workVisual.code), document: nonNegative(workVisual.document),
-      web: nonNegative(workVisual.web), ai: nonNegative(workVisual.ai)
+      web: nonNegative(workVisual.web), ai: nonNegative(workVisual.ai), mewlink: nonNegative(workVisual.mewlink)
     }
   };
 }
@@ -182,7 +182,7 @@ export function aggregateStatistics(data: StatisticsData, range: StatisticsRange
   }));
   const snapshot: StatisticsSnapshot = {
     input: { keyboard: 0, pointer: 0 },
-    workVisual: { code: 0, document: 0, web: 0, ai: 0 },
+    workVisual: { code: 0, document: 0, web: 0, ai: 0, mewlink: 0 },
     activity: { work: 0, meeting: 0, idle: 0 },
     bars
   };
@@ -201,6 +201,7 @@ export function aggregateStatistics(data: StatisticsData, range: StatisticsRange
     snapshot.workVisual.document += bucket.workVisualMs.document;
     snapshot.workVisual.web += bucket.workVisualMs.web;
     snapshot.workVisual.ai += bucket.workVisualMs.ai;
+    snapshot.workVisual.mewlink += bucket.workVisualMs.mewlink;
     snapshot.activity.work += bucket.activityMs.work;
     snapshot.activity.meeting += bucket.activityMs.meeting;
     snapshot.activity.idle += bucket.activityMs.idle + bucket.activityMs.leisure + bucket.activityMs.rest;

@@ -23,6 +23,13 @@ fn classify_foreground_app(value: &str) -> &'static str {
     let contains = |candidates: &[&str]| candidates.iter().any(|candidate| app.contains(candidate));
 
     if contains(&[
+        "app.mewlink.desktop",
+        "mewlink.exe",
+        "mewlink.app",
+        "mewlink",
+    ]) {
+        "mewlink"
+    } else if contains(&[
         "zoom",
         "microsoft.teams",
         "ms-teams",
@@ -483,10 +490,10 @@ mod platform {
         #[test]
         fn reads_a_real_session_signal() {
             let signal = sample();
-            assert!(
-                ["editor", "reader", "meeting", "media", "browser", "ai", "unknown"]
-                    .contains(&signal.app_class)
-            );
+            assert!([
+                "editor", "reader", "meeting", "media", "browser", "ai", "mewlink", "unknown"
+            ]
+            .contains(&signal.app_class));
             assert!(signal.idle_seconds < u64::MAX);
         }
 
@@ -728,6 +735,16 @@ mod classification_tests {
     }
 
     #[test]
+    fn classifies_mewlink_as_its_own_work_visual() {
+        for app in [
+            "app.mewlink.desktop MewLink",
+            r"C:\\Program Files\\MewLink\\mewlink.exe",
+        ] {
+            assert_eq!(classify_foreground_app(app), "mewlink", "{app}");
+        }
+    }
+
+    #[test]
     fn classifies_document_and_collaboration_apps_as_the_document_work_visual() {
         for app in [
             "com.apple.Preview",
@@ -789,7 +806,10 @@ mod classification_tests {
 
     #[test]
     fn leaves_unlisted_apps_unknown() {
-        assert_eq!(classify_foreground_app("com.example.UnlistedApp"), "unknown");
+        assert_eq!(
+            classify_foreground_app("com.example.UnlistedApp"),
+            "unknown"
+        );
     }
 }
 

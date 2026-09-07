@@ -747,6 +747,7 @@ button { font: inherit; }
 .document-dot::before { background: #e18aa7; }
 .web-dot::before { background: #72b7bd; }
 .ai-dot::before { background: #8177d7; }
+.mewlink-dot::before { background: #d26d8f; }
 .work-dot::before { background: #d96f98; }
 .meeting-dot::before { background: #7e72c7; }
 .idle-dot::before { background: #e0b36e; }

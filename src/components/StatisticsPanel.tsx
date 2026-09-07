@@ -16,7 +16,7 @@ const copy = {
   zh: {
     title: '统计', close: '关闭统计', ranges: { day: '日', week: '周', month: '月' },
     input: '键盘与点击', keyboard: '键盘敲击', pointer: '鼠标 / 触控板点击', times: '次',
-    workVisual: '工作画面时间', code: '代码', document: '文档', web: '网页', ai: 'AI 工具',
+    workVisual: '工作画面时间', code: '代码', document: '文档', web: '网页', ai: 'AI 工具', mewlink: 'MewLink',
     activity: '时间分布', work: '工作', meeting: '会议', idle: '空闲',
     noData: '开始使用后，这里会出现你的节奏', partnerNoData: 'TA 尚未分享统计',
     mine: '我的', partner: 'TA 的', visibility: '谁可以看', private: '仅自己', shared: '对 TA 可见',
@@ -25,7 +25,7 @@ const copy = {
   en: {
     title: 'Statistics', close: 'Close statistics', ranges: { day: 'Day', week: 'Week', month: 'Month' },
     input: 'Keyboard & clicks', keyboard: 'Keystrokes', pointer: 'Mouse / trackpad clicks', times: '',
-    workVisual: 'Work time by view', code: 'Code', document: 'Documents', web: 'Web', ai: 'AI tools',
+    workVisual: 'Work time by view', code: 'Code', document: 'Documents', web: 'Web', ai: 'AI tools', mewlink: 'MewLink',
     activity: 'Time split', work: 'Work', meeting: 'Meetings', idle: 'Free',
     noData: 'Your rhythm will appear here as you use MewLink', partnerNoData: 'Your partner has not shared statistics',
     mine: 'Mine', partner: "Partner's", visibility: 'Who can see', private: 'Only me', shared: 'Visible to partner',
@@ -37,7 +37,7 @@ function emptySnapshot(range: StatisticsRange): StatisticsSnapshot {
   const count = range === 'day' ? 6 : range === 'week' ? 7 : 5;
   return {
     input: { keyboard: 0, pointer: 0 },
-    workVisual: { code: 0, document: 0, web: 0, ai: 0 },
+    workVisual: { code: 0, document: 0, web: 0, ai: 0, mewlink: 0 },
     activity: { work: 0, meeting: 0, idle: 0 },
     bars: Array.from({ length: count }, (_, index) => ({ label: String(index), keyboard: 0, pointer: 0 }))
   };
@@ -98,7 +98,8 @@ export function StatisticsPanel({ language, connected, visibility, partnerSnapsh
     + Object.values(snapshot.workVisual).reduce((sum, value) => sum + value, 0)
     + Object.values(snapshot.activity).reduce((sum, value) => sum + value, 0) > 0;
   const aiTime = snapshot.workVisual.ai ?? 0;
-  const workValues = [snapshot.workVisual.code, snapshot.workVisual.document, snapshot.workVisual.web, aiTime];
+  const mewlinkTime = snapshot.workVisual.mewlink ?? 0;
+  const workValues = [snapshot.workVisual.code, snapshot.workVisual.document, snapshot.workVisual.web, aiTime, mewlinkTime];
   const activityValues = [snapshot.activity.work, snapshot.activity.meeting, snapshot.activity.idle];
 
   return <section className="settings-panel statistics-panel" role="dialog" aria-modal="true" aria-labelledby="statistics-title" lang={language === 'zh' ? 'zh-CN' : 'en'}>
@@ -138,8 +139,8 @@ export function StatisticsPanel({ language, connected, visibility, partnerSnapsh
         <article className="statistics-card pie-card">
           <b>{text.workVisual}</b>
           <div className="pie-card-body">
-            <PieChart values={workValues} colors={['#874e79', '#e18aa7', '#72b7bd', '#8177d7']} label={text.workVisual} center={durationLabel(workValues.reduce((sum, value) => sum + value, 0), language)} />
-            <div className="pie-legend"><span className="code-dot"><b>{text.code}</b><small>{durationLabel(snapshot.workVisual.code, language)}</small></span><span className="document-dot"><b>{text.document}</b><small>{durationLabel(snapshot.workVisual.document, language)}</small></span><span className="web-dot"><b>{text.web}</b><small>{durationLabel(snapshot.workVisual.web, language)}</small></span><span className="ai-dot"><b>{text.ai}</b><small>{durationLabel(aiTime, language)}</small></span></div>
+            <PieChart values={workValues} colors={['#874e79', '#e18aa7', '#72b7bd', '#8177d7', '#d26d8f']} label={text.workVisual} center={durationLabel(workValues.reduce((sum, value) => sum + value, 0), language)} />
+            <div className="pie-legend"><span className="code-dot"><b>{text.code}</b><small>{durationLabel(snapshot.workVisual.code, language)}</small></span><span className="document-dot"><b>{text.document}</b><small>{durationLabel(snapshot.workVisual.document, language)}</small></span><span className="web-dot"><b>{text.web}</b><small>{durationLabel(snapshot.workVisual.web, language)}</small></span><span className="ai-dot"><b>{text.ai}</b><small>{durationLabel(aiTime, language)}</small></span><span className="mewlink-dot"><b>{text.mewlink}</b><small>{durationLabel(mewlinkTime, language)}</small></span></div>
           </div>
         </article>
         <article className="statistics-card pie-card">

@@ -1,4 +1,4 @@
-import { classify, inputChangesForSequence, keyboardEventsForSequence, nextSampleDelay, POINTER_ANIMATION_INTERVAL_MS, POINTER_EVENTS_PER_ANIMATION, pointerClicksForSequence, pointerEventsForSequence, shouldAnimatePointer, visualInputForActivity, workVisualFor } from './activity';
+import { classify, inputBurstReached, inputChangesForSequence, keyboardEventsForSequence, KEYBOARD_STRESS_THRESHOLD, nextSampleDelay, POINTER_ANIMATION_INTERVAL_MS, POINTER_EVENTS_PER_ANIMATION, POINTER_STRESS_THRESHOLD, pointerClicksForSequence, pointerEventsForSequence, shouldAnimatePointer, trimInputBurst, visualInputForActivity, workVisualFor } from './activity';
 import { describe, expect, it } from 'vitest';
 describe('privacy-first activity classification', () => {
   it('treats lock as rest regardless of app', () => expect(classify({ locked: true, idleSeconds: 0, appClass: 'editor' })).toBe('rest'));
@@ -15,6 +15,7 @@ describe('privacy-first activity classification', () => {
     expect(workVisualFor({ locked: false, idleSeconds: 1, appClass: 'editor' })).toBe('code');
     expect(workVisualFor({ locked: false, idleSeconds: 1, appClass: 'reader' })).toBe('document');
     expect(workVisualFor({ locked: false, idleSeconds: 1, appClass: 'browser' })).toBe('web');
+    expect(workVisualFor({ locked: false, idleSeconds: 1, appClass: 'mewlink' })).toBe('mewlink');
   });
   it('keeps keyboard and pointer hands active throughout work', () => {
     expect(visualInputForActivity('meeting', true, false)).toBe('none');
@@ -52,5 +53,13 @@ describe('privacy-first activity classification', () => {
     expect(shouldAnimatePointer(Number.NEGATIVE_INFINITY, 1)).toBe(true);
     expect(shouldAnimatePointer(1_000, 1_000 + POINTER_ANIMATION_INTERVAL_MS - 1)).toBe(false);
     expect(shouldAnimatePointer(1_000, 1_000 + POINTER_ANIMATION_INTERVAL_MS)).toBe(true);
+  });
+  it('shows the tense face only after a real input burst', () => {
+    expect(inputBurstReached([{ at: 1_000, keyboard: KEYBOARD_STRESS_THRESHOLD - 1, pointer: 0 }])).toBe(false);
+    expect(inputBurstReached([{ at: 1_000, keyboard: KEYBOARD_STRESS_THRESHOLD, pointer: 0 }])).toBe(true);
+    expect(inputBurstReached([{ at: 1_000, keyboard: 0, pointer: POINTER_STRESS_THRESHOLD - 1 }])).toBe(false);
+    expect(inputBurstReached([{ at: 1_000, keyboard: 0, pointer: POINTER_STRESS_THRESHOLD }])).toBe(true);
+    expect(trimInputBurst([{ at: 100, keyboard: 10, pointer: 0 }, { at: 1_900, keyboard: 1, pointer: 0 }], 2_000))
+      .toEqual([{ at: 1_900, keyboard: 1, pointer: 0 }]);
   });
 });

@@ -85,7 +85,7 @@ function interaction(relationshipId: string, senderDeviceId: string, action: 'hu
 function statistics(relationshipId: string, senderDeviceId: string): PlainEvent {
   const snapshot = (bars: number) => ({
     input: { keyboard: 140, pointer: 36 },
-    workVisual: { code: 2_000, document: 1_000, web: 500, ai: 400 },
+    workVisual: { code: 2_000, document: 1_000, web: 500, ai: 400, mewlink: 300 },
     activity: { work: 3_900, meeting: 600, idle: 300 },
     bars: Array.from({ length: bars }, (_, index) => ({ label: String(index), keyboard: index + 2, pointer: index + 1 }))
   });

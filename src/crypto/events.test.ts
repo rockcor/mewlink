@@ -4,9 +4,9 @@ import type { EncryptedEnvelope, PlainEvent } from '../domain/types';
 import { decryptEvent, encryptEvent, newDemoKey } from './events';
 
 const statisticsSnapshots = {
-  day: { input: { keyboard: 31, pointer: 12 }, workVisual: { code: 3_000, document: 2_000, web: 1_000, ai: 900 }, activity: { work: 6_900, meeting: 500, idle: 200 }, bars: Array.from({ length: 6 }, (_, index) => ({ label: `${index * 4}:00`, keyboard: index, pointer: index + 1 })) },
-  week: { input: { keyboard: 71, pointer: 22 }, workVisual: { code: 7_000, document: 4_000, web: 2_000, ai: 1_500 }, activity: { work: 14_500, meeting: 800, idle: 400 }, bars: Array.from({ length: 7 }, (_, index) => ({ label: String(index), keyboard: index, pointer: index + 1 })) },
-  month: { input: { keyboard: 301, pointer: 92 }, workVisual: { code: 30_000, document: 20_000, web: 10_000, ai: 8_000 }, activity: { work: 68_000, meeting: 5_000, idle: 2_000 }, bars: Array.from({ length: 5 }, (_, index) => ({ label: `9/${index + 1}`, keyboard: index, pointer: index + 1 })) }
+  day: { input: { keyboard: 31, pointer: 12 }, workVisual: { code: 3_000, document: 2_000, web: 1_000, ai: 900, mewlink: 400 }, activity: { work: 7_300, meeting: 500, idle: 200 }, bars: Array.from({ length: 6 }, (_, index) => ({ label: `${index * 4}:00`, keyboard: index, pointer: index + 1 })) },
+  week: { input: { keyboard: 71, pointer: 22 }, workVisual: { code: 7_000, document: 4_000, web: 2_000, ai: 1_500, mewlink: 700 }, activity: { work: 15_200, meeting: 800, idle: 400 }, bars: Array.from({ length: 7 }, (_, index) => ({ label: String(index), keyboard: index, pointer: index + 1 })) },
+  month: { input: { keyboard: 301, pointer: 92 }, workVisual: { code: 30_000, document: 20_000, web: 10_000, ai: 8_000, mewlink: 4_000 }, activity: { work: 72_000, meeting: 5_000, idle: 2_000 }, bars: Array.from({ length: 5 }, (_, index) => ({ label: `9/${index + 1}`, keyboard: index, pointer: index + 1 })) }
 };
 
 describe('encrypted event compatibility', () => {
