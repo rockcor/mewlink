@@ -603,6 +603,12 @@ button { font: inherit; }
 .prop-picker .mini-tabs button { min-width: 35px; }
 
 .feedback-block { border-bottom: 0; }
+.feedback-nickname { display: grid; grid-template-columns: 58px 1fr; align-items: center; gap: 10px; margin-top: 12px; color: #765d69; font-size: 10px; font-weight: 750; }
+.feedback-nickname input {
+  width: 100%; border: 1px solid rgba(120, 82, 100, .18); border-radius: 11px; background: rgba(255, 255, 255, .78);
+  color: #513944; font: inherit; font-weight: 600; outline: none; padding: 9px 11px;
+}
+.feedback-nickname input:focus { border-color: rgba(217, 134, 165, .7); box-shadow: 0 0 0 3px rgba(217, 134, 165, .12); }
 .feedback-block textarea {
   width: 100%;
   min-height: 66px;

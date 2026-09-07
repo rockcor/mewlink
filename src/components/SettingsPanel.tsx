@@ -17,6 +17,8 @@ interface SettingsPanelProps {
   partnerUtcOffsetMinutes?: number;
   updateState: UpdateViewState;
   feedback: string;
+  feedbackNickname: string;
+  feedbackSending: boolean;
   feedbackStatus: string;
   pairing?: PairingState;
   pairingStatus: string;
@@ -28,6 +30,7 @@ interface SettingsPanelProps {
   onCheckUpdate: () => void;
   onInstallUpdate: () => void;
   onFeedbackChange: (value: string) => void;
+  onFeedbackNicknameChange: (value: string) => void;
   onShareFeedback: () => void;
   onCreatePairing: () => void;
   onCopyInvite: () => void;
@@ -52,7 +55,7 @@ const copy = {
     petColor: '宠物配色', petColorNote: '选择自己的颜色；连接后会同步显示', petColorAria: '我的宠物配色', skins: { cream: '奶油', peach: '蜜桃', mint: '薄荷', sky: '晴空', lavender: '丁香', luka: 'Luka', sixtySix: '66' },
     props: '互动道具', propsNote: '只有水杯和被子可以更换', cup: '水杯', blanket: '被子', blankets: { blush: '樱粉', night: '星夜', mint: '薄荷' },
     speed: '动画速度', speedNote: '默认采用更从容的节奏', speedAria: '动画速度', speeds: { calm: '舒缓', natural: '自然', lively: '活泼' },
-    feedback: '意见反馈', feedbackNote: '告诉我们哪里还不够自然', feedbackPlaceholder: '写下你的感受或建议…', feedbackAria: '反馈内容', sendFeedback: '发送反馈',
+    feedback: '意见反馈', feedbackNote: '提交后会公开显示在官网评论区', nickname: '昵称', nicknamePlaceholder: '怎么称呼你', nicknameAria: '反馈昵称', feedbackPlaceholder: '写下你的感受或建议…', feedbackAria: '反馈内容', sendFeedback: '发送反馈',
   },
   en: {
     settings: 'Settings', close: 'Close settings', language: 'Language', languageNote: 'Choose the language used in the app',
@@ -67,7 +70,7 @@ const copy = {
     petColor: 'Companion color', petColorNote: 'Choose yours; it appears for your partner after pairing', petColorAria: 'My companion color', skins: { cream: 'Cream', peach: 'Peach', mint: 'Mint', sky: 'Sky', lavender: 'Lilac', luka: 'Luka', sixtySix: '66' },
     props: 'Interaction props', propsNote: 'Only mugs and blankets can be changed', cup: 'Mug', blanket: 'Blanket', blankets: { blush: 'Blush', night: 'Night', mint: 'Mint' },
     speed: 'Animation speed', speedNote: 'A calmer pace is selected by default', speedAria: 'Animation speed', speeds: { calm: 'Calm', natural: 'Natural', lively: 'Lively' },
-    feedback: 'Feedback', feedbackNote: 'Tell us what could feel more natural', feedbackPlaceholder: 'Share a thought or suggestion…', feedbackAria: 'Feedback message', sendFeedback: 'Send feedback',
+    feedback: 'Feedback', feedbackNote: 'Your message will appear publicly in the website comments', nickname: 'Nickname', nicknamePlaceholder: 'How should we call you?', nicknameAria: 'Feedback nickname', feedbackPlaceholder: 'Share a thought or suggestion…', feedbackAria: 'Feedback message', sendFeedback: 'Send feedback',
   },
 } as const;
 
@@ -77,6 +80,8 @@ export function SettingsPanel({
   partnerUtcOffsetMinutes,
   updateState,
   feedback,
+  feedbackNickname,
+  feedbackSending,
   feedbackStatus,
   pairing,
   pairingStatus,
@@ -88,6 +93,7 @@ export function SettingsPanel({
   onCheckUpdate,
   onInstallUpdate,
   onFeedbackChange,
+  onFeedbackNicknameChange,
   onShareFeedback,
   onCreatePairing,
   onCopyInvite,
@@ -220,8 +226,9 @@ export function SettingsPanel({
 
         <article className="setting-block feedback-block">
           <div className="setting-title"><div><b>{text.feedback}</b><small>{text.feedbackNote}</small></div></div>
+          <label className="feedback-nickname"><span>{text.nickname}</span><input value={feedbackNickname} maxLength={24} onChange={event => onFeedbackNicknameChange(event.target.value)} placeholder={text.nicknamePlaceholder} aria-label={text.nicknameAria}/></label>
           <textarea value={feedback} maxLength={800} onChange={event => onFeedbackChange(event.target.value)} placeholder={text.feedbackPlaceholder} aria-label={text.feedbackAria}/>
-          <div className="feedback-footer"><small>{feedbackStatus || `${feedback.length}/800`}</small><button type="button" onClick={onShareFeedback} disabled={!feedback.trim()}>{text.sendFeedback}</button></div>
+          <div className="feedback-footer"><small>{feedbackStatus || `${feedback.length}/800`}</small><button type="button" onClick={onShareFeedback} disabled={feedbackSending || !feedbackNickname.trim() || !feedback.trim()}>{text.sendFeedback}</button></div>
         </article>
       </div>
     </section>

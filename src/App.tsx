@@ -23,6 +23,7 @@ import { petSkinFilters } from './pet/skins';
 import { localUtcOffsetMinutes } from './platform/clock';
 import { registerPairCreator, registerPairJoiner, sendEncryptedEvent, syncEncryptedEvents } from './services/relayTransport';
 import { checkForUpdate, installUpdate } from './services/update';
+import { submitFeedback } from './services/feedback';
 import type { Update } from '@tauri-apps/plugin-updater';
 import { pruneEventsOlderThan, putEvent } from './storage/events';
 import { buildReplay } from './services/replay';
@@ -35,6 +36,7 @@ import './pet.css';
 
 const windowPositionKey = 'mewlink.windowPosition.v1';
 const pendingCupKey = 'mewlink.pendingCup.v1';
+const feedbackNicknameKey = 'mewlink.feedbackNickname.v1';
 const isTauriWindow = typeof window !== 'undefined' && '__TAURI_INTERNALS__' in window;
 
 function loadPendingCup(): { target: 'self' | 'partner'; style: CupStyle; placedAt: number } | undefined {
@@ -66,6 +68,8 @@ export default function App() {
   const text = appCopy[preferences.language];
   const [updateState, setUpdateState] = useState<UpdateViewState>({ kind: 'idle', message: text.updateUnchecked });
   const [feedback, setFeedback] = useState('');
+  const [feedbackNickname, setFeedbackNickname] = useState(() => window.localStorage.getItem(feedbackNicknameKey) ?? '');
+  const [feedbackSending, setFeedbackSending] = useState(false);
   const [feedbackStatus, setFeedbackStatus] = useState('');
   const [pairing, setPairing] = useState<PairingState | undefined>(() => loadPairing());
   const connected = Boolean(pairing?.partnerDeviceId);
@@ -631,22 +635,20 @@ export default function App() {
   }
 
   async function shareFeedback() {
+    const nickname = feedbackNickname.trim();
     const message = feedback.trim();
-    if (!message) return;
-    const shareText = `${text.feedbackTitle}\n\n${message}`;
+    if (!nickname || !message || feedbackSending) return;
+    setFeedbackSending(true);
+    setFeedbackStatus(text.feedbackSending);
     try {
-      if (navigator.share) {
-        await navigator.share({ title: text.feedbackTitle, text: shareText });
-        setFeedbackStatus(text.feedbackShared);
-      } else if (navigator.clipboard?.writeText) {
-        await navigator.clipboard.writeText(shareText);
-        setFeedbackStatus(text.feedbackCopied);
-      } else {
-        setFeedbackStatus(text.feedbackCopy);
-      }
-    } catch (error) {
-      if (error instanceof DOMException && error.name === 'AbortError') return;
+      await submitFeedback({ nickname, message, language: preferences.language });
+      window.localStorage.setItem(feedbackNicknameKey, nickname);
+      setFeedback('');
+      setFeedbackStatus(text.feedbackShared);
+    } catch {
       setFeedbackStatus(text.feedbackError);
+    } finally {
+      setFeedbackSending(false);
     }
   }
 
@@ -768,6 +770,8 @@ export default function App() {
           partnerUtcOffsetMinutes={partnerUtcOffsetMinutes}
           updateState={updateState}
           feedback={feedback}
+          feedbackNickname={feedbackNickname}
+          feedbackSending={feedbackSending}
           feedbackStatus={feedbackStatus}
           pairing={pairing}
           pairingStatus={pairingStatus}
@@ -779,6 +783,7 @@ export default function App() {
           onCheckUpdate={() => { void runUpdateCheck(); }}
           onInstallUpdate={() => { void installPendingUpdate(); }}
           onFeedbackChange={value => { setFeedback(value); setFeedbackStatus(''); }}
+          onFeedbackNicknameChange={value => { setFeedbackNickname(value); setFeedbackStatus(''); }}
           onShareFeedback={() => { void shareFeedback(); }}
           onCreatePairing={() => { void createPairing(); }}
           onCopyInvite={() => { void copyInvite(); }}

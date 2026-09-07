@@ -1,11 +1,11 @@
 {
-  "version": "0.3.16",
-  "notes": "修复自动更新检查：失败时自动重试，并提供官网版本检查备用路径。",
-  "pub_date": "2026-09-07T06:33:39Z",
+  "version": "0.3.17",
+  "notes": "意见反馈新增必填昵称并可直接发布到官网评论区；提高高速输入表情的触发门槛。",
+  "pub_date": "2026-09-07T15:39:06Z",
   "platforms": {
     "darwin-aarch64": {
-      "signature": "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVTRGJubHgvODMwbEZhYVkrWEZqY2pVUmVMWkFVZ1Y3L0VIL1A5SWVyY2pGelkzNGIwbVlwYjZzZHVkYyt1MjIxc2pPWlluTjF2a3VWM1FpY0pqN2JzSDdSd0RCNkVIc2dVPQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzg4NzYyODA2CWZpbGU6TWV3TGluay5hcHAudGFyLmd6ClhPUDVwcWZ6VkFINEw3bmlOM1JnUjRaUkg0dmhtRjBOUGVIbHRIMjFhQ2VmUEtDQW9odzFaM0FxUFlFd3NXbGl1ZTZ6RERaYzAzQVE2eWNVOHk5N0RnPT0K",
-      "url": "https://mewlink.jshmhsb.chatgpt.site/downloads/MewLink-macOS-0.3.16.app.tar.gz"
+      "signature": "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVTRGJubHgvODMwbExrN01PVEtCRndmMTZta2dxL0YrS3U1T3F1RE41cHRCY2w1N21MTXkreCt1aUdwWk95UmExa3JVWHNRTzdzV1JacHhOS2RST0ZPWC9NKzZEMTQ5R2c4PQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzg4Nzk1NTQ2CWZpbGU6TWV3TGluay5hcHAudGFyLmd6CkxiN1pER2xDd002ZXE3RXl2VWdFQi81RTAxN21vKzdTclplSm1hTFFzWm92T2poTVhHampnaEhkRDZUNHlrK0JVRzdkZ0Vzd1ZBemE3OUpidUlwc0FBPT0K",
+      "url": "https://mewlink.jshmhsb.chatgpt.site/downloads/MewLink-macOS-0.3.17.app.tar.gz"
     }
   }
 }

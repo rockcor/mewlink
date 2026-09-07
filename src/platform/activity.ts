@@ -15,7 +15,7 @@ export const POINTER_ANIMATION_HOLD_MS = 110;
 export const POINTER_EVENTS_PER_ANIMATION = 4;
 export const INPUT_STRESS_WINDOW_MS = 1_200;
 export const INPUT_STRESS_HOLD_MS = 1_800;
-export const KEYBOARD_STRESS_THRESHOLD = 8;
+export const KEYBOARD_STRESS_THRESHOLD = 18;
 export const POINTER_STRESS_THRESHOLD = 72;
 
 export const shouldAnimatePointer = (lastAnimationAt: number, now: number) =>
