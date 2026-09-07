@@ -48,7 +48,10 @@ fn classify_foreground_app(value: &str) -> &'static str {
         "vlc",
         "quicktime",
         "iina",
-        "plex",
+        "tv.plex",
+        "plex media player",
+        "plexamp",
+        "plex.exe",
         "infuse",
         "mpv",
         "movist",
@@ -67,13 +70,51 @@ fn classify_foreground_app(value: &str) -> &'static str {
     ]) {
         "media"
     } else if contains(&[
+        "com.openai.codex",
+        "codex.app",
+        "codex.exe",
+        "com.openai.chat",
+        "chatgpt",
+        "anthropic.claude",
+        "claudefordesktop",
+        "claude.app",
+        "claude.exe",
+        "cowork",
+        "microsoft.copilot",
+        "copilot.app",
+        "copilot.exe",
+        "perplexity",
+        "poe.app",
+        "poe.exe",
+        "google gemini",
+        "notebooklm",
+        "deepseek",
+        "doubao",
+        "kimi.app",
+        "kimi.exe",
+        "yuanbao",
+        "cherry studio",
+        "cherrystudio",
+        "chatbox",
+        "lm studio",
+        "lmstudio",
+        "msty",
+        "jan.ai",
+        "jan.exe",
+        "anythingllm",
+        "open webui",
+        "openwebui",
+        "lobechat",
+        "ollama",
+    ]) {
+        "ai"
+    } else if contains(&[
         "vscode",
         "visual studio code",
         "code.exe",
         "visualstudio",
         "devenv.exe",
         "cursor",
-        "codex",
         "xcode",
         "jetbrains",
         "intellij",
@@ -216,9 +257,6 @@ fn classify_foreground_app(value: &str) -> &'static str {
         "adobe premiere",
         "after effects",
         "blender",
-        "openai.chat",
-        "anthropic.claude",
-        "microsoft.copilot",
     ]) {
         "reader"
     } else if contains(&[
@@ -446,7 +484,7 @@ mod platform {
         fn reads_a_real_session_signal() {
             let signal = sample();
             assert!(
-                ["editor", "reader", "meeting", "media", "browser", "unknown"]
+                ["editor", "reader", "meeting", "media", "browser", "ai", "unknown"]
                     .contains(&signal.app_class)
             );
             assert!(signal.idle_seconds < u64::MAX);
@@ -674,6 +712,22 @@ mod classification_tests {
     }
 
     #[test]
+    fn classifies_general_ai_apps_as_the_ai_work_visual() {
+        for app in [
+            "com.openai.codex Codex",
+            "com.openai.chat ChatGPT",
+            "com.anthropic.claudefordesktop Claude",
+            "com.anthropic.claudefordesktop Cowork",
+            "com.microsoft.copilot Copilot",
+            "ai.perplexity.mac Perplexity",
+            "com.openai.chatbox Chatbox",
+            "com.cherryai.cherrystudio CherryStudio",
+        ] {
+            assert_eq!(classify_foreground_app(app), "ai", "{app}");
+        }
+    }
+
+    #[test]
     fn classifies_document_and_collaboration_apps_as_the_document_work_visual() {
         for app in [
             "com.apple.Preview",
@@ -691,7 +745,6 @@ mod classification_tests {
             "com.adobe.Photoshop Photoshop",
             "com.apple.iCal Calendar",
             "net.shinyfrog.bear Bear",
-            "com.anthropic.claudefordesktop Claude",
         ] {
             assert_eq!(classify_foreground_app(app), "reader", "{app}");
         }
@@ -714,7 +767,7 @@ mod classification_tests {
     }
 
     #[test]
-    fn keeps_meetings_and_leisure_outside_the_three_work_visuals() {
+    fn keeps_meetings_and_leisure_outside_the_work_visuals() {
         for app in [
             "us.zoom.xos",
             "com.microsoft.teams2",

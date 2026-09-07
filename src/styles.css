@@ -796,6 +796,7 @@ button { font: inherit; }
 .code-dot::before { background: #874e79; }
 .document-dot::before { background: #e18aa7; }
 .web-dot::before { background: #72b7bd; }
+.ai-dot::before { background: #8177d7; }
 .work-dot::before { background: #d96f98; }
 .meeting-dot::before { background: #7e72c7; }
 .idle-dot::before { background: #e0b36e; }

@@ -3,7 +3,7 @@ import type { ActivityKind, WorkVisual } from '../domain/types';
 
 export type InputKind = 'keyboard' | 'pointer' | 'none';
 export type InputMotion = InputKind | 'both';
-export interface PresenceSignal { idleSeconds: number; locked: boolean; appClass?: 'editor' | 'reader' | 'meeting' | 'media' | 'browser' | 'unknown'; inputKind?: InputKind }
+export interface PresenceSignal { idleSeconds: number; locked: boolean; appClass?: 'editor' | 'reader' | 'meeting' | 'media' | 'browser' | 'ai' | 'unknown'; inputKind?: InputKind }
 export interface InputSignal { keyboardSequence: number; pointerSequence: number; pointerClickSequence: number; recentKind: InputKind }
 export interface InputChanges { keyboard: boolean; pointer: boolean }
 export interface ActivityProbe { sample(): Promise<PresenceSignal> }
@@ -20,7 +20,7 @@ export const classify = (signal: PresenceSignal): ActivityKind => {
   if (signal.locked || signal.idleSeconds >= 600) return 'rest';
   if (signal.idleSeconds >= 120) return 'idle';
   const map: Record<NonNullable<PresenceSignal['appClass']>, ActivityKind> = {
-    editor: 'work', reader: 'work', meeting: 'meeting', media: 'leisure', browser: 'work', unknown: 'work'
+    editor: 'work', reader: 'work', meeting: 'meeting', media: 'leisure', browser: 'work', ai: 'work', unknown: 'work'
   };
   return map[signal.appClass ?? 'unknown'];
 };
@@ -41,6 +41,7 @@ export const visualInputForActivity = (activity: ActivityKind, keyboard: boolean
 };
 
 export const workVisualFor = (signal: PresenceSignal): WorkVisual => {
+  if (signal.appClass === 'ai') return 'ai';
   if (signal.appClass === 'editor') return 'code';
   if (signal.appClass === 'reader') return 'document';
   return 'web';
@@ -115,7 +116,7 @@ if (typeof window !== 'undefined') {
 }
 
 class DemoProbe implements ActivityProbe {
-  private readonly demoClasses: NonNullable<PresenceSignal['appClass']>[] = ['editor', 'reader', 'meeting', 'media', 'browser'];
+  private readonly demoClasses: NonNullable<PresenceSignal['appClass']>[] = ['editor', 'reader', 'ai', 'meeting', 'media', 'browser'];
   async sample(): Promise<PresenceSignal> {
     if (demoTransitionPair) {
       const activity = Date.now() - demoTransitionPair.startedAt < 800 ? demoTransitionPair.from : demoTransitionPair.to;

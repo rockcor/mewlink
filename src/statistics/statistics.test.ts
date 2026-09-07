@@ -11,12 +11,12 @@ describe('local statistics aggregation', () => {
       keyboard: 120,
       pointer: 45,
       activityMs: { work: 3_600_000, meeting: 1_800_000, leisure: 600_000, idle: 300_000, rest: 0 },
-      workVisualMs: { code: 1_800_000, document: 1_200_000, web: 600_000 }
+      workVisualMs: { code: 1_500_000, document: 900_000, web: 600_000, ai: 600_000 }
     });
 
     const result = aggregateStatistics(data, 'day', now);
     expect(result.input).toEqual({ keyboard: 120, pointer: 45 });
-    expect(result.workVisual).toEqual({ code: 1_800_000, document: 1_200_000, web: 600_000 });
+    expect(result.workVisual).toEqual({ code: 1_500_000, document: 900_000, web: 600_000, ai: 600_000 });
     expect(result.activity).toEqual({ work: 3_600_000, meeting: 1_800_000, idle: 900_000 });
     expect(result.bars.reduce((total, bar) => total + bar.keyboard, 0)).toBe(120);
   });
@@ -29,7 +29,7 @@ describe('local statistics aggregation', () => {
       keyboard: 99,
       pointer: 99,
       activityMs: { work: 1_000, meeting: 0, leisure: 0, idle: 0, rest: 0 },
-      workVisualMs: { code: 1_000, document: 0, web: 0 }
+      workVisualMs: { code: 1_000, document: 0, web: 0, ai: 0 }
     });
     expect(aggregateStatistics(data, 'week', now).input.keyboard).toBe(0);
     expect(aggregateStatistics(data, 'month', now).input.keyboard).toBe(99);

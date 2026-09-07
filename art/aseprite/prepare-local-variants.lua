@@ -31,10 +31,41 @@ end
 
 local function dot(image, x, y, size, color) fill(image, x, y, size, size, color) end
 
+local function roundBox(image, x, y, width, height, color)
+  fill(image, x + 2, y, width - 4, height, color)
+  fill(image, x, y + 2, width, height - 4, color)
+  fill(image, x + 1, y + 1, width - 2, height - 2, color)
+end
+
 local function screenVariant(image, kind)
   -- The monitor's actual inner display is 55,116 through 148,192. Keep every
   -- scene inside that rectangle so no pixels from the source screen remain.
-  if kind == "code" then
+  if kind == "ai" then
+    -- A brand-neutral conversation screen: one compact prompt and a large
+    -- centered assistant reply. It deliberately contains no logo, letters,
+    -- title, URL, or provider-specific shape.
+    fill(image, 55, 116, 94, 77, codeBackground)
+    fill(image, 55, 116, 94, 10, codePanel)
+    dot(image, 61, 120, 3, blush)
+    dot(image, 68, 120, 3, blue)
+    fill(image, 126, 120, 15, 3, codeGutter)
+
+    roundBox(image, 101, 132, 37, 13, blushDark)
+    fill(image, 108, 137, 22, 3, cream)
+    fill(image, 132, 143, 4, 5, blushDark)
+
+    roundBox(image, 62, 151, 69, 29, codePanel)
+    fill(image, 64, 157, 9, 9, mint)
+    dot(image, 67, 155, 3, blue)
+    dot(image, 67, 168, 3, blue)
+    dot(image, 65, 160, 3, blue)
+    dot(image, 70, 160, 3, blue)
+    dot(image, 84, 161, 5, blush)
+    dot(image, 95, 161, 5, blue)
+    dot(image, 106, 161, 5, cream)
+    fill(image, 84, 172, 37, 3, mint)
+    fill(image, 126, 176, 4, 5, codePanel)
+  elseif kind == "code" then
     -- A nearly black editor with two tabs, a numbered gutter, a split pane,
     -- and dense syntax colors. Large dark regions keep it unmistakable at the
     -- small on-desktop rendering size.
@@ -180,6 +211,9 @@ for _, name in ipairs(workNames) do
   local web = load(name)
   screenVariant(web, "web")
   save(web, "web_" .. name)
+  local ai = load(name)
+  screenVariant(ai, "ai")
+  save(ai, "ai_" .. name)
 end
 
 local states = {

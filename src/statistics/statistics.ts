@@ -14,12 +14,13 @@ export interface StatisticsBucket {
 }
 
 export interface StatisticsData {
-  version: 2;
+  version: 3;
   buckets: StatisticsBucket[];
 }
 
-const storageKey = 'mewlink.statistics.v2';
-const legacyStorageKey = 'mewlink.statistics.v1';
+const storageKey = 'mewlink.statistics.v3';
+const legacyStorageKeyV2 = 'mewlink.statistics.v2';
+const legacyStorageKeyV1 = 'mewlink.statistics.v1';
 const hourMs = 60 * 60 * 1_000;
 const dayMs = 24 * hourMs;
 const maxHistoryMs = 35 * dayMs;
@@ -27,7 +28,7 @@ let liveData: StatisticsData | undefined;
 let flushTimer: number | undefined;
 
 export function emptyStatisticsData(): StatisticsData {
-  return { version: 2, buckets: [] };
+  return { version: 3, buckets: [] };
 }
 
 function emptyBucket(hour: number): StatisticsBucket {
@@ -36,19 +37,35 @@ function emptyBucket(hour: number): StatisticsBucket {
     keyboard: 0,
     pointer: 0,
     activityMs: { work: 0, meeting: 0, leisure: 0, idle: 0, rest: 0 },
-    workVisualMs: { code: 0, document: 0, web: 0 }
+    workVisualMs: { code: 0, document: 0, web: 0, ai: 0 }
   };
 }
 
-function isBucket(value: unknown): value is StatisticsBucket {
-  if (!value || typeof value !== 'object') return false;
+function nonNegative(value: unknown): number {
+  return typeof value === 'number' && Number.isFinite(value) && value >= 0 ? value : 0;
+}
+
+function normalizeBucket(value: unknown, resetPointer = false): StatisticsBucket | undefined {
+  if (!value || typeof value !== 'object') return undefined;
   const bucket = value as Partial<StatisticsBucket>;
-  return typeof bucket.hour === 'number'
-    && Number.isFinite(bucket.hour)
-    && typeof bucket.keyboard === 'number'
-    && typeof bucket.pointer === 'number'
-    && Boolean(bucket.activityMs)
-    && Boolean(bucket.workVisualMs);
+  if (typeof bucket.hour !== 'number' || !Number.isFinite(bucket.hour)
+    || !bucket.activityMs || typeof bucket.activityMs !== 'object'
+    || !bucket.workVisualMs || typeof bucket.workVisualMs !== 'object') return undefined;
+  const activity = bucket.activityMs as Partial<Record<ActivityKind, number>>;
+  const workVisual = bucket.workVisualMs as Partial<Record<WorkVisual, number>>;
+  return {
+    hour: bucket.hour,
+    keyboard: nonNegative(bucket.keyboard),
+    pointer: resetPointer ? 0 : nonNegative(bucket.pointer),
+    activityMs: {
+      work: nonNegative(activity.work), meeting: nonNegative(activity.meeting), leisure: nonNegative(activity.leisure),
+      idle: nonNegative(activity.idle), rest: nonNegative(activity.rest)
+    },
+    workVisualMs: {
+      code: nonNegative(workVisual.code), document: nonNegative(workVisual.document),
+      web: nonNegative(workVisual.web), ai: nonNegative(workVisual.ai)
+    }
+  };
 }
 
 function loadStatistics(): StatisticsData {
@@ -56,13 +73,18 @@ function loadStatistics(): StatisticsData {
   if (typeof localStorage === 'undefined') return liveData = emptyStatisticsData();
   try {
     const current = JSON.parse(localStorage.getItem(storageKey) ?? 'null') as Partial<StatisticsData> | null;
-    if (current?.version === 2 && Array.isArray(current.buckets)) {
-      liveData = { version: 2, buckets: current.buckets.filter(isBucket) };
+    if (current?.version === 3 && Array.isArray(current.buckets)) {
+      liveData = { version: 3, buckets: current.buckets.map(bucket => normalizeBucket(bucket)).filter((bucket): bucket is StatisticsBucket => Boolean(bucket)) };
     } else {
-      const legacy = JSON.parse(localStorage.getItem(legacyStorageKey) ?? 'null') as { version?: number; buckets?: unknown[] } | null;
-      liveData = legacy?.version === 1 && Array.isArray(legacy.buckets)
-        ? { version: 2, buckets: legacy.buckets.filter(isBucket).map(bucket => ({ ...bucket, pointer: 0 })) }
-        : emptyStatisticsData();
+      const versionTwo = JSON.parse(localStorage.getItem(legacyStorageKeyV2) ?? 'null') as { version?: number; buckets?: unknown[] } | null;
+      const versionOne = JSON.parse(localStorage.getItem(legacyStorageKeyV1) ?? 'null') as { version?: number; buckets?: unknown[] } | null;
+      const legacyBuckets = versionTwo?.version === 2 && Array.isArray(versionTwo.buckets) ? versionTwo.buckets : undefined;
+      const oldestBuckets = versionOne?.version === 1 && Array.isArray(versionOne.buckets) ? versionOne.buckets : undefined;
+      liveData = legacyBuckets
+        ? { version: 3, buckets: legacyBuckets.map(bucket => normalizeBucket(bucket)).filter((bucket): bucket is StatisticsBucket => Boolean(bucket)) }
+        : oldestBuckets
+          ? { version: 3, buckets: oldestBuckets.map(bucket => normalizeBucket(bucket, true)).filter((bucket): bucket is StatisticsBucket => Boolean(bucket)) }
+          : emptyStatisticsData();
     }
   } catch {
     liveData = emptyStatisticsData();
@@ -160,7 +182,7 @@ export function aggregateStatistics(data: StatisticsData, range: StatisticsRange
   }));
   const snapshot: StatisticsSnapshot = {
     input: { keyboard: 0, pointer: 0 },
-    workVisual: { code: 0, document: 0, web: 0 },
+    workVisual: { code: 0, document: 0, web: 0, ai: 0 },
     activity: { work: 0, meeting: 0, idle: 0 },
     bars
   };
@@ -178,6 +200,7 @@ export function aggregateStatistics(data: StatisticsData, range: StatisticsRange
     snapshot.workVisual.code += bucket.workVisualMs.code;
     snapshot.workVisual.document += bucket.workVisualMs.document;
     snapshot.workVisual.web += bucket.workVisualMs.web;
+    snapshot.workVisual.ai += bucket.workVisualMs.ai;
     snapshot.activity.work += bucket.activityMs.work;
     snapshot.activity.meeting += bucket.activityMs.meeting;
     snapshot.activity.idle += bucket.activityMs.idle + bucket.activityMs.leisure + bucket.activityMs.rest;

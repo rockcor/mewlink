@@ -3,13 +3,15 @@ import { describe, expect, it } from 'vitest';
 describe('privacy-first activity classification', () => {
   it('treats lock as rest regardless of app', () => expect(classify({ locked: true, idleSeconds: 0, appClass: 'editor' })).toBe('rest'));
   it('uses idle thresholds before app class', () => expect(classify({ locked: false, idleSeconds: 200, appClass: 'meeting' })).toBe('idle'));
-  it('merges editors, documents, and browsers into work', () => {
+  it('merges AI tools, editors, documents, and browsers into work', () => {
+    expect(classify({ locked: false, idleSeconds: 1, appClass: 'ai' })).toBe('work');
     expect(classify({ locked: false, idleSeconds: 1, appClass: 'reader' })).toBe('work');
     expect(classify({ locked: false, idleSeconds: 1, appClass: 'editor' })).toBe('work');
     expect(classify({ locked: false, idleSeconds: 1, appClass: 'browser' })).toBe('work');
   });
   it('maps local media activity to leisure', () => expect(classify({ locked: false, idleSeconds: 1, appClass: 'media' })).toBe('leisure'));
   it('uses the private local class only to change the work screen', () => {
+    expect(workVisualFor({ locked: false, idleSeconds: 1, appClass: 'ai' })).toBe('ai');
     expect(workVisualFor({ locked: false, idleSeconds: 1, appClass: 'editor' })).toBe('code');
     expect(workVisualFor({ locked: false, idleSeconds: 1, appClass: 'reader' })).toBe('document');
     expect(workVisualFor({ locked: false, idleSeconds: 1, appClass: 'browser' })).toBe('web');

@@ -4,7 +4,7 @@ import { inflateSync } from 'node:zlib';
 
 const frameWidth = 384;
 const frameHeight = 256;
-const inputFrame = ['work-code', 'work-document', 'work-web'];
+const inputFrame = ['work-code', 'work-document', 'work-web', 'work-ai'];
 const eightFrame = [
   'meeting', 'leisure', 'idle', 'rest',
   ...['work', 'meeting', 'leisure', 'idle', 'rest'].flatMap(state =>
@@ -22,7 +22,7 @@ const transitionSpecs = states.flatMap(from => states.filter(to => to !== from).
   toWorkVisual: 'code',
 })));
 for (const state of states.filter(state => state !== 'work')) {
-  for (const visual of ['document', 'web']) {
+  for (const visual of ['document', 'web', 'ai']) {
     transitionSpecs.push({ name: `transition-work-${visual}-${state}`, from: 'work', to: state, fromWorkVisual: visual, toWorkVisual: 'code' });
     transitionSpecs.push({ name: `transition-${state}-work-${visual}`, from: state, to: 'work', fromWorkVisual: 'code', toWorkVisual: visual });
   }
@@ -108,6 +108,25 @@ function framePixels(image, frameIndex) {
     image.pixels.copy(result, y * frameWidth * 4, sourceStart, sourceStart + frameWidth * 4);
   }
   return result;
+}
+
+const workCode = await decodeRgba('work-code');
+for (const visual of ['document', 'web', 'ai']) {
+  const variant = await decodeRgba(`work-${visual}`);
+  let changedScreenPixels = 0;
+  for (let frame = 0; frame < 4; frame += 1) {
+    for (let y = 0; y < frameHeight; y += 1) {
+      for (let x = 0; x < frameWidth; x += 1) {
+        const baseOffset = (y * workCode.width + frame * frameWidth + x) * 4;
+        const variantOffset = (y * variant.width + frame * frameWidth + x) * 4;
+        const equal = workCode.pixels.subarray(baseOffset, baseOffset + 4).equals(variant.pixels.subarray(variantOffset, variantOffset + 4));
+        const insideMonitor = x >= 55 && x <= 148 && y >= 116 && y <= 192;
+        if (!insideMonitor && !equal) throw new Error(`work-${visual}: frame ${frame + 1} changed the pet rig outside the monitor at ${x},${y}`);
+        if (insideMonitor && !equal) changedScreenPixels += 1;
+      }
+    }
+  }
+  if (changedScreenPixels < 100) throw new Error(`work-${visual}: monitor content is not visually distinct`);
 }
 
 const stateAsset = state => state === 'work' ? 'work-code' : state;

@@ -55,8 +55,10 @@ function isNumberRecord(value: unknown, keys: string[]): boolean {
 function isStatisticsSnapshot(value: unknown, expectedBars: number): boolean {
   if (!value || typeof value !== 'object') return false;
   const snapshot = value as Record<string, unknown>;
+  const workVisual = snapshot.workVisual as Record<string, unknown> | undefined;
   if (!isNumberRecord(snapshot.input, ['keyboard', 'pointer'])
-    || !isNumberRecord(snapshot.workVisual, ['code', 'document', 'web'])
+    || !isNumberRecord(workVisual, ['code', 'document', 'web'])
+    || (workVisual?.ai !== undefined && !isNonNegativeNumber(workVisual.ai))
     || !isNumberRecord(snapshot.activity, ['work', 'meeting', 'idle'])
     || !Array.isArray(snapshot.bars)
     || snapshot.bars.length !== expectedBars) return false;
