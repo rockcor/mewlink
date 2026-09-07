@@ -18,6 +18,7 @@ struct InputSignal {
     recent_kind: &'static str,
 }
 
+#[cfg(any(target_os = "macos", target_os = "windows", test))]
 fn classify_foreground_app(value: &str) -> &'static str {
     let app = value.to_ascii_lowercase();
     let contains = |candidates: &[&str]| candidates.iter().any(|candidate| app.contains(candidate));

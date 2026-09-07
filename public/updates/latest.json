@@ -1,11 +1,11 @@
 {
-  "version": "0.3.17",
-  "notes": "意见反馈新增必填昵称并可直接发布到官网评论区；提高高速输入表情的触发门槛。",
-  "pub_date": "2026-09-07T15:39:06Z",
+  "version": "0.3.18",
+  "notes": "修复跨平台自动检查，提升后续版本发布的稳定性。",
+  "pub_date": "2026-09-07T19:42:05Z",
   "platforms": {
     "darwin-aarch64": {
-      "signature": "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVTRGJubHgvODMwbExrN01PVEtCRndmMTZta2dxL0YrS3U1T3F1RE41cHRCY2w1N21MTXkreCt1aUdwWk95UmExa3JVWHNRTzdzV1JacHhOS2RST0ZPWC9NKzZEMTQ5R2c4PQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzg4Nzk1NTQ2CWZpbGU6TWV3TGluay5hcHAudGFyLmd6CkxiN1pER2xDd002ZXE3RXl2VWdFQi81RTAxN21vKzdTclplSm1hTFFzWm92T2poTVhHampnaEhkRDZUNHlrK0JVRzdkZ0Vzd1ZBemE3OUpidUlwc0FBPT0K",
-      "url": "https://mewlink.jshmhsb.chatgpt.site/downloads/MewLink-macOS-0.3.17.app.tar.gz"
+      "signature": "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVTRGJubHgvODMwbEd1SUNtUmdzK1h4cnJoREx4SS94RnJHc1hET3hqSHQvRjZhQmd2ZXhzQWthUXlrcThvL0U4Q0toVjduUzMxOGFMby9mR1NSMDgrOGZxcWZ2ZXNFaVFrPQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzg4ODEwMDcyCWZpbGU6TWV3TGluay5hcHAudGFyLmd6CnJWRE9kOWFuZFMwR0tYcGowRWd6Mk9aN3BOOHZWNVFUSTQzUTkzeWtZMHIyU0pHR2JkR0ErZkkrM3pNTEJiNDJXcFkzYUZLS0IrYklRUVFoK2hHNENBPT0K",
+      "url": "https://mewlink.jshmhsb.chatgpt.site/downloads/MewLink-macOS-0.3.18.app.tar.gz"
     }
   }
 }
