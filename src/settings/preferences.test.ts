@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { animationDurationScale, effectiveUtcOffsetMinutes, formatUtcOffset, loadPreferences, normalizePetScalePercent, normalizeReplayRetentionHours, savePreferences } from './preferences';
+import { animationDurationScale, effectiveUtcOffsetMinutes, formatUtcOffset, loadPreferences, normalizePetScalePercent, normalizeReplayRetentionHours, savePreferences, scalePetWithPinch } from './preferences';
 
 function memoryStorage(initial?: string) {
   let value = initial ?? null;
@@ -49,6 +49,12 @@ describe('desktop preferences', () => {
     expect(normalizePetScalePercent(82)).toBe(80);
     expect(normalizePetScalePercent(30)).toBe(70);
     expect(normalizePetScalePercent(140)).toBe(110);
+  });
+
+  it('scales the pointed companion with a trackpad pinch', () => {
+    expect(scalePetWithPinch(90, -2)).toBe(95);
+    expect(scalePetWithPinch(90, 2)).toBe(85);
+    expect(scalePetWithPinch(110, -2)).toBe(110);
   });
 
   it('migrates the previous shared pet size to both companions', () => {

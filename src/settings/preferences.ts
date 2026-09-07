@@ -55,6 +55,11 @@ export function normalizePetScalePercent(value: number): number {
   return Math.min(110, Math.max(70, Math.round(value / 5) * 5));
 }
 
+export function scalePetWithPinch(current: number, deltaY: number): number {
+  if (!Number.isFinite(deltaY) || deltaY === 0) return normalizePetScalePercent(current);
+  return normalizePetScalePercent(current + (deltaY < 0 ? 5 : -5));
+}
+
 export function normalizeReplayRetentionHours(value: number): ReplayRetentionHours {
   if (!Number.isFinite(value)) return 24;
   return replayRetentionOptions.reduce((closest, option) =>

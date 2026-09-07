@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties, type MouseEvent as ReactMouseEvent, type PointerEvent as ReactPointerEvent } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties, type PointerEvent as ReactPointerEvent, type WheelEvent as ReactWheelEvent } from 'react';
 import { PhysicalPosition } from '@tauri-apps/api/dpi';
 import { getCurrentWindow } from '@tauri-apps/api/window';
 import { v4 as uuid } from 'uuid';
@@ -27,7 +27,7 @@ import type { Update } from '@tauri-apps/plugin-updater';
 import { pruneEventsOlderThan, putEvent } from './storage/events';
 import { buildReplay } from './services/replay';
 import { latestPartnerSkin } from './services/profile';
-import { animationDurationScale, effectiveUtcOffsetMinutes, loadPreferences, savePreferences } from './settings/preferences';
+import { animationDurationScale, effectiveUtcOffsetMinutes, loadPreferences, savePreferences, scalePetWithPinch } from './settings/preferences';
 import { currentStatisticsBundle, flushStatistics, recordActivityStatistics, recordInputStatistics } from './statistics/statistics';
 import { appCopy } from './i18n';
 import './styles.css';
@@ -57,7 +57,8 @@ export default function App() {
   const [frame, setFrame] = useState(0);
   const [gesture, setGesture] = useState<{ variant: GestureVariant; target: 'self' | 'partner'; cupStyle?: CupStyle; blanketStyle?: BlanketStyle }>();
   const [pendingCup, setPendingCup] = useState(loadPendingCup);
-  const [sizeMenu, setSizeMenu] = useState<'self' | 'partner'>();
+  const [petMenuOpen, setPetMenuOpen] = useState(false);
+  const [petMenuPinned, setPetMenuPinned] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [statisticsOpen, setStatisticsOpen] = useState(false);
   const [preferences, setPreferences] = useState(loadPreferences);
@@ -74,10 +75,13 @@ export default function App() {
     const saved = window.localStorage.getItem('mewlink.cupStyle');
     return cupStyles.includes(saved as CupStyle) ? saved as CupStyle : 'ceramic';
   });
-  const [notice, setNotice] = useState(() => pairing?.partnerDeviceId ? text.shortcut : text.soloShortcut);
-  const clickTimer = useRef<number | undefined>(undefined);
+  const [notice, setNotice] = useState('');
   const gestureTimer = useRef<number | undefined>(undefined);
   const noticeTimer = useRef<number | undefined>(undefined);
+  const menuCloseTimer = useRef<number | undefined>(undefined);
+  const lastScaleGestureAt = useRef({ self: Number.NEGATIVE_INFINITY, partner: Number.NEGATIVE_INFINITY });
+  const petDragStart = useRef<{ pointerId: number; x: number; y: number } | undefined>(undefined);
+  const suppressPetClick = useRef(false);
   const pendingUpdateRef = useRef<Update | undefined>(undefined);
   const statisticsActivityRef = useRef<ActivityKind>('work');
   const statisticsWorkVisualRef = useRef<WorkVisual>('web');
@@ -118,7 +122,6 @@ export default function App() {
     workHandsSettled: true,
     transitionDurationMs: Math.round(ACTIVITY_TRANSITION_MS * durationScale),
   });
-  const defaultNotice = connected ? text.shortcut : text.soloShortcut;
   const motionStyle = useMemo(() => ({
     '--self-pet-scale': String(preferences.selfPetScalePercent / 100),
     '--partner-pet-scale': String(preferences.partnerPetScalePercent / 100),
@@ -404,10 +407,9 @@ export default function App() {
   }, [pendingCup]);
   useEffect(() => { savePreferences(preferences); }, [preferences]);
   useEffect(() => {
-    setNotice(defaultNotice);
     setUpdateState(currentState => currentState.kind === 'idle' ? { ...currentState, message: text.updateUnchecked } : currentState);
     setPairingStatus(currentStatus => currentStatus ? (pairingRef.current?.partnerDeviceId ? text.connected : pairingRef.current ? text.waitingForInvite : '') : currentStatus);
-  }, [defaultNotice, text]);
+  }, [text]);
   useEffect(() => {
     if (connected) return;
     setPlaying(false);
@@ -434,9 +436,9 @@ export default function App() {
     return () => window.clearTimeout(timer);
   }, [durationScale, pendingCup]);
   useEffect(() => () => {
-    window.clearTimeout(clickTimer.current);
     window.clearTimeout(gestureTimer.current);
     window.clearTimeout(noticeTimer.current);
+    window.clearTimeout(menuCloseTimer.current);
   }, []);
 
   function showGesture(action: InteractionKind, message: string, target: 'self' | 'partner', options?: { cupStyle?: CupStyle; blanketStyle?: BlanketStyle; receiverActivity?: ActivityKind; replaying?: boolean }) {
@@ -452,7 +454,7 @@ export default function App() {
     if (action === 'water') setPendingCup({ target, style: options?.cupStyle ?? 'ceramic', placedAt: Date.now() });
     setNotice(message);
     gestureTimer.current = window.setTimeout(() => setGesture(undefined), Math.round(3_200 * durationScale));
-    noticeTimer.current = window.setTimeout(() => setNotice(defaultNotice), Math.round(2_800 * durationScale));
+    noticeTimer.current = window.setTimeout(() => setNotice(''), Math.round(2_800 * durationScale));
   }
 
   incomingInteractionRef.current = (action, incomingCup, incomingBlanket) => {
@@ -503,17 +505,20 @@ export default function App() {
     setPairing(undefined);
     setPairingStatus(text.disconnected);
     setJoinCode('');
-    setNotice(text.soloShortcut);
+    setNotice('');
   }
 
   async function send(action: InteractionKind) {
     const active = pairingRef.current;
     if (!active?.partnerDeviceId) {
+      dismissPetMenu();
       setStatisticsOpen(false);
       setSettingsOpen(true);
       setPairingStatus(text.pairFirst);
       return;
     }
+    setPetMenuOpen(false);
+    setPetMenuPinned(false);
     try {
       await enqueueEncryptedEvent(currentPairing => ({
         id: uuid(),
@@ -535,14 +540,28 @@ export default function App() {
     }
   }
 
-  function handlePetClick() {
-    window.clearTimeout(clickTimer.current);
-    clickTimer.current = window.setTimeout(() => { void send('hug'); }, 240);
+  function revealPetMenu() {
+    window.clearTimeout(menuCloseTimer.current);
+    setPetMenuOpen(true);
   }
 
-  function handlePetDoubleClick() {
-    window.clearTimeout(clickTimer.current);
-    void send('water');
+  function hidePetMenuSoon() {
+    window.clearTimeout(menuCloseTimer.current);
+    if (petMenuPinned) return;
+    menuCloseTimer.current = window.setTimeout(() => setPetMenuOpen(false), 180);
+  }
+
+  function pinPetMenu() {
+    if (suppressPetClick.current) return;
+    window.clearTimeout(menuCloseTimer.current);
+    setPetMenuOpen(true);
+    setPetMenuPinned(current => !current);
+  }
+
+  function dismissPetMenu() {
+    window.clearTimeout(menuCloseTimer.current);
+    setPetMenuOpen(false);
+    setPetMenuPinned(false);
   }
 
   function cycleCup() {
@@ -550,27 +569,44 @@ export default function App() {
     setCupStyle(next);
     window.clearTimeout(noticeTimer.current);
     setNotice(text.cupChanged(text.cups[next].label));
-    noticeTimer.current = window.setTimeout(() => setNotice(defaultNotice), Math.round(2_800 * durationScale));
+    noticeTimer.current = window.setTimeout(() => setNotice(''), Math.round(2_800 * durationScale));
   }
 
-  function startPetDrag(event: ReactPointerEvent<HTMLDivElement>) {
+  function beginPetDrag(event: ReactPointerEvent<HTMLButtonElement>) {
     if (event.button !== 0 || !isTauriWindow) return;
-    event.preventDefault();
-    void getCurrentWindow().startDragging();
+    petDragStart.current = { pointerId: event.pointerId, x: event.clientX, y: event.clientY };
+    event.currentTarget.setPointerCapture(event.pointerId);
   }
 
-  function openSizeMenu(event: ReactMouseEvent, target: 'self' | 'partner') {
+  function continuePetDrag(event: ReactPointerEvent<HTMLButtonElement>) {
+    const start = petDragStart.current;
+    if (!start || start.pointerId !== event.pointerId || suppressPetClick.current) return;
+    if (Math.hypot(event.clientX - start.x, event.clientY - start.y) < 5) return;
+    suppressPetClick.current = true;
+    petDragStart.current = undefined;
+    event.preventDefault();
+    void getCurrentWindow().startDragging().finally(() => {
+      window.setTimeout(() => { suppressPetClick.current = false; }, 80);
+    });
+  }
+
+  function endPetDrag(event: ReactPointerEvent<HTMLButtonElement>) {
+    if (petDragStart.current?.pointerId === event.pointerId) petDragStart.current = undefined;
+  }
+
+  function handlePetPinch(event: ReactWheelEvent, target: 'self' | 'partner') {
+    if (!event.ctrlKey || event.deltaY === 0) return;
     event.preventDefault();
     event.stopPropagation();
-    setSizeMenu(target);
-  }
-
-  function adjustPetSize(target: 'self' | 'partner', delta: number) {
+    const now = performance.now();
+    if (now - lastScaleGestureAt.current[target] < 55) return;
+    lastScaleGestureAt.current[target] = now;
     const key = target === 'self' ? 'selfPetScalePercent' : 'partnerPetScalePercent';
     setPreferences(currentPreferences => ({
       ...currentPreferences,
-      [key]: Math.min(110, Math.max(70, currentPreferences[key] + delta))
+      [key]: scalePetWithPinch(currentPreferences[key], event.deltaY)
     }));
+    revealPetMenu();
   }
 
   async function shareFeedback() {
@@ -604,7 +640,12 @@ export default function App() {
   return (
     <main className="desktop-pet" style={motionStyle}>
       <section className={`pet-zone ${settingsOpen || statisticsOpen ? 'settings-open' : ''}`} aria-label={connected ? text.petZone : text.soloPetZone} lang={preferences.language === 'zh' ? 'zh-CN' : 'en'}>
-        <div className={`hover-ui ${connected ? 'paired' : 'solo'}`}>
+        <div
+          id="pet-menu"
+          className={`hover-ui ${connected ? 'paired' : 'solo'} ${petMenuOpen ? 'menu-visible' : ''}`}
+          onPointerEnter={revealPetMenu}
+          onPointerLeave={hidePetMenuSoon}
+        >
           <div className="status-row" aria-live="polite">
             <div className="status-pill self-status">
               <span>●</span>
@@ -625,25 +666,40 @@ export default function App() {
               <button className="cup-switch" type="button" onClick={cycleCup} title={text.cups[cupStyle].label}><span className={`cup-symbol ${cupStyle}`} aria-hidden="true" />{text.changeCup}<small>{text.cups[cupStyle].shortLabel}</small></button>
             </>}
             {connected && replay.length > 0 && (
-              <button className="replay-action" type="button" onClick={() => { setFrame(0); setPlaying(true); }}>
+              <button className="replay-action" type="button" onClick={() => { dismissPetMenu(); setFrame(0); setPlaying(true); }}>
                 <span aria-hidden="true">▶</span>
                 {text.replay}
               </button>
             )}
-            <button className="statistics-action" type="button" onClick={() => { setSettingsOpen(false); setStatisticsOpen(true); }}>
+            <button className="statistics-action" type="button" onClick={() => { dismissPetMenu(); setSettingsOpen(false); setStatisticsOpen(true); }}>
               <span aria-hidden="true">▥</span>
               {text.statistics}
             </button>
-            <button className="settings-action" type="button" onClick={() => { setStatisticsOpen(false); setSettingsOpen(true); }}>
+            <button className="settings-action" type="button" onClick={() => { dismissPetMenu(); setStatisticsOpen(false); setSettingsOpen(true); }}>
               <span aria-hidden="true">⚙</span>
               {text.settings}
             </button>
           </div>
         </div>
 
-        <div className="drag-handle" data-tauri-drag-region aria-label={text.drag}>•••</div>
         <div className={`pet-pair ${connected ? 'paired' : 'solo'} ${displayedGesture ? `interacting target-${displayedGesture.target} interaction-${displayedGesture.variant.startsWith('hug') ? 'hug' : 'water'}` : ''}`}>
-          <div className="pet-avatar self-pet" aria-label={text.myPet(text.status[activity])} onPointerDown={startPetDrag} onContextMenu={event => openSizeMenu(event, 'self')}>
+          <button
+            className="pet-avatar self-pet"
+            type="button"
+            aria-label={text.myPet(text.status[activity])}
+            aria-expanded={petMenuOpen}
+            aria-controls="pet-menu"
+            onPointerDown={beginPetDrag}
+            onPointerMove={continuePetDrag}
+            onPointerUp={endPetDrag}
+            onPointerCancel={endPetDrag}
+            onPointerEnter={revealPetMenu}
+            onPointerLeave={hidePetMenuSoon}
+            onClick={pinPetMenu}
+            onFocus={revealPetMenu}
+            onBlur={hidePetMenuSoon}
+            onWheel={event => handlePetPinch(event, 'self')}
+          >
             <span
               className={`pet-sprite ${selfPlayback.displayedActivity} ${selfPlayback.displayedActivity === 'work' ? `work-${selfPlayback.displayedWorkVisual}` : ''} input-${selfPlayback.transition ? 'none' : visualInputKind} ${selfPlayback.transition ? 'transition-source-frame' : ''}`}
               aria-hidden="true"
@@ -655,14 +711,19 @@ export default function App() {
               aria-hidden="true"
               onAnimationEnd={() => selfPlayback.completeTransition(selfPlayback.transition!.key)}
             />}
-          </div>
+          </button>
           {connected && <button
             className="pet-avatar partner-pet"
             type="button"
             aria-label={text.partnerPet(current?.label ?? text.partnerWaiting)}
-            onClick={handlePetClick}
-            onDoubleClick={handlePetDoubleClick}
-            onContextMenu={event => openSizeMenu(event, 'partner')}
+            aria-expanded={petMenuOpen}
+            aria-controls="pet-menu"
+            onPointerEnter={revealPetMenu}
+            onPointerLeave={hidePetMenuSoon}
+            onClick={pinPetMenu}
+            onFocus={revealPetMenu}
+            onBlur={hidePetMenuSoon}
+            onWheel={event => handlePetPinch(event, 'partner')}
           >
             <span
               className={`pet-sprite partner-sprite ${partnerPlayback.displayedActivity} ${partnerPlayback.displayedActivity === 'work' ? `work-${partnerPlayback.displayedWorkVisual}` : ''} input-none ${playing ? 'replaying' : ''} ${partnerPlayback.transition ? 'transition-source-frame' : ''}`}
@@ -678,14 +739,8 @@ export default function App() {
           </button>}
           {displayedGesture && <span className={`interaction-sprite ${displayedGesture.variant} target-${displayedGesture.target} cup-${displayedGesture.cupStyle ?? 'ceramic'} blanket-${displayedGesture.blanketStyle ?? preferences.blanketStyle}`} aria-hidden="true" />}
           {pendingCup && <span className={`waiting-cup target-${pendingCup.target} ${pendingCup.style}`} aria-label={text.water}><i /><i /></span>}
-          {sizeMenu && <div className={`pet-size-menu target-${sizeMenu}`} role="dialog" aria-label={preferences.language === 'zh' ? '调整宠物大小' : 'Resize companion'} onPointerDown={event => event.stopPropagation()}>
-            <button type="button" onClick={() => adjustPetSize(sizeMenu, -5)} aria-label="−">−</button>
-            <output>{preferences[sizeMenu === 'self' ? 'selfPetScalePercent' : 'partnerPetScalePercent']}%</output>
-            <button type="button" onClick={() => adjustPetSize(sizeMenu, 5)} aria-label="+">+</button>
-            <button type="button" className="size-menu-close" onClick={() => setSizeMenu(undefined)} aria-label={preferences.language === 'zh' ? '关闭' : 'Close'}>×</button>
-          </div>}
         </div>
-        <div className="shortcut-hint" aria-live="polite">{notice}</div>
+        {notice && <div className="pet-toast" aria-live="polite">{notice}</div>}
         {settingsOpen && <SettingsPanel
           preferences={preferences}
           localUtcOffsetMinutes={receiverUtcOffsetMinutes}
