@@ -17,6 +17,7 @@ local webChrome = app.pixelColor.rgba(96, 155, 205, 255)
 local webInk = app.pixelColor.rgba(68, 105, 145, 255)
 local webSun = app.pixelColor.rgba(255, 214, 111, 255)
 local transparent = app.pixelColor.rgba(0, 0, 0, 0)
+local drawMewLinkDog = dofile(root .. "/art/aseprite/mewlink-dog-mark.lua")
 
 local function load(name) return Image { fromFile = frames .. name .. ".png" } end
 local function save(image, name) image:saveAs(frames .. name .. ".png") end
@@ -143,8 +144,7 @@ local function screenVariant(image, kind)
     fill(image, 119, 170, 25, 12, webChrome)
     fill(image, 59, 181, 55, 5, webInk)
   elseif kind == "mewlink" then
-    -- MewLink's own screen uses a large, readable dog-head mark. The floppy
-    -- ears and tiny muzzle echo the desktop companion without adding text.
+    -- The App Icon and in-app screen share this exact authored dog mark.
     fill(image, 55, 116, 94, 77, codeBackground)
     fill(image, 55, 116, 94, 10, blushDark)
     dot(image, 61, 120, 3, cream)
@@ -153,25 +153,7 @@ local function screenVariant(image, kind)
     roundBox(image, 67, 130, 70, 55, codePanel)
     roundBox(image, 71, 134, 62, 47, app.pixelColor.rgba(106, 71, 126, 255))
 
-    -- Left and right floppy ears.
-    roundBox(image, 76, 143, 16, 25, outline)
-    roundBox(image, 79, 146, 11, 19, blush)
-    fill(image, 77, 153, 4, 11, outline)
-    roundBox(image, 112, 143, 16, 25, outline)
-    roundBox(image, 114, 146, 11, 19, blush)
-    fill(image, 124, 153, 4, 11, outline)
-
-    -- Cream dog head, eyes, cheeks, and the same pixel muzzle as the pet.
-    roundBox(image, 85, 137, 35, 37, outline)
-    roundBox(image, 88, 140, 29, 31, cream)
-    fill(image, 91, 137, 23, 5, cream)
-    dot(image, 94, 150, 4, outline)
-    dot(image, 107, 150, 4, outline)
-    dot(image, 91, 159, 4, blush)
-    dot(image, 111, 159, 4, blush)
-    fill(image, 100, 158, 5, 4, outline)
-    fill(image, 97, 162, 4, 3, outline)
-    fill(image, 104, 162, 4, 3, outline)
+    drawMewLinkDog(image, 76, 137, 1)
 
     -- Small connected sparkles make the mark feel alive at desktop scale.
     dot(image, 75, 136, 3, mint)
