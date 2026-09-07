@@ -1,11 +1,11 @@
 import type { PetSkin } from '../domain/types';
 
 export const petSkinFilters: Record<PetSkin, string> = {
-  cream: 'brightness(1)',
-  peach: 'hue-rotate(24deg) saturate(1.06) brightness(1.02)',
-  mint: 'hue-rotate(136deg) saturate(.9) brightness(1.03)',
-  sky: 'hue-rotate(205deg) saturate(.9) brightness(1.03)',
-  lavender: 'hue-rotate(276deg) saturate(.94) brightness(1.02)',
-  luka: 'saturate(.52) brightness(1.055) contrast(1.025)',
-  sixtySix: 'sepia(.34) saturate(.88) hue-rotate(347deg) brightness(.98) contrast(1.055)',
+  cream: 'brightness(1) saturate(1)',
+  peach: 'sepia(.58) saturate(1.62) hue-rotate(338deg) brightness(1.015) contrast(1.055)',
+  mint: 'hue-rotate(105deg) saturate(1.28) brightness(1.025) contrast(1.045)',
+  sky: 'hue-rotate(208deg) saturate(1.38) brightness(1.015) contrast(1.05)',
+  lavender: 'hue-rotate(292deg) saturate(1.35) brightness(1.015) contrast(1.045)',
+  luka: 'grayscale(.72) sepia(.12) saturate(.42) brightness(1.09) contrast(1.1)',
+  sixtySix: 'sepia(.82) saturate(1.32) hue-rotate(342deg) brightness(.91) contrast(1.16)',
 };

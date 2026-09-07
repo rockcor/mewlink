@@ -146,6 +146,12 @@
   transform: translateX(-50%);
   animation: interaction-sprite-8 var(--interaction-duration, 3200ms) linear both;
 }
+.pet-pair.target-self .interaction-sprite {
+  filter: var(--self-pet-skin-filter, brightness(1)) drop-shadow(0 14px 12px rgba(86, 45, 67, .18));
+}
+.pet-pair.target-partner .interaction-sprite {
+  filter: var(--partner-pet-skin-filter, brightness(1)) drop-shadow(0 14px 12px rgba(86, 45, 67, .18));
+}
 .interaction-sprite.hug-work { background-image: url('/pets/animations/hug-work.png'); }
 .interaction-sprite.hug-meeting { background-image: url('/pets/animations/hug-meeting.png'); }
 .interaction-sprite.hug-leisure { background-image: url('/pets/animations/hug-leisure.png'); }

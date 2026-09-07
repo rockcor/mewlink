@@ -583,13 +583,13 @@ button { font: inherit; }
 .pet-color-options button.selected { border-color: rgba(164, 88, 118, .34); background: white; box-shadow: 0 4px 12px rgba(76, 47, 62, .09); color: #a45876; }
 .pet-color-options small { font-size: 8px; font-weight: 720; }
 .pet-color-swatch { width: 23px; height: 23px; border: 2px solid rgba(84, 23, 62, .72); border-radius: 50% 50% 47% 53%; box-shadow: inset 4px 4px 0 rgba(255,255,255,.3); }
-.pet-color-swatch.cream { background: #fff1c9; }
-.pet-color-swatch.peach { background: #ffc4b8; }
-.pet-color-swatch.mint { background: #bde4ce; }
-.pet-color-swatch.sky { background: #bcdcf2; }
-.pet-color-swatch.lavender { background: #d8c5ee; }
-.pet-color-swatch.luka { background: linear-gradient(135deg, #fff9e9 0 62%, #c8c2b8 63% 100%); }
-.pet-color-swatch.sixtySix { background: linear-gradient(135deg, #b77f4e 0 58%, #fff0cf 59% 100%); }
+.pet-color-swatch.cream { background: linear-gradient(135deg, #fff2ce 0 50%, #e56f9e 51% 100%); }
+.pet-color-swatch.peach { background: linear-gradient(135deg, #ffe0c7 0 50%, #e96d55 51% 100%); }
+.pet-color-swatch.mint { background: linear-gradient(135deg, #e6f4dc 0 50%, #3eaa87 51% 100%); }
+.pet-color-swatch.sky { background: linear-gradient(135deg, #e8f5ff 0 50%, #438dcc 51% 100%); }
+.pet-color-swatch.lavender { background: linear-gradient(135deg, #f1e8ff 0 50%, #8967c8 51% 100%); }
+.pet-color-swatch.luka { background: linear-gradient(135deg, #fffaf0 0 50%, #8c8982 51% 100%); }
+.pet-color-swatch.sixtySix { background: linear-gradient(135deg, #f1d6aa 0 50%, #81502f 51% 100%); }
 
 .prop-picker { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-top: 10px; }
 .prop-picker > b { color: #765765; font-size: 9px; }
