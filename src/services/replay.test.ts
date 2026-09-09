@@ -43,6 +43,7 @@ describe('time-zone aware replay', () => {
       kind: 'activity.segment', payload: { category: 'work', startedAt: '2026-09-03T07:00:00.000Z', endedAt: '2026-09-03T07:30:00.000Z' }
     };
     expect(buildReplay([stored(event)], 480, true, 'en')[0].label).toBe('Focused on work');
+    expect(buildReplay([stored(event)], 480, true, 'zh-Hant')[0].label).toBe('專注工作');
   });
 
   it('keeps statistics summaries out of the moment replay', () => {

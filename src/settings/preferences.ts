@@ -1,11 +1,11 @@
 import { blanketStyles, petSkins, statisticsVisibilities, type BlanketStyle, type PetSkin, type StatisticsVisibility } from '../domain/types';
 import { localUtcOffsetMinutes, normalizeUtcOffsetMinutes } from '../platform/clock';
+import { browserLanguage, languages, type Language } from '../platform/language';
+export { languages, type Language } from '../platform/language';
 
 export const animationSpeeds = ['calm', 'natural', 'lively'] as const;
 export type AnimationSpeed = (typeof animationSpeeds)[number];
 export type TimezoneMode = 'auto' | 'manual' | 'off';
-export const languages = ['zh', 'en'] as const;
-export type Language = (typeof languages)[number];
 export const replayRetentionOptions = [12, 24, 36, 48] as const;
 export type ReplayRetentionHours = (typeof replayRetentionOptions)[number];
 
@@ -23,14 +23,11 @@ export interface Preferences {
   selfPetSkin: PetSkin;
   blanketStyle: BlanketStyle;
   language: Language;
+  languageMode: 'system' | 'manual';
 }
 
 type StorageLike = Pick<Storage, 'getItem' | 'setItem'>;
 const STORAGE_KEY = 'mewlink.preferences.v1';
-
-function systemLanguage(): Language {
-  return typeof navigator !== 'undefined' && navigator.language.toLowerCase().startsWith('zh') ? 'zh' : 'en';
-}
 
 export function defaultPreferences(): Preferences {
   return {
@@ -46,7 +43,8 @@ export function defaultPreferences(): Preferences {
     partnerPetScalePercent: 100,
     selfPetSkin: 'cream',
     blanketStyle: 'blush',
-    language: systemLanguage()
+    language: browserLanguage(),
+    languageMode: 'system'
   };
 }
 
@@ -77,6 +75,9 @@ export function loadPreferences(storage?: StorageLike): Preferences {
     if (!parsed || typeof parsed !== 'object') return defaults;
     const value = parsed as Partial<Preferences> & { petScalePercent?: number };
     const legacyScale = typeof value.petScalePercent === 'number' ? normalizePetScalePercent(value.petScalePercent) : undefined;
+    const validLanguage = languages.includes(value.language as Language);
+    // Keep an existing language choice when upgrading older installations.
+    const manualLanguage = validLanguage && (value.languageMode === 'manual' || value.languageMode === undefined);
     return {
       autoUpdate: typeof value.autoUpdate === 'boolean' ? value.autoUpdate : defaults.autoUpdate,
       replayEnabled: typeof value.replayEnabled === 'boolean' ? value.replayEnabled : defaults.replayEnabled,
@@ -102,7 +103,8 @@ export function loadPreferences(storage?: StorageLike): Preferences {
         : legacyScale ?? defaults.partnerPetScalePercent,
       selfPetSkin: petSkins.includes(value.selfPetSkin as PetSkin) ? value.selfPetSkin as PetSkin : defaults.selfPetSkin,
       blanketStyle: blanketStyles.includes(value.blanketStyle as BlanketStyle) ? value.blanketStyle as BlanketStyle : defaults.blanketStyle,
-      language: languages.includes(value.language as Language) ? value.language as Language : defaults.language
+      language: manualLanguage ? value.language as Language : defaults.language,
+      languageMode: manualLanguage ? 'manual' : 'system'
     };
   } catch {
     return defaults;

@@ -23,6 +23,15 @@ const copy = {
     mine: '我的', partner: 'TA 的', visibility: '谁可以看', private: '仅自己', shared: '对 TA 可见',
     shareAfterPairing: '连接后会自动分享汇总', weekdays: ['日', '一', '二', '三', '四', '五', '六']
   },
+  'zh-Hant': {
+    title: '統計', close: '關閉統計', ranges: { day: '日', week: '週', month: '月' },
+    input: '鍵盤與點擊', keyboard: '鍵盤敲擊', pointer: '滑鼠 / 觸控板點擊', times: '次',
+    workVisual: '工作畫面時間', code: '程式碼', document: '文件', web: '網頁', ai: 'AI 工具', mewlink: 'MewLink',
+    activity: '時間分布', work: '工作', meeting: '會議', idle: '空閒',
+    noData: '開始使用後，這裡會出現你的節奏', partnerNoData: 'TA 尚未分享統計',
+    mine: '我的', partner: 'TA 的', visibility: '誰可以看', private: '僅自己', shared: '對 TA 可見',
+    shareAfterPairing: '連線後會自動分享彙總', weekdays: ['日', '一', '二', '三', '四', '五', '六']
+  },
   en: {
     title: 'Statistics', close: 'Close statistics', ranges: { day: 'Day', week: 'Week', month: 'Month' },
     input: 'Keyboard & clicks', keyboard: 'Keystrokes', pointer: 'Mouse / trackpad clicks', times: '',
@@ -45,13 +54,15 @@ function emptySnapshot(range: StatisticsRange): StatisticsSnapshot {
 }
 
 function durationLabel(milliseconds: number, language: Language): string {
-  if (milliseconds <= 0) return language === 'zh' ? '0 分钟' : '0 min';
-  if (milliseconds < 60_000) return language === 'zh' ? '<1 分钟' : '<1 min';
+  const minuteUnit = { zh: '分钟', 'zh-Hant': '分鐘', en: 'min' }[language];
+  const hourUnit = { zh: '小时', 'zh-Hant': '小時', en: 'hr' }[language];
+  if (milliseconds <= 0) return `0 ${minuteUnit}`;
+  if (milliseconds < 60_000) return `<1 ${minuteUnit}`;
   const minutes = Math.round(milliseconds / 60_000);
-  if (minutes < 60) return language === 'zh' ? `${minutes} 分钟` : `${minutes} min`;
+  if (minutes < 60) return `${minutes} ${minuteUnit}`;
   const hours = milliseconds / 3_600_000;
   const value = hours >= 10 ? Math.round(hours).toString() : hours.toFixed(1);
-  return language === 'zh' ? `${value} 小时` : `${value} hr`;
+  return `${value} ${hourUnit}`;
 }
 
 function InputBars({ bars, range, language }: { bars: ReturnType<typeof currentStatistics>['bars']; range: StatisticsRange; language: Language }) {

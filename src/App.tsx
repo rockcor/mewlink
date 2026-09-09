@@ -21,6 +21,7 @@ import { ACTIVITY_TRANSITION_MS, gestureFor, waterDrinkDelay, type GestureVarian
 import { transitionAssetName, useActivityPlayback } from './pet/activityPlayback';
 import { petSkinFilters } from './pet/skins';
 import { localUtcOffsetMinutes } from './platform/clock';
+import { languageTags, watchSystemLanguage } from './platform/language';
 import { joinWithPairingCode, registerPairCreator, sendEncryptedEvent, syncEncryptedEvents } from './services/relayTransport';
 import { checkForUpdate, installUpdate } from './services/update';
 import { submitFeedback } from './services/feedback';
@@ -445,6 +446,13 @@ export default function App() {
   }, [pendingCup]);
   useEffect(() => { savePreferences(preferences); }, [preferences]);
   useEffect(() => {
+    if (preferences.languageMode !== 'system') return;
+    return watchSystemLanguage(language => setPreferences(current =>
+      current.languageMode === 'system' && current.language !== language ? { ...current, language } : current
+    ));
+  }, [preferences.languageMode]);
+  useEffect(() => { document.documentElement.lang = languageTags[preferences.language]; }, [preferences.language]);
+  useEffect(() => {
     setUpdateState(currentState => currentState.kind === 'idle' ? { ...currentState, message: text.updateUnchecked } : currentState);
     setPairingStatus(currentStatus => currentStatus ? (pairingRef.current?.partnerDeviceId ? text.connected : pairingRef.current ? text.waitingForInvite : '') : currentStatus);
   }, [text]);
@@ -686,7 +694,7 @@ export default function App() {
 
   return (
     <main className="desktop-pet" style={motionStyle}>
-      <section className={`pet-zone ${settingsOpen || statisticsOpen ? 'settings-open' : ''}`} aria-label={connected ? text.petZone : text.soloPetZone} lang={preferences.language === 'zh' ? 'zh-CN' : 'en'}>
+      <section className={`pet-zone ${settingsOpen || statisticsOpen ? 'settings-open' : ''}`} aria-label={connected ? text.petZone : text.soloPetZone} lang={languageTags[preferences.language]}>
         <div
           id="pet-menu"
           className={`hover-ui ${connected ? 'paired' : 'solo'} ${petMenuOpen ? 'menu-visible' : ''}`}

@@ -57,6 +57,16 @@ export const appCopy: Record<Language, AppCopy> = {
     feedbackSending: '正在发送…', feedbackShared: '谢谢，已发送到官网评论区', feedbackError: '暂时没有发送成功，请稍后再试',
     petZone: 'MewLink 双人桌面宠物', soloPetZone: 'MewLink 桌面宠物', partnerWaiting: '等待同步', actionsAria: '给 TA 一个小动作', hug: '拥抱', water: '喝水', changeCup: '换杯', replay: '回放', statistics: '统计', settings: '设置', myPet: status => `我的宠物：${status}`, partnerPet: status => `TA 的宠物：${status}`,
   },
+  'zh-Hant': {
+    cups: { ceramic: { label: '櫻粉陶瓷杯', shortLabel: '陶瓷杯' }, tumbler: { label: '天空隨行杯', shortLabel: '隨行杯' }, bottle: { label: '薄荷運動瓶', shortLabel: '運動瓶' } },
+    status: { work: '工作中', meeting: '在開會', leisure: '休閒娛樂', idle: '暫時離開', rest: '休息中' },
+    updateUnchecked: '尚未檢查更新', updateChecking: '正在檢查…', updateAvailable: version => `發現新版本 ${version}`, updateCurrent: version => `已是最新版 ${version}`, updateDownloading: percent => percent === undefined ? '正在下載新版本…' : `正在下載新版本 ${percent}%`, updateInstalling: '正在安裝，完成後會自動重新啟動…', updateInstallError: '更新未完成，請重新檢查後再試', updateError: '暫時無法檢查，請稍後再試',
+    connected: '已連線，可以互相傳送擁抱和喝水', waitingForInvite: '等待對方輸入配對碼', connectionRetry: '暫時無法連線，稍後會自動重試',
+    incomingHug: 'TA 送來一個擁抱', incomingWater: 'TA 提醒你喝水', creatingInvite: '正在產生配對碼…', createInviteError: '暫時無法產生，請稍後再試', connecting: '正在用配對碼連線…', connectError: '配對碼無效、已過期或暫時無法連線',
+    inviteCopied: '配對碼已複製，請私下傳給對方', inviteCopyError: '複製失敗，請手動記下配對碼', disconnected: '已解除連線', pairFirst: '先連線 TA，才能送出互動', hugSent: '擁抱已送出', cupSent: name => `${name}已送出`, sendError: '暫時無法送出', cupChanged: name => `已換成${name}`,
+    feedbackSending: '正在傳送…', feedbackShared: '謝謝，已傳送至官網留言區', feedbackError: '暫時未能傳送成功，請稍後再試',
+    petZone: 'MewLink 雙人桌面寵物', soloPetZone: 'MewLink 桌面寵物', partnerWaiting: '等待同步', actionsAria: '給 TA 一個小動作', hug: '擁抱', water: '喝水', changeCup: '換杯', replay: '回放', statistics: '統計', settings: '設定', myPet: status => `我的寵物：${status}`, partnerPet: status => `TA 的寵物：${status}`,
+  },
   en: {
     cups: { ceramic: { label: 'Blush ceramic mug', shortLabel: 'Ceramic' }, tumbler: { label: 'Sky tumbler', shortLabel: 'Tumbler' }, bottle: { label: 'Mint sports bottle', shortLabel: 'Bottle' } },
     status: { work: 'Working', meeting: 'In a meeting', leisure: 'Taking a break', idle: 'Away for a moment', rest: 'Resting' },

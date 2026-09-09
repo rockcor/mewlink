@@ -1,10 +1,11 @@
 import { useEffect, useRef, type ReactNode } from 'react';
 import { getCurrentWindow } from '@tauri-apps/api/window';
+import { languageTags, type Language } from '../platform/language';
 
 interface Props {
   title: string;
   closeLabel: string;
-  language: 'zh' | 'en';
+  language: Language;
   onClose: () => void;
   children: ReactNode;
   navigation?: ReactNode;
@@ -45,7 +46,7 @@ export function PanelFrame({ title, closeLabel, language, onClose, children, nav
       if (previous instanceof HTMLElement) previous.focus();
     };
   }, []);
-  return <section ref={panel} className={`settings-panel pixel-panel ${className}`} role="dialog" aria-modal="true" aria-labelledby="panel-title" lang={language === 'zh' ? 'zh-CN' : 'en'}>
+  return <section ref={panel} className={`settings-panel pixel-panel ${className}`} role="dialog" aria-modal="true" aria-labelledby="panel-title" lang={languageTags[language]}>
     <header className="settings-header" onPointerDown={event => {
       if (event.button !== 0 || (event.target as HTMLElement).closest('button')) return;
       if ('__TAURI_INTERNALS__' in window) void getCurrentWindow().startDragging().catch(() => undefined);

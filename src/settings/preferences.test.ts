@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { animationDurationScale, effectiveUtcOffsetMinutes, formatUtcOffset, loadPreferences, normalizePetScalePercent, normalizeReplayRetentionHours, savePreferences, scalePetWithPinch } from './preferences';
 
 function memoryStorage(initial?: string) {
@@ -10,6 +10,24 @@ function memoryStorage(initial?: string) {
 }
 
 describe('desktop preferences', () => {
+  afterEach(() => vi.unstubAllGlobals());
+  it('follows the system for new installations and re-resolves persisted system mode', () => {
+    vi.stubGlobal('navigator', { language: 'zh-TW' });
+    expect(loadPreferences(memoryStorage())).toMatchObject({ languageMode: 'system', language: 'zh-Hant' });
+    expect(loadPreferences(memoryStorage(JSON.stringify({ languageMode: 'system', language: 'en' }))))
+      .toMatchObject({ languageMode: 'system', language: 'zh-Hant' });
+  });
+
+  it('preserves explicit and legacy manual language choices across launches', () => {
+    vi.stubGlobal('navigator', { language: 'en-US' });
+    const storage = memoryStorage();
+    savePreferences({ ...loadPreferences(memoryStorage()), languageMode: 'manual', language: 'zh-Hant' }, storage);
+    expect(loadPreferences(storage)).toMatchObject({ languageMode: 'manual', language: 'zh-Hant' });
+    expect(loadPreferences(memoryStorage(JSON.stringify({ language: 'zh' }))))
+      .toMatchObject({ languageMode: 'manual', language: 'zh' });
+    expect(loadPreferences(memoryStorage(JSON.stringify({ languageMode: 'manual', language: 'fr' }))))
+      .toMatchObject({ languageMode: 'system', language: 'en' });
+  });
   it('defaults to the slower calm animation', () => {
     expect(loadPreferences(memoryStorage()).animationSpeed).toBe('calm');
     expect(animationDurationScale('calm')).toBeGreaterThan(animationDurationScale('lively'));
@@ -17,7 +35,7 @@ describe('desktop preferences', () => {
 
   it('persists replay, manual timezone, and update preferences', () => {
     const storage = memoryStorage();
-    savePreferences({ autoUpdate: false, replayEnabled: false, replaySaveDirectory: '/tmp/mewlink-replays', replayRetentionHours: 36, statisticsVisibility: 'partner', timezoneMode: 'manual', manualUtcOffsetMinutes: 330, animationSpeed: 'natural', selfPetScalePercent: 85, partnerPetScalePercent: 95, selfPetSkin: 'sixtySix', blanketStyle: 'night', language: 'en' }, storage);
+    savePreferences({ autoUpdate: false, replayEnabled: false, replaySaveDirectory: '/tmp/mewlink-replays', replayRetentionHours: 36, statisticsVisibility: 'partner', timezoneMode: 'manual', manualUtcOffsetMinutes: 330, animationSpeed: 'natural', selfPetScalePercent: 85, partnerPetScalePercent: 95, selfPetSkin: 'sixtySix', blanketStyle: 'night', language: 'en', languageMode: 'manual' }, storage);
     const saved = loadPreferences(storage);
     expect(effectiveUtcOffsetMinutes(saved)).toBe(330);
     expect(saved.autoUpdate).toBe(false);
@@ -41,7 +59,7 @@ describe('desktop preferences', () => {
 
   it('lets people turn automatic timezone detection off', () => {
     const storage = memoryStorage();
-    savePreferences({ autoUpdate: true, replayEnabled: true, replaySaveDirectory: '', replayRetentionHours: 24, statisticsVisibility: 'private', timezoneMode: 'off', manualUtcOffsetMinutes: 0, animationSpeed: 'calm', selfPetScalePercent: 100, partnerPetScalePercent: 100, selfPetSkin: 'cream', blanketStyle: 'blush', language: 'zh' }, storage);
+    savePreferences({ autoUpdate: true, replayEnabled: true, replaySaveDirectory: '', replayRetentionHours: 24, statisticsVisibility: 'private', timezoneMode: 'off', manualUtcOffsetMinutes: 0, animationSpeed: 'calm', selfPetScalePercent: 100, partnerPetScalePercent: 100, selfPetSkin: 'cream', blanketStyle: 'blush', language: 'zh', languageMode: 'manual' }, storage);
     expect(loadPreferences(storage).timezoneMode).toBe('off');
   });
 

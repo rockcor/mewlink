@@ -46,7 +46,7 @@ interface SettingsPanelProps {
 
 const copy = {
   zh: {
-    settings: '设置', close: '关闭设置', language: '语言', languageNote: '选择应用显示语言',
+    settings: '设置', close: '关闭设置', language: '语言', languageNote: '跟随系统或手动选择', system: '跟随系统',
     connect: '连接 TA', connectNote: '可单独使用；连接后两只宠物会同时出现', connected: '已连接', waiting: '等待中',
     createInvite: '生成配对码', or: '或', pasteInvite: '输入对方的 8 位配对码', invite: '配对码', connectAction: '连接', myInvite: '我的配对码', copyInvite: '复制配对码', cancel: '取消',
     expired: '已过期', inviteExpired: '配对码已过期，请重新生成', regenerate: '重新生成', expiresIn: (time: string) => `${time} 后失效`,
@@ -61,8 +61,24 @@ const copy = {
     speed: '动画速度', speedNote: '默认采用更从容的节奏', speedAria: '动画速度', speeds: { calm: '舒缓', natural: '自然', lively: '活泼' },
     feedback: '意见反馈', feedbackNote: '提交后会公开显示在官网评论区', nickname: '昵称', nicknamePlaceholder: '怎么称呼你', nicknameAria: '反馈昵称', feedbackPlaceholder: '写下你的感受或建议…', feedbackAria: '反馈内容', sendFeedback: '发送反馈',
   },
+  'zh-Hant': {
+    settings: '設定', close: '關閉設定', language: '語言', languageNote: '跟隨系統或手動選擇', system: '跟隨系統',
+    connect: '連線 TA', connectNote: '可單獨使用；連線後兩隻寵物會同時出現', connected: '已連線', waiting: '等待中',
+    createInvite: '產生配對碼', or: '或', pasteInvite: '輸入對方的 8 位配對碼', invite: '配對碼', connectAction: '連線', myInvite: '我的配對碼', copyInvite: '複製配對碼', cancel: '取消',
+    expired: '已過期', inviteExpired: '配對碼已過期，請重新產生', regenerate: '重新產生', expiresIn: (time: string) => `${time} 後失效`,
+    petsConnected: '兩隻寵物已經連在一起', compareNumber: '請和 TA 核對下方號碼', disconnect: '解除綁定', safetyNumber: '核對號碼',
+    replay: '時差重放', replayNote: '兩人連線後自動識別時差，上線時重放錯過的片刻',
+    recording: '回放錄影', recordingNote: '只儲存寵物回放，不錄製真實螢幕', saveLocation: '儲存位置', chooseFolder: '選擇', defaultFolder: '應用程式預設資料夾', retention: '保留時長', hours: (hours: number) => `${hours} 小時`, chooseFolderTitle: '選擇回放錄影儲存位置',
+    update: '自動更新', updateNote: '啟動時檢查，新版本可直接安裝並重新啟動', goUpdate: '前往更新', installNow: '立即更新', checkNow: '立即檢查',
+    timezone: '時區', timezoneNote: '自動識別雙方時差，可隨時關閉', auto: '自動', manual: '手動', off: '關閉', me: '你', partnerPending: 'TA · 連線後識別', step: '每格 15 分鐘', hideClocks: '重放中不顯示雙方時間', manualAria: '手動時區 UTC 偏移',
+    petSize: '寵物大小', petSizeNote: '兩隻寵物可分別調整', selfPet: '我的寵物', partnerPet: 'TA 的寵物', petSizeAria: '寵物大小',
+    petColor: '寵物配色', petColorNote: '選擇自己的顏色；連線後會同步顯示', petColorAria: '我的寵物配色', skins: { cream: '奶油', peach: '蜜桃', mint: '薄荷', sky: '晴空', lavender: '丁香', luka: 'Luka', sixtySix: '66' },
+    props: '互動道具', propsNote: '只有水杯和被子可以更換', cup: '水杯', blanket: '被子', blankets: { blush: '櫻粉', night: '星夜', mint: '薄荷' },
+    speed: '動畫速度', speedNote: '預設採用更從容的節奏', speedAria: '動畫速度', speeds: { calm: '舒緩', natural: '自然', lively: '活潑' },
+    feedback: '意見回饋', feedbackNote: '提交後會公開顯示在官網留言區', nickname: '暱稱', nicknamePlaceholder: '怎麼稱呼你', nicknameAria: '回饋暱稱', feedbackPlaceholder: '寫下你的感受或建議…', feedbackAria: '回饋內容', sendFeedback: '傳送回饋',
+  },
   en: {
-    settings: 'Settings', close: 'Close settings', language: 'Language', languageNote: 'Choose the language used in the app',
+    settings: 'Settings', close: 'Close settings', language: 'Language', languageNote: 'Follow your system or choose a language', system: 'System',
     connect: 'Connect your partner', connectNote: 'Use it solo, or pair to show both companions together', connected: 'Connected', waiting: 'Waiting',
     createInvite: 'Create pairing code', or: 'or', pasteInvite: 'Enter the 8-character pairing code', invite: 'Pairing code', connectAction: 'Connect', myInvite: 'My pairing code', copyInvite: 'Copy code', cancel: 'Cancel',
     expired: 'Expired', inviteExpired: 'This code has expired. Create a new one.', regenerate: 'Create new code', expiresIn: (time: string) => `Expires in ${time}`,
@@ -125,6 +141,7 @@ export function SettingsPanel({
   const remainingTime = `${String(Math.floor(remainingSeconds / 60)).padStart(2, '0')}:${String(remainingSeconds % 60).padStart(2, '0')}`;
   const pages = preferences.language === 'zh'
     ? { pet: '外观', connection: '连接', replay: '回放', general: '通用' }
+    : preferences.language === 'zh-Hant' ? { pet: '外觀', connection: '連線', replay: '回放', general: '一般' }
     : { pet: 'Companion', connection: 'Pairing', replay: 'Replay', general: 'General' };
   const text = copy[preferences.language];
   const speedLabels: Record<AnimationSpeed, string> = text.speeds;
@@ -159,9 +176,9 @@ export function SettingsPanel({
       <div key={page} id="settings-page" role="tabpanel" aria-labelledby={`settings-tab-${page}`}>
         <article hidden={page !== 'general'} className="setting-row language-setting">
           <div><b>{text.language}</b><small>{text.languageNote}</small></div>
-          <div className="mini-tabs" role="group" aria-label={text.language}>
-            <button type="button" className={preferences.language === 'zh' ? 'selected' : ''} onClick={() => patchPreferences({ language: 'zh' })}>中文</button>
-            <button type="button" className={preferences.language === 'en' ? 'selected' : ''} onClick={() => patchPreferences({ language: 'en' })}>English</button>
+          <div className="mini-tabs language-options" role="group" aria-label={text.language}>
+            <button type="button" aria-pressed={preferences.languageMode === 'system'} className={preferences.languageMode === 'system' ? 'selected' : ''} onClick={() => patchPreferences({ languageMode: 'system' })}>{text.system}</button>
+            {(['zh', 'zh-Hant', 'en'] as const).map(language => <button key={language} type="button" lang={language} aria-pressed={preferences.languageMode === 'manual' && preferences.language === language} className={preferences.languageMode === 'manual' && preferences.language === language ? 'selected' : ''} onClick={() => patchPreferences({ languageMode: 'manual', language })}>{({ zh: '简体中文', 'zh-Hant': '繁體中文', en: 'English' })[language]}</button>)}
           </div>
         </article>
 

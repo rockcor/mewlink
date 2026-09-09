@@ -4,6 +4,7 @@ import type { Language } from '../settings/preferences';
 export interface ReplayItem { id: string; at: string; label: string; icon: string; clockLabel: string; activity?: ActivityKind; interaction?: InteractionKind; cupStyle?: CupStyle; blanketStyle?: BlanketStyle }
 const labels = {
   zh: { work: '专注工作', meeting: '正在开会', leisure: '休闲娱乐', idle: '离开了一会儿', rest: '休息中', water: '提醒你喝水', hug: '送来一个拥抱' },
+  'zh-Hant': { work: '專注工作', meeting: '正在開會', leisure: '休閒娛樂', idle: '離開了一會兒', rest: '休息中', water: '提醒你喝水', hug: '送來一個擁抱' },
   en: { work: 'Focused on work', meeting: 'In a meeting', leisure: 'Taking a break', idle: 'Away for a moment', rest: 'Resting', water: 'Reminded you to drink water', hug: 'Sent you a hug' }
 } as const;
 const icons = { work: '⌨️', meeting: '🎧', leisure: '▶️', idle: '🐾', rest: '💤', water: '☕', hug: '🫂' } as const;

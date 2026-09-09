@@ -1885,10 +1885,11 @@ dependencies = [
 
 [[package]]
 name = "mewlink"
-version = "0.3.20"
+version = "0.3.21"
 dependencies = [
  "objc2",
  "objc2-app-kit",
+ "objc2-foundation",
  "serde",
  "serde_json",
  "tauri",

@@ -99,6 +99,8 @@
 .pixel-panel .mini-tabs { display: flex; flex-direction: row; flex-shrink: 0; }
 .pixel-panel .mini-tabs, .pixel-panel .speed-options { border-radius: 5px; background: #f5e9e1; }
 .pixel-panel .mini-tabs button, .pixel-panel .speed-options button { min-height: 31px; font-size: 11px; border-radius: 3px; }
+.pixel-panel .language-setting { flex-wrap: wrap; gap: 12px; }
+.pixel-panel .language-options { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 3px; margin-left: auto; }
 .pixel-panel .pet-color-options { grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; }
 .pixel-panel .pet-color-options button { border-radius: 5px; min-height: 58px; background: #fffdfa; }
 .pixel-panel .pet-color-options button.selected { border-color: #b97996; background: #ffebe5; }
