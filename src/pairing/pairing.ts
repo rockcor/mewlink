@@ -8,7 +8,7 @@ const readySodium = () => sodiumPromise ??= import('libsodium-wrappers-sumo').th
 });
 
 const STORAGE_KEY = 'mewlink.pairing.v1';
-const INVITE_LIFETIME_MS = 24 * 60 * 60 * 1000;
+export const INVITE_LIFETIME_MS = 15 * 60 * 1000;
 const PAIRING_CODE_ALPHABET = '23456789ABCDEFGHJKLMNPQRSTUVWXYZ';
 const pairingCodePattern = /^[2-9A-HJ-NP-Z]{4}-?[2-9A-HJ-NP-Z]{4}$/u;
 
@@ -109,6 +109,10 @@ export function pairingInviteCode(state: PairingState) {
   return state.inviteCode ?? '';
 }
 
+export function pairingInviteSecondsLeft(state: PairingState, now = Date.now()) {
+  return Math.max(0, Math.ceil((state.inviteExpiresAt - now) / 1000));
+}
+
 function pairingInvite(state: PairingState): PairingInvite {
   return {
     v: 1,
@@ -126,7 +130,7 @@ function pairingStateFromInvite(invite: Partial<PairingInvite>, deviceId: string
   if (invite.v !== 1 || typeof r !== 'string' || !idPattern.test(r) || typeof d !== 'string' || !idPattern.test(d)
     || typeof i !== 'string' || !idPattern.test(i) || typeof k !== 'string' || !idPattern.test(k)
     || typeof t !== 'string' || !idPattern.test(t)
-    || typeof e !== 'number' || e < now) throw new Error('invalid invite');
+    || typeof e !== 'number' || !Number.isFinite(e) || e <= now) throw new Error('invalid invite');
   return {
     version: 1,
     relationshipId: r,

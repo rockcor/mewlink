@@ -1,7 +1,7 @@
 {
   "name": "mewlink",
   "private": true,
-  "version": "0.3.19",
+  "version": "0.3.20",
   "type": "module",
   "scripts": {
     "dev": "vite",
@@ -10,6 +10,7 @@
     "test": "vitest run",
     "test:animations": "node scripts/validate-animation-assets.mjs",
     "test:peer": "node scripts/test-peer.mjs",
+    "test:relay-server": "vitest run --config tests/relay.config.ts",
     "tauri": "tauri"
   },
   "dependencies": {

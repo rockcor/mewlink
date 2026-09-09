@@ -11,6 +11,7 @@ import {
   createPairingState,
   loadPairing,
   pairingInviteCode,
+  pairingInviteSecondsLeft,
   pairingSafetyCode,
   savePairing,
   type PairingState,
@@ -75,6 +76,8 @@ export default function App() {
   const [pairing, setPairing] = useState<PairingState | undefined>(() => loadPairing());
   const connected = Boolean(pairing?.partnerDeviceId);
   const [pairingStatus, setPairingStatus] = useState('');
+  const [pairingBusy, setPairingBusy] = useState(false);
+  const pairingBusyRef = useRef(false);
   const [joinCode, setJoinCode] = useState('');
   const [safetyCode, setSafetyCode] = useState('');
   const [cupStyle, setCupStyle] = useState<CupStyle>(() => {
@@ -313,8 +316,9 @@ export default function App() {
         const active = pairingRef.current;
         if (!active) return;
         const result = await syncEncryptedEvents(active);
-        if (stopped) return;
-        if (result.state.partnerDeviceId !== active.partnerDeviceId || result.state.relayCursor !== active.relayCursor || result.received.length) {
+        if (stopped || pairingRef.current?.relationshipId !== active.relationshipId) return;
+        if (result.state.partnerDeviceId !== active.partnerDeviceId || result.state.relayCursor !== active.relayCursor
+          || result.state.inviteExpiresAt !== active.inviteExpiresAt || result.received.length) {
           persistPairing(result.state);
         }
         setPairingStatus(result.state.partnerDeviceId ? text.connected : text.waitingForInvite);
@@ -500,18 +504,26 @@ export default function App() {
   };
 
   async function createPairing() {
+    if (pairingBusyRef.current || pairingRef.current?.partnerDeviceId) return;
+    pairingBusyRef.current = true;
+    setPairingBusy(true);
     setPairingStatus(text.creatingInvite);
     try {
-      const next = await createPairingState();
-      await registerPairCreator(next);
+      const next = await registerPairCreator(await createPairingState());
       persistPairing(next);
       setPairingStatus(text.waitingForInvite);
     } catch {
       setPairingStatus(text.createInviteError);
+    } finally {
+      pairingBusyRef.current = false;
+      setPairingBusy(false);
     }
   }
 
   async function joinPairing() {
+    if (pairingBusyRef.current) return;
+    pairingBusyRef.current = true;
+    setPairingBusy(true);
     setPairingStatus(text.connecting);
     try {
       const next = await joinWithPairingCode(joinCode);
@@ -520,10 +532,14 @@ export default function App() {
       setPairingStatus(text.connected);
     } catch {
       setPairingStatus(text.connectError);
+    } finally {
+      pairingBusyRef.current = false;
+      setPairingBusy(false);
     }
   }
 
   async function copyInvite() {
+    if (!pairingRef.current || pairingInviteSecondsLeft(pairingRef.current) === 0) return;
     try {
       await navigator.clipboard.writeText(inviteCode);
       setPairingStatus(text.inviteCopied);
@@ -783,6 +799,7 @@ export default function App() {
           feedbackStatus={feedbackStatus}
           pairing={pairing}
           pairingStatus={pairingStatus}
+          pairingBusy={pairingBusy}
           inviteCode={inviteCode}
           joinCode={joinCode}
           safetyCode={safetyCode}

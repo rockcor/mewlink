@@ -24,6 +24,7 @@ interface RelayMessage {
 
 interface SyncResponse {
   cursor: number;
+  inviteExpiresAt?: number;
   devices: string[];
   messages: RelayMessage[];
   pairingRequest?: { deviceId: string; publicKey: string };
@@ -60,7 +61,7 @@ async function checked(response: Response) {
 
 export async function registerPairCreator(state: PairingState, fetcher: Fetcher = fetch) {
   if (!state.inviteCode) throw new RelayError('请重新生成配对码', 400);
-  await checked(await fetcher(RELAY_ENDPOINT, {
+  const response = await checked(await fetcher(RELAY_ENDPOINT, {
     method: 'POST',
     headers: headers(),
     body: JSON.stringify({
@@ -72,6 +73,14 @@ export async function registerPairCreator(state: PairingState, fetcher: Fetcher 
       inviteExpiresAt: Math.floor(state.inviteExpiresAt / 1000),
     }),
   }));
+  const payload = await response.json() as { inviteExpiresAt?: number };
+  return withServerExpiry(state, payload.inviteExpiresAt);
+}
+
+function withServerExpiry(state: PairingState, expiresAt?: number): PairingState {
+  return Number.isSafeInteger(expiresAt) && (expiresAt ?? 0) > 0
+    ? { ...state, inviteExpiresAt: (expiresAt as number) * 1000 }
+    : state;
 }
 
 export async function requestPairingJoin(request: PairingJoinRequest, fetcher: Fetcher = fetch) {
@@ -170,7 +179,7 @@ export async function syncEncryptedEvents(state: PairingState, fetcher: Fetcher 
     }
   }
   const next: PairingState = {
-    ...state,
+    ...withServerExpiry(state, payload.inviteExpiresAt),
     ...(devices[0] ? { partnerDeviceId: devices[0] } : {}),
     relayCursor: cursor,
     receivedSequences,

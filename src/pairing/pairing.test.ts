@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { clearPairing, createPairingJoinRequest, createPairingState, loadPairing, openPairingInvite, pairingInviteCode, savePairing, sealPairingInvite } from './pairing';
+import { clearPairing, createPairingJoinRequest, createPairingState, loadPairing, openPairingInvite, pairingInviteCode, pairingInviteSecondsLeft, savePairing, sealPairingInvite } from './pairing';
 
 function memoryStorage() {
   let value: string | null = null;
@@ -11,6 +11,23 @@ function memoryStorage() {
 }
 
 describe('macOS test pairing', () => {
+  it('accepts a code before 15 minutes and rejects it at the exact deadline', async () => {
+    const start = 1_000;
+    const creator = await createPairingState(start);
+    expect(creator.inviteExpiresAt).toBe(start + 900_000);
+    const request = await createPairingJoinRequest(pairingInviteCode(creator));
+    const sealed = await sealPairingInvite(creator, request.publicKey);
+    expect(pairingInviteSecondsLeft(creator, start)).toBe(900);
+    expect(pairingInviteSecondsLeft(creator, creator.inviteExpiresAt - 1)).toBe(1);
+    expect(pairingInviteSecondsLeft(creator, creator.inviteExpiresAt)).toBe(0);
+    const joiner = await openPairingInvite(request, sealed, creator.inviteExpiresAt - 1);
+    await expect(openPairingInvite(request, sealed, creator.inviteExpiresAt)).rejects.toThrow();
+    await expect(openPairingInvite(request, sealed, creator.inviteExpiresAt + 60_000)).rejects.toThrow();
+    const storage = memoryStorage();
+    savePairing(joiner, storage);
+    expect(loadPairing(storage)?.partnerDeviceId).toBe(creator.deviceId);
+  });
+
   it('creates two distinct devices with one shared relationship key', async () => {
     const creator = await createPairingState(1_000);
     const request = await createPairingJoinRequest(pairingInviteCode(creator));

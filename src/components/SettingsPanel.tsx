@@ -1,9 +1,9 @@
 import { open } from '@tauri-apps/plugin-dialog';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { PanelFrame } from './PanelFrame';
 import { blanketStyles, cupStyles, petSkins, type CupStyle, type PetSkin } from '../domain/types';
 import type { AnimationSpeed, Preferences } from '../settings/preferences';
-import type { PairingState } from '../pairing/pairing';
+import { pairingInviteSecondsLeft, type PairingState } from '../pairing/pairing';
 import { animationSpeeds, formatUtcOffset, replayRetentionOptions } from '../settings/preferences';
 
 export interface UpdateViewState {
@@ -24,6 +24,7 @@ interface SettingsPanelProps {
   feedbackStatus: string;
   pairing?: PairingState;
   pairingStatus: string;
+  pairingBusy: boolean;
   inviteCode: string;
   joinCode: string;
   safetyCode: string;
@@ -48,6 +49,7 @@ const copy = {
     settings: '设置', close: '关闭设置', language: '语言', languageNote: '选择应用显示语言',
     connect: '连接 TA', connectNote: '可单独使用；连接后两只宠物会同时出现', connected: '已连接', waiting: '等待中',
     createInvite: '生成配对码', or: '或', pasteInvite: '输入对方的 8 位配对码', invite: '配对码', connectAction: '连接', myInvite: '我的配对码', copyInvite: '复制配对码', cancel: '取消',
+    expired: '已过期', inviteExpired: '配对码已过期，请重新生成', regenerate: '重新生成', expiresIn: (time: string) => `${time} 后失效`,
     petsConnected: '两只宠物已经连在一起', compareNumber: '请和 TA 核对下方号码', disconnect: '解除绑定', safetyNumber: '核对号码',
     replay: '时差重放', replayNote: '两人连接后自动识别时差，上线时重放错过的片刻',
     recording: '回放录像', recordingNote: '只保存宠物回放，不录制真实屏幕', saveLocation: '保存位置', chooseFolder: '选择', defaultFolder: '应用默认文件夹', retention: '保留时长', hours: (hours: number) => `${hours} 小时`, chooseFolderTitle: '选择回放录像保存位置',
@@ -63,6 +65,7 @@ const copy = {
     settings: 'Settings', close: 'Close settings', language: 'Language', languageNote: 'Choose the language used in the app',
     connect: 'Connect your partner', connectNote: 'Use it solo, or pair to show both companions together', connected: 'Connected', waiting: 'Waiting',
     createInvite: 'Create pairing code', or: 'or', pasteInvite: 'Enter the 8-character pairing code', invite: 'Pairing code', connectAction: 'Connect', myInvite: 'My pairing code', copyInvite: 'Copy code', cancel: 'Cancel',
+    expired: 'Expired', inviteExpired: 'This code has expired. Create a new one.', regenerate: 'Create new code', expiresIn: (time: string) => `Expires in ${time}`,
     petsConnected: 'Your two companions are connected', compareNumber: 'Compare the number below with your partner', disconnect: 'Unpair', safetyNumber: 'Safety number',
     replay: 'Time-zone replay', replayNote: 'Detects your time difference and replays moments you missed',
     recording: 'Replay recordings', recordingNote: 'Saves companion replays, never your real screen', saveLocation: 'Save location', chooseFolder: 'Choose', defaultFolder: 'App default folder', retention: 'Keep for', hours: (hours: number) => `${hours}h`, chooseFolderTitle: 'Choose where to save replay recordings',
@@ -87,6 +90,7 @@ export function SettingsPanel({
   feedbackStatus,
   pairing,
   pairingStatus,
+  pairingBusy,
   inviteCode,
   joinCode,
   safetyCode,
@@ -106,6 +110,19 @@ export function SettingsPanel({
   onClose
 }: SettingsPanelProps) {
   const [page, setPage] = useState('pet');
+  const [now, setNow] = useState(Date.now);
+  const hasPendingInvite = Boolean(pairing && !pairing.partnerDeviceId);
+  useEffect(() => {
+    if (page !== 'connection' || !hasPendingInvite) return;
+    const tick = () => setNow(Date.now());
+    tick();
+    const timer = window.setInterval(tick, 1000);
+    window.addEventListener('focus', tick);
+    return () => { window.clearInterval(timer); window.removeEventListener('focus', tick); };
+  }, [page, hasPendingInvite, pairing?.inviteExpiresAt]);
+  const remainingSeconds = pairing ? pairingInviteSecondsLeft(pairing, now) : 0;
+  const inviteExpired = Boolean(pairing && !pairing.partnerDeviceId && remainingSeconds === 0);
+  const remainingTime = `${String(Math.floor(remainingSeconds / 60)).padStart(2, '0')}:${String(remainingSeconds % 60).padStart(2, '0')}`;
   const pages = preferences.language === 'zh'
     ? { pet: '外观', connection: '连接', replay: '回放', general: '通用' }
     : { pet: 'Companion', connection: 'Pairing', replay: 'Replay', general: 'General' };
@@ -151,24 +168,25 @@ export function SettingsPanel({
         <article hidden={page !== 'connection'} className="setting-block pairing-block">
           <div className="setting-title">
             <div><b>{text.connect}</b><small>{text.connectNote}</small></div>
-            {pairing && <span className={`pairing-badge ${pairing.partnerDeviceId ? 'connected' : ''}`}>{pairing.partnerDeviceId ? text.connected : text.waiting}</span>}
+            {pairing && <span className={`pairing-badge ${pairing.partnerDeviceId ? 'connected' : ''}`}>{pairing.partnerDeviceId ? text.connected : inviteExpired ? text.expired : text.waiting}</span>}
           </div>
           {!pairing && <>
-            <button type="button" className="pairing-primary" onClick={onCreatePairing}>{text.createInvite}</button>
+            <button type="button" className="pairing-primary" onClick={onCreatePairing} disabled={pairingBusy}>{text.createInvite}</button>
             <div className="pairing-divider"><span>{text.or}</span></div>
             <input className="pairing-code-input short-code" value={joinCode} maxLength={9} autoCapitalize="characters" autoComplete="off" spellCheck={false} onChange={event => {
               const compact = event.target.value.toUpperCase().replace(/[^2-9A-HJ-NP-Z]/gu, '').slice(0, 8);
               onJoinCodeChange(compact.length > 4 ? `${compact.slice(0, 4)}-${compact.slice(4)}` : compact);
             }} placeholder={text.pasteInvite} aria-label={text.invite}/>
-            <button type="button" className="pairing-secondary" onClick={onJoinPairing} disabled={!joinCode.trim()}>{text.connectAction}</button>
+            <button type="button" className="pairing-secondary" onClick={onJoinPairing} disabled={pairingBusy || !joinCode.trim()}>{text.connectAction}</button>
           </>}
           {pairing && !pairing.partnerDeviceId && <>
-            <input className="pairing-code-input invite-code short-code" value={inviteCode} readOnly aria-label={text.myInvite}/>
-            <div className="pairing-actions"><button type="button" className="pairing-primary" onClick={onCopyInvite}>{text.copyInvite}</button><button type="button" className="pairing-quiet" onClick={onDisconnect}>{text.cancel}</button></div>
+            <input className="pairing-code-input invite-code short-code" value={inviteExpired ? '' : inviteCode} placeholder={inviteExpired ? text.expired : undefined} readOnly aria-label={text.myInvite}/>
+            <p className="pairing-status" role="timer" aria-live="off">{inviteExpired ? text.inviteExpired : text.expiresIn(remainingTime)}</p>
+            <div className="pairing-actions"><button type="button" className="pairing-primary" onClick={inviteExpired ? onCreatePairing : onCopyInvite} disabled={pairingBusy}>{inviteExpired ? text.regenerate : text.copyInvite}</button><button type="button" className="pairing-quiet" onClick={onDisconnect} disabled={pairingBusy}>{text.cancel}</button></div>
           </>}
           {pairing?.partnerDeviceId && <div className="pairing-connected"><span className="pairing-heart" aria-hidden="true">♥</span><div><b>{text.petsConnected}</b><small>{text.compareNumber}</small></div><button type="button" className="pairing-quiet" onClick={onDisconnect}>{text.disconnect}</button></div>}
-          {pairing && safetyCode && <div className="safety-code"><small>{text.safetyNumber}</small><b>{safetyCode}</b></div>}
-          {pairingStatus && <p className="pairing-status" role="status">{pairingStatus}</p>}
+          {pairing && safetyCode && !inviteExpired && <div className="safety-code"><small>{text.safetyNumber}</small><b>{safetyCode}</b></div>}
+          {pairingStatus && (!inviteExpired || pairingBusy) && <p className="pairing-status" role="status">{pairingStatus}</p>}
         </article>
 
         <article hidden={page !== 'replay'} className="setting-row replay-setting">
