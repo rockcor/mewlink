@@ -95,7 +95,8 @@ jobs:
       - name: Check macOS universal binary and signature
         if: runner.os == 'macOS'
         run: |
-          lipo -verify_arch arm64 x86_64 src-tauri/target/universal-apple-darwin/release/bundle/macos/MewLink.app/Contents/MacOS/MewLink
+          executable=$(/usr/libexec/PlistBuddy -c 'Print :CFBundleExecutable' src-tauri/target/universal-apple-darwin/release/bundle/macos/MewLink.app/Contents/Info.plist)
+          lipo -verify_arch arm64 x86_64 "src-tauri/target/universal-apple-darwin/release/bundle/macos/MewLink.app/Contents/MacOS/$executable"
           codesign --verify --deep --strict src-tauri/target/universal-apple-darwin/release/bundle/macos/MewLink.app
           if [ "${{ steps.signing.outputs.notarize }}" = "true" ]; then
             xcrun stapler validate src-tauri/target/universal-apple-darwin/release/bundle/macos/MewLink.app
@@ -110,7 +111,6 @@ jobs:
           if-no-files-found: error
   publish:
     needs: [test, build]
-    if: github.event_name == 'push' || inputs.publish
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -128,7 +128,15 @@ jobs:
       - run: sudo apt-get update && sudo apt-get install -y minisign
       - name: Verify signatures, source, versions and complete platform set
         run: node scripts/prepare-release.mjs release-assets
+      - uses: actions/upload-artifact@v4
+        with:
+          name: verified-release-metadata
+          path: |
+            release-assets/latest.json
+            release-assets/SHA256SUMS
+          if-no-files-found: error
       - name: Publish both platforms together
+        if: github.event_name == 'push' || inputs.publish
         shell: bash
         run: |
           set -euo pipefail
