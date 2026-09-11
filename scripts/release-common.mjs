@@ -11,7 +11,7 @@ export function assertVersions(root, tag) {
   assert.match(version, /^\d+\.\d+\.\d+$/);
   const config = JSON.parse(readFileSync(`${root}/src-tauri/tauri.conf.json`, 'utf8'));
   const cargo = readFileSync(`${root}/src-tauri/Cargo.toml`, 'utf8').match(/^version = "([^"]+)"/m)?.[1];
-  const lock = readFileSync(`${root}/src-tauri/Cargo.lock`, 'utf8').match(/name = "mewlink"\nversion = "([^"]+)"/)?.[1];
+  const lock = readFileSync(`${root}/src-tauri/Cargo.lock`, 'utf8').match(/name = "mewlink"\r?\nversion = "([^"]+)"/)?.[1];
   assert.equal(config.version, version, 'Tauri and package versions differ');
   assert.equal(cargo, version, 'Rust and package versions differ');
   assert.equal(lock, version, 'Rust lockfile version differs');

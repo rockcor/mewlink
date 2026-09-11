@@ -1,7 +1,7 @@
 use serde::Serialize;
 use tauri::{Manager, PhysicalPosition};
-mod window_layout;
 mod language;
+mod window_layout;
 
 #[derive(Debug, PartialEq, Eq, Serialize)]
 #[serde(rename_all = "camelCase")]
