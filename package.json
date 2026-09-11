@@ -1,13 +1,14 @@
 {
   "name": "mewlink",
   "private": true,
-  "version": "0.3.21",
+  "version": "0.3.22",
   "type": "module",
   "scripts": {
     "dev": "vite",
     "build": "tsc -b && vite build",
     "lint": "eslint .",
     "test": "vitest run",
+    "test:release": "node --test tests/release-pipeline.test.mjs",
     "test:animations": "node scripts/validate-animation-assets.mjs",
     "test:peer": "node scripts/test-peer.mjs",
     "test:relay-server": "vitest run --config tests/relay.config.ts",

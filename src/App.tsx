@@ -93,6 +93,7 @@ export default function App() {
   const petDragStart = useRef<{ pointerId: number; x: number; y: number } | undefined>(undefined);
   const suppressPetClick = useRef(false);
   const pendingUpdateRef = useRef<Update | undefined>(undefined);
+  const updateBusyRef = useRef(false);
   const statisticsActivityRef = useRef<ActivityKind>('work');
   const statisticsWorkVisualRef = useRef<WorkVisual>('web');
   const pairingRef = useRef<PairingState | undefined>(pairing);
@@ -154,36 +155,58 @@ export default function App() {
     '--activity-transition-duration': `${Math.round(ACTIVITY_TRANSITION_MS * durationScale)}ms`
   }) as CSSProperties, [durationScale, partnerSkin, preferences.partnerPetScalePercent, preferences.selfPetScalePercent, preferences.selfPetSkin]);
 
-  const runUpdateCheck = useCallback(async () => {
+  const installAvailableUpdate = useCallback(async (update: Update) => {
+    setUpdateState({ kind: 'downloading', message: text.updateDownloading(), canInstall: true });
+    await installUpdate(update, progress => {
+      setUpdateState(progress.phase === 'installing'
+        ? { kind: 'installing', message: text.updateInstalling, canInstall: true }
+        : { kind: 'downloading', message: text.updateDownloading(progress.percent), canInstall: true });
+    });
+  }, [text]);
+
+  const runUpdateCheck = useCallback(async (installWhenAvailable = false) => {
+    if (updateBusyRef.current) return;
+    updateBusyRef.current = true;
+    let installing = false;
     setUpdateState({ kind: 'checking', message: text.updateChecking });
     try {
+      await pendingUpdateRef.current?.close();
+      pendingUpdateRef.current = undefined;
       const result = await checkForUpdate();
       pendingUpdateRef.current = result.installable;
+      if (result.available && result.installable && installWhenAvailable) {
+        installing = true;
+        await installAvailableUpdate(result.installable);
+        return;
+      }
       setUpdateState(result.available
         ? { kind: 'available', message: text.updateAvailable(result.manifest.version), downloadUrl: result.manifest.downloadUrl, canInstall: Boolean(result.installable) }
         : { kind: 'current', message: text.updateCurrent(result.currentVersion) });
     } catch {
-      setUpdateState({ kind: 'error', message: text.updateError });
+      setUpdateState({ kind: 'error', message: installing ? text.updateInstallError : text.updateError });
+    } finally {
+      updateBusyRef.current = false;
     }
-  }, [text]);
+  }, [installAvailableUpdate, text]);
 
   const installPendingUpdate = useCallback(async () => {
+    if (updateBusyRef.current) return;
     const update = pendingUpdateRef.current;
     if (!update) {
-      await runUpdateCheck();
+      await runUpdateCheck(true);
       return;
     }
+    updateBusyRef.current = true;
     try {
-      await installUpdate(update, progress => {
-        setUpdateState(progress.phase === 'installing'
-          ? { kind: 'installing', message: text.updateInstalling, canInstall: true }
-          : { kind: 'downloading', message: text.updateDownloading(progress.percent), canInstall: true });
-      });
+      await installAvailableUpdate(update);
     } catch {
+      await update.close().catch(() => undefined);
       pendingUpdateRef.current = undefined;
       setUpdateState({ kind: 'error', message: text.updateInstallError });
+    } finally {
+      updateBusyRef.current = false;
     }
-  }, [runUpdateCheck, text]);
+  }, [installAvailableUpdate, runUpdateCheck, text]);
 
   const persistPairing = useCallback((next: PairingState) => {
     pairingRef.current = next;
@@ -813,7 +836,7 @@ export default function App() {
           safetyCode={safetyCode}
           cupStyle={cupStyle}
           onChange={setPreferences}
-          onCheckUpdate={() => { void runUpdateCheck(); }}
+          onCheckUpdate={() => { void runUpdateCheck(true); }}
           onInstallUpdate={() => { void installPendingUpdate(); }}
           onFeedbackChange={value => { setFeedback(value); setFeedbackStatus(''); }}
           onFeedbackNicknameChange={value => { setFeedbackNickname(value); setFeedbackStatus(''); }}

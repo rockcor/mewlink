@@ -1,16 +1,56 @@
-name: Signed beta draft
+name: Desktop release
 on:
   push:
     tags: ['v*']
+  workflow_dispatch:
+    inputs:
+      publish:
+        description: Publish the beta only after both platforms pass
+        type: boolean
+        default: false
+      allow_unnotarized:
+        description: Explicitly allow a macOS beta with system security warnings
+        type: boolean
+        default: false
 permissions:
-  contents: write
+  contents: read
+concurrency:
+  group: desktop-release-${{ github.ref }}
+  cancel-in-progress: false
 jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with: { version: 10.15.1 }
+      - uses: actions/setup-node@v4
+        with: { node-version: 22, cache: pnpm }
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm lint
+      - run: pnpm test
+      - run: pnpm test:release
+      - run: pnpm build
   build:
+    needs: test
     strategy:
       fail-fast: false
       matrix:
-        platform: [macos-latest, windows-latest]
-    runs-on: ${{ matrix.platform }}
+        include:
+          - os: macos-latest
+            platform: macos
+            target: universal-apple-darwin
+            bundles: app,dmg
+          - os: windows-latest
+            platform: windows
+            target: x86_64-pc-windows-msvc
+            bundles: nsis
+    runs-on: ${{ matrix.os }}
+    env:
+      TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+      TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+      MEWLINK_PUBLISH: ${{ github.event_name == 'push' || inputs.publish }}
+      MEWLINK_ALLOW_UNNOTARIZED: ${{ inputs.allow_unnotarized || false }}
     steps:
       - uses: actions/checkout@v4
       - uses: pnpm/action-setup@v4
@@ -18,15 +58,86 @@ jobs:
       - uses: actions/setup-node@v4
         with: { node-version: 22, cache: pnpm }
       - uses: dtolnay/rust-toolchain@stable
-      - run: pnpm install --frozen-lockfile
-      - uses: tauri-apps/tauri-action@v0
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
-          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+      - if: runner.os == 'macOS'
+        run: rustup target add aarch64-apple-darwin x86_64-apple-darwin
+      - uses: Swatinem/rust-cache@v2
         with:
-          tagName: ${{ github.ref_name }}
-          releaseName: 'MewLink ${{ github.ref_name }}'
-          releaseBody: 'Developer preview. Unsigned builds may trigger OS warnings. Do not use for sensitive communication.'
-          releaseDraft: true
-          prerelease: true
+          workspaces: src-tauri -> target
+          key: ${{ matrix.target }}
+      - run: pnpm install --frozen-lockfile
+      - id: signing
+        run: node scripts/check-release.mjs
+        env:
+          APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
+          APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
+          APPLE_SIGNING_IDENTITY: ${{ secrets.APPLE_SIGNING_IDENTITY }}
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_PASSWORD: ${{ secrets.APPLE_PASSWORD }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+      - run: cargo test --manifest-path src-tauri/Cargo.toml --locked
+      - uses: tauri-apps/tauri-action@v0
+        if: steps.signing.outputs.notarize != 'true'
+        with:
+          args: --target ${{ matrix.target }} --bundles ${{ matrix.bundles }}
+          uploadUpdaterJson: false
+      - uses: tauri-apps/tauri-action@v0
+        if: steps.signing.outputs.notarize == 'true'
+        env:
+          APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
+          APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
+          APPLE_SIGNING_IDENTITY: ${{ secrets.APPLE_SIGNING_IDENTITY }}
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_PASSWORD: ${{ secrets.APPLE_PASSWORD }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+        with:
+          args: --target ${{ matrix.target }} --bundles ${{ matrix.bundles }}
+          uploadUpdaterJson: false
+      - name: Check macOS universal binary and signature
+        if: runner.os == 'macOS'
+        run: |
+          lipo -verify_arch arm64 x86_64 src-tauri/target/universal-apple-darwin/release/bundle/macos/MewLink.app/Contents/MacOS/MewLink
+          codesign --verify --deep --strict src-tauri/target/universal-apple-darwin/release/bundle/macos/MewLink.app
+          if [ "${{ steps.signing.outputs.notarize }}" = "true" ]; then
+            xcrun stapler validate src-tauri/target/universal-apple-darwin/release/bundle/macos/MewLink.app
+            spctl --assess --type execute src-tauri/target/universal-apple-darwin/release/bundle/macos/MewLink.app
+            echo "MEWLINK_NOTARIZED=true" >> "$GITHUB_ENV"
+          fi
+      - run: node scripts/collect-release.mjs ${{ matrix.platform }} ${{ matrix.target }}
+      - uses: actions/upload-artifact@v4
+        with:
+          name: release-${{ matrix.platform }}
+          path: release-assets/
+          if-no-files-found: error
+  publish:
+    needs: [test, build]
+    if: github.event_name == 'push' || inputs.publish
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    env:
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 22 }
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: release-*
+          path: release-assets
+          merge-multiple: true
+      - run: sudo apt-get update && sudo apt-get install -y minisign
+      - name: Verify signatures, source, versions and complete platform set
+        run: node scripts/prepare-release.mjs release-assets
+      - name: Publish both platforms together
+        shell: bash
+        run: |
+          set -euo pipefail
+          version=$(node -p "require('./package.json').version")
+          tag="v$version"
+          if gh release view "$tag" --json isDraft > release-state.json 2>/dev/null; then
+            node -e "if (!require('./release-state.json').isDraft) throw Error('Refusing to replace a published version')"
+          else
+            gh release create "$tag" --target "$GITHUB_SHA" --draft --prerelease --title "MewLink $tag" --notes "Public beta for macOS (Apple Silicon and Intel) and Windows x64. Update packages are signature-verified. macOS may be unnotarized; Windows is not Authenticode-signed. OS warnings may appear. Not independently audited; do not use for sensitive communication."
+          fi
+          gh release upload "$tag" release-assets/MewLink_* release-assets/latest.json release-assets/SHA256SUMS --clobber
+          gh release edit "$tag" --draft=false --prerelease --latest=false

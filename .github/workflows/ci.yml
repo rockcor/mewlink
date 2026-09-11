@@ -17,6 +17,7 @@ jobs:
       - run: pnpm install --frozen-lockfile
       - run: pnpm lint
       - run: pnpm test
+      - run: pnpm test:release
       - run: pnpm build
   rust:
     runs-on: ubuntu-latest
