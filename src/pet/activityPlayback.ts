@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import type { ActivityKind, WorkVisual } from '../domain/types';
+import { preloadSprite, spriteSheets } from './spriteAssets';
 
 export interface ActivityTransition {
   from: ActivityKind;
@@ -15,30 +16,6 @@ export const transitionAssetName = ({ from, to, fromWorkVisual, toWorkVisual }: 
   return `transition-${from}-${to}`;
 };
 
-const loadedTransitionAssets = new Set<string>();
-const loadingTransitionAssets = new Map<string, Promise<void>>();
-
-const loadTransitionAsset = (assetName: string) => {
-  if (loadedTransitionAssets.has(assetName) || typeof Image === 'undefined') return Promise.resolve();
-  const existing = loadingTransitionAssets.get(assetName);
-  if (existing) return existing;
-  const image = new Image();
-  const pending = new Promise<void>((resolve, reject) => {
-    image.onload = () => resolve();
-    image.onerror = () => reject(new Error(`Unable to load ${assetName}`));
-    image.src = `/pets/animations/${assetName}.png`;
-  }).then(async () => {
-    if (typeof image.decode === 'function') await image.decode().catch(() => undefined);
-    loadedTransitionAssets.add(assetName);
-    loadingTransitionAssets.delete(assetName);
-  }, error => {
-    loadingTransitionAssets.delete(assetName);
-    throw error;
-  });
-  loadingTransitionAssets.set(assetName, pending);
-  return pending;
-};
-
 interface ActivityPlaybackOptions {
   desiredActivity: ActivityKind;
   desiredWorkVisual: WorkVisual;
@@ -46,6 +23,7 @@ interface ActivityPlaybackOptions {
   initialWorkVisual: WorkVisual;
   workHandsSettled: boolean;
   transitionDurationMs: number;
+  paused?: boolean;
 }
 
 export function useActivityPlayback({
@@ -55,6 +33,7 @@ export function useActivityPlayback({
   initialWorkVisual,
   workHandsSettled,
   transitionDurationMs,
+  paused = false,
 }: ActivityPlaybackOptions) {
   const [displayedActivity, setDisplayedActivity] = useState(initialActivity);
   const [displayedWorkVisual, setDisplayedWorkVisual] = useState(initialWorkVisual);
@@ -85,7 +64,7 @@ export function useActivityPlayback({
   }, []);
 
   const beginTransition = useCallback((atLoopBoundary: boolean) => {
-    if (transitionRef.current) return;
+    if (paused || transitionRef.current) return;
     const descriptor = pendingDescriptor();
     if (!descriptor) return;
     if (descriptor.from === 'work') {
@@ -93,13 +72,14 @@ export function useActivityPlayback({
     } else if (!atLoopBoundary) {
       return;
     }
-    if (!loadedTransitionAssets.has(transitionAssetName(descriptor))) return;
+    if (!spriteSheets.has(transitionAssetName(descriptor))) return;
     const next = { ...descriptor, key: ++sequenceRef.current };
     transitionRef.current = next;
     setTransition(next);
-  }, [pendingDescriptor]);
+  }, [paused, pendingDescriptor]);
 
   useEffect(() => {
+    if (paused) return;
     if (!transitionRef.current && desiredActivity === displayedActivity) {
       displayedWorkVisualRef.current = desiredWorkVisual;
       setDisplayedWorkVisual(desiredWorkVisual);
@@ -108,11 +88,11 @@ export function useActivityPlayback({
     const descriptor = pendingDescriptor();
     if (!descriptor) return;
     let cancelled = false;
-    void loadTransitionAsset(transitionAssetName(descriptor)).then(() => {
+    void preloadSprite(transitionAssetName(descriptor)).then(() => {
       if (!cancelled) setAssetRevision(current => current + 1);
     }).catch(() => undefined);
     return () => { cancelled = true; };
-  }, [desiredActivity, desiredWorkVisual, displayedActivity, pendingDescriptor]);
+  }, [desiredActivity, desiredWorkVisual, displayedActivity, paused, pendingDescriptor]);
 
   useEffect(() => {
     if (displayedActivity === 'work') beginTransition(false);
@@ -132,13 +112,13 @@ export function useActivityPlayback({
   }, []);
 
   useEffect(() => {
-    if (!transition) return;
+    if (!transition || paused) return;
     const timer = window.setTimeout(
       () => completeTransition(transition.key),
       Math.max(0, transitionDurationMs) + 80,
     );
     return () => window.clearTimeout(timer);
-  }, [completeTransition, transition, transitionDurationMs]);
+  }, [completeTransition, paused, transition, transitionDurationMs]);
 
   return {
     displayedActivity,

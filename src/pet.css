@@ -13,6 +13,13 @@
   transform: none;
 }
 
+/* CSS still owns the frame clock; only the current frame becomes a GPU surface. */
+.canvas-sprite { background-image: none !important; filter: none !important; }
+.canvas-sprite canvas { position: absolute; left: -16.666667%; top: -25%; width: 133.333333%; height: 150%; pointer-events: none; }
+[data-render-paused="true"] .pet-sprite,
+[data-render-paused="true"] .interaction-sprite,
+[data-render-paused="true"] .waiting-cup i { animation-play-state: paused !important; visibility: hidden; }
+
 /* The body stays fixed. Only the hand-specific source frame changes on real input. */
 .pet-sprite.work { background-size: 400% 100%; animation: none; }
 .pet-sprite.work-code { background-image: url('/pets/animations/work-code.png'); }

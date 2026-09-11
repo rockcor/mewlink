@@ -1,6 +1,7 @@
 use serde::Serialize;
 use tauri::{Manager, PhysicalPosition};
 mod language;
+mod resources;
 mod window_layout;
 
 #[derive(Debug, PartialEq, Eq, Serialize)]
@@ -11,7 +12,7 @@ struct PresenceSignal {
     app_class: &'static str,
 }
 
-#[derive(Debug, PartialEq, Eq, Serialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 #[serde(rename_all = "camelCase")]
 struct InputSignal {
     keyboard_sequence: u64,
@@ -823,8 +824,12 @@ fn presence_signal() -> PresenceSignal {
 }
 
 #[tauri::command]
-fn input_signal() -> InputSignal {
-    platform::input_sample()
+fn input_signal(state: tauri::State<'_, resources::ResourceState>) -> InputSignal {
+    state
+        .input
+        .lock()
+        .unwrap_or_else(|error| error.into_inner())
+        .clone()
 }
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
@@ -834,15 +839,18 @@ pub fn run() {
         .plugin(tauri_plugin_process::init())
         .plugin(tauri_plugin_updater::Builder::new().build())
         .manage(window_layout::DesktopLayout::default())
+        .manage(resources::ResourceState::default())
         .invoke_handler(tauri::generate_handler![
             presence_signal,
             input_signal,
+            resources::set_low_memory_mode,
             language::system_languages,
             window_layout::set_panel_open,
             window_layout::pet_window_position,
             window_layout::restore_pet_position
         ])
         .setup(|app| {
+            resources::start_input_monitor(app.handle().clone());
             if let Some(window) = app.get_webview_window("main") {
                 if let Some(monitor) = window.current_monitor()? {
                     let work_area = monitor.work_area();

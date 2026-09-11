@@ -32,7 +32,7 @@ try {
   const macDownload = { url: `https://github.com/${repository}/releases/download/v${version}/MewLink_${version}_universal.dmg`, format: 'dmg' };
   const manifest = {
     schema: 1, version, source: process.env.GITHUB_SHA,
-    notes: '同一版本支持 macOS 与 Windows，检查后可直接更新。 / Matching macOS and Windows versions with in-place updates.',
+    notes: '降低动画与闲置时的资源占用，改进键鼠响应。支持 macOS 与 Windows 原地更新。 / Lower animation and idle resource use, improved input delivery, and in-place updates for macOS and Windows.',
     pub_date: new Date().toISOString(),
     platforms: { 'darwin-aarch64': macUpdate, 'darwin-x86_64': macUpdate, 'windows-x86_64': winUpdate },
     downloads: { 'darwin-aarch64': macDownload, 'darwin-x86_64': macDownload, 'windows-x86_64': { url: winUpdate.url, format: 'exe' } },

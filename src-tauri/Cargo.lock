@@ -1885,7 +1885,7 @@ dependencies = [
 
 [[package]]
 name = "mewlink"
-version = "0.3.22"
+version = "0.3.23"
 dependencies = [
  "objc2",
  "objc2-app-kit",
@@ -1897,6 +1897,8 @@ dependencies = [
  "tauri-plugin-dialog",
  "tauri-plugin-process",
  "tauri-plugin-updater",
+ "webview2-com",
+ "windows-core 0.61.2",
  "windows-sys 0.61.2",
 ]
 

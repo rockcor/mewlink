@@ -16,10 +16,14 @@ import {
   savePairing,
   type PairingState,
 } from './pairing/pairing';
-import { activityProbe, classify, demoInitialActivity, demoInitialWorkVisual, inputBurstReached, inputChangesForSequence, inputProbe, INPUT_STRESS_HOLD_MS, keyboardEventsForSequence, nextSampleDelay, POINTER_ANIMATION_HOLD_MS, POINTER_EVENTS_PER_ANIMATION, pointerClicksForSequence, pointerEventsForSequence, shouldAnimatePointer, trimInputBurst, visualInputForActivity, workVisualFor, type InputBurstSample, type InputSignal } from './platform/activity';
+import { activityProbe, classify, demoInitialActivity, demoInitialWorkVisual, inputBurstReached, inputChangesForSequence, INPUT_STRESS_HOLD_MS, keyboardEventsForSequence, nextSampleDelay, POINTER_ANIMATION_HOLD_MS, POINTER_EVENTS_PER_ANIMATION, pointerClicksForSequence, pointerEventsForSequence, shouldAnimatePointer, trimInputBurst, visualInputForActivity, workVisualFor, type InputBurstSample, type InputSignal } from './platform/activity';
 import { ACTIVITY_TRANSITION_MS, gestureFor, waterDrinkDelay, type GestureVariant } from './pet/interaction';
 import { transitionAssetName, useActivityPlayback } from './pet/activityPlayback';
 import { petSkinFilters } from './pet/skins';
+import { SpriteCanvas } from './pet/SpriteCanvas';
+import { preloadSprite } from './pet/spriteAssets';
+import { watchInput } from './platform/inputStream';
+import { useRenderBudget } from './platform/resources';
 import { localUtcOffsetMinutes } from './platform/clock';
 import { languageTags, watchSystemLanguage } from './platform/language';
 import { joinWithPairingCode, registerPairCreator, sendEncryptedEvent, syncEncryptedEvents } from './services/relayTransport';
@@ -53,6 +57,8 @@ function loadPendingCup(): { target: 'self' | 'partner'; style: CupStyle; placed
 }
 
 export default function App() {
+  const [locked, setLocked] = useState(false);
+  const renderPaused = useRenderBudget(locked);
   const [activity, setActivity] = useState<ActivityKind>(demoInitialActivity ?? 'work');
   const [workVisual, setWorkVisual] = useState<WorkVisual>(demoInitialWorkVisual);
   const [keyboardPressed, setKeyboardPressed] = useState(false);
@@ -118,6 +124,7 @@ export default function App() {
   const partnerActivity = current?.activity ?? 'rest';
   const visualInputKind = visualInputForActivity(activity, keyboardPressed, pointerPressed);
   const selfPlayback = useActivityPlayback({
+    paused: renderPaused,
     desiredActivity: activity,
     desiredWorkVisual: workVisual,
     initialActivity: demoInitialActivity ?? 'work',
@@ -126,6 +133,7 @@ export default function App() {
     transitionDurationMs: Math.round(ACTIVITY_TRANSITION_MS * durationScale),
   });
   const partnerPlayback = useActivityPlayback({
+    paused: renderPaused || !connected,
     desiredActivity: partnerActivity,
     desiredWorkVisual: 'web',
     initialActivity: 'rest',
@@ -134,11 +142,8 @@ export default function App() {
     transitionDurationMs: Math.round(ACTIVITY_TRANSITION_MS * durationScale),
   });
   useEffect(() => {
-    const image = new Image();
-    image.decoding = 'async';
-    image.src = `/pets/animations/work-${workVisual}-stress.png`;
-    return () => { image.src = ''; };
-  }, [workVisual]);
+    if (!renderPaused) void preloadSprite(`work-${workVisual}-stress`).catch(() => undefined);
+  }, [renderPaused, workVisual]);
   const motionStyle = useMemo(() => ({
     '--self-pet-scale': String(preferences.selfPetScalePercent / 100),
     '--partner-pet-scale': String(preferences.partnerPetScalePercent / 100),
@@ -370,6 +375,7 @@ export default function App() {
     const sample = async () => {
       const signal = await activityProbe.sample();
       if (stopped) return;
+      setLocked(current => current === signal.locked ? current : signal.locked);
       if (!signal.locked && signal.idleSeconds < 120) setWorkVisual(workVisualFor(signal));
       setActivity(currentActivity => {
         if (!signal.locked && signal.idleSeconds < 120 && signal.appClass === 'unknown') return currentActivity;
@@ -382,7 +388,6 @@ export default function App() {
     return () => { stopped = true; window.clearTimeout(timer); };
   }, []);
   useEffect(() => {
-    let timer: number | undefined;
     let keyboardReleaseTimer: number | undefined;
     let pointerReleaseTimer: number | undefined;
     let stressReleaseTimer: number | undefined;
@@ -392,8 +397,7 @@ export default function App() {
     let stopped = false;
     let previous: InputSignal | undefined;
     let burstSamples: InputBurstSample[] = [];
-    const sample = async () => {
-      const signal = await inputProbe.sample();
+    const sample = (signal: InputSignal) => {
       if (stopped) return;
       if (previous) {
         const changes = inputChangesForSequence(previous, signal);
@@ -432,12 +436,11 @@ export default function App() {
         }
       }
       previous = signal;
-      timer = window.setTimeout(() => { void sample(); }, 16);
     };
-    void sample();
+    const unwatch = watchInput(sample);
     return () => {
       stopped = true;
-      window.clearTimeout(timer);
+      unwatch();
       window.clearTimeout(keyboardReleaseTimer);
       window.clearTimeout(pointerReleaseTimer);
       window.clearTimeout(stressReleaseTimer);
@@ -489,21 +492,21 @@ export default function App() {
   useEffect(() => { if (preferences.autoUpdate) void runUpdateCheck(); }, [preferences.autoUpdate, runUpdateCheck]);
   useEffect(() => { if (!preferences.replayEnabled) { setPlaying(false); setFrame(0); } }, [preferences.replayEnabled]);
   useEffect(() => {
-    if (!playing || !replay.length) return;
+    if (!playing || !replay.length || renderPaused) return;
     const timer = window.setInterval(() => {
       setFrame(current => current + 1 >= replay.length ? (setPlaying(false), 0) : current + 1);
     }, Math.round(1_700 * durationScale));
     return () => clearInterval(timer);
-  }, [durationScale, playing, replay.length]);
+  }, [durationScale, playing, renderPaused, replay.length]);
   useEffect(() => {
-    if (!pendingCup) return;
+    if (!pendingCup || renderPaused) return;
     const timer = window.setTimeout(() => {
       setGesture({ variant: 'water-drink', target: pendingCup.target, cupStyle: pendingCup.style });
       setPendingCup(undefined);
       gestureTimer.current = window.setTimeout(() => setGesture(undefined), Math.round(3_200 * durationScale));
     }, waterDrinkDelay(pendingCup.placedAt));
     return () => window.clearTimeout(timer);
-  }, [durationScale, pendingCup]);
+  }, [durationScale, pendingCup, renderPaused]);
   useEffect(() => () => {
     window.clearTimeout(gestureTimer.current);
     window.clearTimeout(noticeTimer.current);
@@ -716,7 +719,7 @@ export default function App() {
   const displayedGesture = connected ? (gesture ?? replayGesture) : undefined;
 
   return (
-    <main className="desktop-pet" style={motionStyle}>
+    <main className="desktop-pet" style={motionStyle} data-render-paused={renderPaused}>
       <section className={`pet-zone ${settingsOpen || statisticsOpen ? 'settings-open' : ''}`} aria-label={connected ? text.petZone : text.soloPetZone} lang={languageTags[preferences.language]}>
         <div
           id="pet-menu"
@@ -778,12 +781,12 @@ export default function App() {
             onBlur={hidePetMenuSoon}
             onWheel={event => handlePetPinch(event, 'self')}
           >
-            <span
+            <SpriteCanvas skin={preferences.selfPetSkin} paused={renderPaused}
               className={`pet-sprite ${selfPlayback.displayedActivity} ${selfPlayback.displayedActivity === 'work' ? `work-${selfPlayback.displayedWorkVisual}` : ''} input-${selfPlayback.transition ? 'none' : visualInputKind} ${inputStressed && !selfPlayback.transition ? 'input-stressed' : ''} ${selfPlayback.transition ? 'transition-source-frame' : ''}`}
               aria-hidden="true"
               onAnimationIteration={selfPlayback.handleLoopBoundary}
             />
-            {selfPlayback.transition && <span
+            {selfPlayback.transition && <SpriteCanvas skin={preferences.selfPetSkin} paused={renderPaused}
               key={selfPlayback.transition.key}
               className={`pet-sprite activity-transition ${transitionAssetName(selfPlayback.transition)}`}
               aria-hidden="true"
@@ -803,19 +806,19 @@ export default function App() {
             onBlur={hidePetMenuSoon}
             onWheel={event => handlePetPinch(event, 'partner')}
           >
-            <span
+            <SpriteCanvas skin={partnerSkin} paused={renderPaused}
               className={`pet-sprite partner-sprite ${partnerPlayback.displayedActivity} ${partnerPlayback.displayedActivity === 'work' ? `work-${partnerPlayback.displayedWorkVisual}` : ''} input-none ${playing ? 'replaying' : ''} ${partnerPlayback.transition ? 'transition-source-frame' : ''}`}
               aria-hidden="true"
               onAnimationIteration={partnerPlayback.handleLoopBoundary}
             />
-            {partnerPlayback.transition && <span
+            {partnerPlayback.transition && <SpriteCanvas skin={partnerSkin} paused={renderPaused}
               key={partnerPlayback.transition.key}
               className={`pet-sprite partner-sprite activity-transition ${transitionAssetName(partnerPlayback.transition)}`}
               aria-hidden="true"
               onAnimationEnd={() => partnerPlayback.completeTransition(partnerPlayback.transition!.key)}
             />}
           </button>}
-          {displayedGesture && <span className={`interaction-sprite ${displayedGesture.variant} target-${displayedGesture.target} cup-${displayedGesture.cupStyle ?? 'ceramic'} blanket-${displayedGesture.blanketStyle ?? preferences.blanketStyle}`} aria-hidden="true" />}
+          {displayedGesture && <SpriteCanvas skin={displayedGesture.target === 'self' ? preferences.selfPetSkin : partnerSkin} paused={renderPaused} className={`interaction-sprite ${displayedGesture.variant} target-${displayedGesture.target} cup-${displayedGesture.cupStyle ?? 'ceramic'} blanket-${displayedGesture.blanketStyle ?? preferences.blanketStyle}`} aria-hidden="true" />}
           {pendingCup && <span className={`waiting-cup target-${pendingCup.target} ${pendingCup.style}`} aria-label={text.water}><i /><i /></span>}
         </div>
         {notice && <div className="pet-toast" aria-live="polite">{notice}</div>}
