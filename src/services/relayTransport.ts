@@ -161,6 +161,7 @@ export async function syncEncryptedEvents(state: PairingState, fetcher: Fetcher 
   }
   const cursor = Number.isSafeInteger(payload.cursor) && (payload.cursor ?? 0) >= state.relayCursor ? payload.cursor as number : state.relayCursor;
   const devices = Array.isArray(payload.devices) ? payload.devices.filter(device => typeof device === 'string' && device !== state.deviceId) : [];
+  const partnerDeviceId = state.partnerDeviceId ?? (devices.length === 1 ? devices[0] : undefined);
   const receivedSequences = { ...state.receivedSequences };
   const received: StoredEvent[] = [];
   const key = await pairingKey(state);
@@ -168,7 +169,7 @@ export async function syncEncryptedEvents(state: PairingState, fetcher: Fetcher 
     if (!message || !Number.isSafeInteger(message.relayId) || !validEnvelope(message.envelope)) continue;
     const envelope = message.envelope;
     if (envelope.relationshipId !== state.relationshipId || envelope.recipientDeviceId !== state.deviceId
-      || envelope.keyId !== state.keyId || envelope.senderDeviceId === state.deviceId
+      || envelope.keyId !== state.keyId || envelope.senderDeviceId !== partnerDeviceId
       || envelope.sequence <= (receivedSequences[envelope.senderDeviceId] ?? 0)) continue;
     try {
       const event = await decryptEvent(envelope, key);
@@ -180,7 +181,7 @@ export async function syncEncryptedEvents(state: PairingState, fetcher: Fetcher 
   }
   const next: PairingState = {
     ...withServerExpiry(state, payload.inviteExpiresAt),
-    ...(devices[0] ? { partnerDeviceId: devices[0] } : {}),
+    ...(partnerDeviceId ? { partnerDeviceId } : {}),
     relayCursor: cursor,
     receivedSequences,
   };
@@ -188,6 +189,9 @@ export async function syncEncryptedEvents(state: PairingState, fetcher: Fetcher 
 }
 
 export async function sendEncryptedEvent(state: PairingState, event: PlainEvent, fetcher: Fetcher = fetch) {
+  if (event.senderDeviceId !== state.deviceId || event.relationshipId !== state.relationshipId) {
+    throw new Error('outgoing event identity mismatch');
+  }
   let active = state;
   if (!active.partnerDeviceId) active = (await syncEncryptedEvents(active, fetcher)).state;
   if (!active.partnerDeviceId) throw new RelayError('还在等待 TA 连接', 409);

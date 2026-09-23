@@ -1,4 +1,5 @@
 import { useEffect, useRef, type ReactNode } from 'react';
+import { createPortal } from 'react-dom';
 import { getCurrentWindow } from '@tauri-apps/api/window';
 import { languageTags, type Language } from '../platform/language';
 
@@ -46,7 +47,7 @@ export function PanelFrame({ title, closeLabel, language, onClose, children, nav
       if (previous instanceof HTMLElement) previous.focus();
     };
   }, []);
-  return <section ref={panel} className={`settings-panel pixel-panel ${className}`} role="dialog" aria-modal="true" aria-labelledby="panel-title" lang={languageTags[language]}>
+  return createPortal(<section ref={panel} className={`settings-panel pixel-panel ${className}`} role="dialog" aria-modal="true" aria-labelledby="panel-title" lang={languageTags[language]}>
     <header className="settings-header" onPointerDown={event => {
       if (event.button !== 0 || (event.target as HTMLElement).closest('button')) return;
       if ('__TAURI_INTERNALS__' in window) void getCurrentWindow().startDragging().catch(() => undefined);
@@ -62,5 +63,5 @@ export function PanelFrame({ title, closeLabel, language, onClose, children, nav
       event.preventDefault();
       void getCurrentWindow().startResizeDragging('SouthEast').catch(() => undefined);
     }} />
-  </section>;
+  </section>, document.body);
 }

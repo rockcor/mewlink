@@ -1,5 +1,6 @@
 use serde::Serialize;
 use tauri::{Manager, PhysicalPosition};
+mod autostart;
 mod language;
 mod resources;
 mod window_layout;
@@ -835,12 +836,18 @@ fn input_signal(state: tauri::State<'_, resources::ResourceState>) -> InputSigna
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
+        // Register the controls only; enabling is an explicit user action.
+        .plugin(tauri_plugin_autostart::init(
+            tauri_plugin_autostart::MacosLauncher::LaunchAgent,
+            None,
+        ))
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_process::init())
         .plugin(tauri_plugin_updater::Builder::new().build())
         .manage(window_layout::DesktopLayout::default())
         .manage(resources::ResourceState::default())
         .invoke_handler(tauri::generate_handler![
+            autostart::enable_autostart,
             presence_signal,
             input_signal,
             resources::set_low_memory_mode,

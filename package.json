@@ -1,7 +1,7 @@
 {
   "name": "mewlink",
   "private": true,
-  "version": "0.3.23",
+  "version": "0.3.24",
   "type": "module",
   "scripts": {
     "dev": "vite",
@@ -16,6 +16,7 @@
   },
   "dependencies": {
     "@tauri-apps/api": "^2.8.0",
+    "@tauri-apps/plugin-autostart": "~2.5.1",
     "@tauri-apps/plugin-dialog": "~2.7.3",
     "@tauri-apps/plugin-process": "^2.3.1",
     "@tauri-apps/plugin-updater": "^2.11.0",

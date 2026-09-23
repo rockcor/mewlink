@@ -42,12 +42,14 @@ interface AppCopy {
   replay: string;
   statistics: string;
   settings: string;
+  panelError: string;
   myPet: (status: string) => string;
   partnerPet: (status: string) => string;
 }
 
 export const appCopy: Record<Language, AppCopy> = {
   zh: {
+    panelError: '窗口未能展开，请重新打开设置',
     cups: { ceramic: { label: '樱粉陶瓷杯', shortLabel: '陶瓷杯' }, tumbler: { label: '天空随行杯', shortLabel: '随行杯' }, bottle: { label: '薄荷运动瓶', shortLabel: '运动瓶' } },
     status: { work: '工作中', meeting: '在开会', leisure: '休闲娱乐', idle: '暂时离开', rest: '休息中' },
     updateUnchecked: '尚未检查更新', updateChecking: '正在检查…', updateAvailable: version => `发现新版本 ${version}`, updateCurrent: version => `已是最新版 ${version}`, updateDownloading: percent => percent === undefined ? '正在下载新版本…' : `正在下载新版本 ${percent}%`, updateInstalling: '正在安装，完成后会自动重启…', updateInstallError: '更新没有完成，请重新检查后再试', updateError: '暂时无法检查，请稍后再试',
@@ -58,6 +60,7 @@ export const appCopy: Record<Language, AppCopy> = {
     petZone: 'MewLink 双人桌面宠物', soloPetZone: 'MewLink 桌面宠物', partnerWaiting: '等待同步', actionsAria: '给 TA 一个小动作', hug: '拥抱', water: '喝水', changeCup: '换杯', replay: '回放', statistics: '统计', settings: '设置', myPet: status => `我的宠物：${status}`, partnerPet: status => `TA 的宠物：${status}`,
   },
   'zh-Hant': {
+    panelError: '視窗未能展開，請重新開啟設定',
     cups: { ceramic: { label: '櫻粉陶瓷杯', shortLabel: '陶瓷杯' }, tumbler: { label: '天空隨行杯', shortLabel: '隨行杯' }, bottle: { label: '薄荷運動瓶', shortLabel: '運動瓶' } },
     status: { work: '工作中', meeting: '在開會', leisure: '休閒娛樂', idle: '暫時離開', rest: '休息中' },
     updateUnchecked: '尚未檢查更新', updateChecking: '正在檢查…', updateAvailable: version => `發現新版本 ${version}`, updateCurrent: version => `已是最新版 ${version}`, updateDownloading: percent => percent === undefined ? '正在下載新版本…' : `正在下載新版本 ${percent}%`, updateInstalling: '正在安裝，完成後會自動重新啟動…', updateInstallError: '更新未完成，請重新檢查後再試', updateError: '暫時無法檢查，請稍後再試',
@@ -68,6 +71,7 @@ export const appCopy: Record<Language, AppCopy> = {
     petZone: 'MewLink 雙人桌面寵物', soloPetZone: 'MewLink 桌面寵物', partnerWaiting: '等待同步', actionsAria: '給 TA 一個小動作', hug: '擁抱', water: '喝水', changeCup: '換杯', replay: '回放', statistics: '統計', settings: '設定', myPet: status => `我的寵物：${status}`, partnerPet: status => `TA 的寵物：${status}`,
   },
   en: {
+    panelError: 'The window could not expand. Please reopen settings.',
     cups: { ceramic: { label: 'Blush ceramic mug', shortLabel: 'Ceramic' }, tumbler: { label: 'Sky tumbler', shortLabel: 'Tumbler' }, bottle: { label: 'Mint sports bottle', shortLabel: 'Bottle' } },
     status: { work: 'Working', meeting: 'In a meeting', leisure: 'Taking a break', idle: 'Away for a moment', rest: 'Resting' },
     updateUnchecked: 'Updates not checked yet', updateChecking: 'Checking…', updateAvailable: version => `Version ${version} is ready`, updateCurrent: version => `Up to date · ${version}`, updateDownloading: percent => percent === undefined ? 'Downloading the update…' : `Downloading the update · ${percent}%`, updateInstalling: 'Installing, then MewLink will restart…', updateInstallError: 'The update did not finish. Check again and retry.', updateError: 'Unable to check right now. Try again later.',

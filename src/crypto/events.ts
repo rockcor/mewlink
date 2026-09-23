@@ -1,4 +1,4 @@
-import { petSkins, type EncryptedEnvelope, type PlainEvent } from '../domain/types';
+import { petSkins, workVisuals, type EncryptedEnvelope, type PlainEvent } from '../domain/types';
 
 type Sodium = typeof import('libsodium-wrappers-sumo').default;
 let sodiumPromise: Promise<Sodium> | undefined;
@@ -21,6 +21,7 @@ function isPlainEvent(value: unknown): value is PlainEvent {
     || typeof event.relationshipId !== 'string' || typeof event.senderDeviceId !== 'string'
     || typeof event.createdAt !== 'string' || typeof event.payload !== 'object' || !event.payload) return false;
   const payload = event.payload as Record<string, unknown>;
+  if (event.kind === 'cup.consumed') return typeof payload.cupEventId === 'string' && payload.cupEventId.length > 0 && payload.cupEventId.length <= 80;
   if (event.kind === 'interaction') {
     return payload.action === 'water' || payload.action === 'hug';
   }
@@ -28,7 +29,11 @@ function isPlainEvent(value: unknown): value is PlainEvent {
     return typeof payload.category === 'string'
       && ['work', 'meeting', 'leisure', 'idle', 'rest', 'coding', 'reading', 'video', 'browsing'].includes(payload.category)
       && typeof payload.startedAt === 'string'
-      && typeof payload.endedAt === 'string';
+      && typeof payload.endedAt === 'string'
+      && Number.isFinite(Date.parse(event.createdAt))
+      && Number.isFinite(Date.parse(payload.startedAt))
+      && Number.isFinite(Date.parse(payload.endedAt))
+      && (payload.workVisual === undefined || workVisuals.includes(payload.workVisual as (typeof workVisuals)[number]));
   }
   if (event.kind === 'profile.skin') return petSkins.includes(payload.skin as (typeof petSkins)[number]);
   if (event.kind !== 'statistics.snapshot'

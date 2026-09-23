@@ -1,6 +1,15 @@
 import { classify, inputBurstReached, inputChangesForSequence, keyboardEventsForSequence, KEYBOARD_STRESS_THRESHOLD, nextSampleDelay, POINTER_ANIMATION_INTERVAL_MS, POINTER_EVENTS_PER_ANIMATION, POINTER_STRESS_THRESHOLD, pointerClicksForSequence, pointerEventsForSequence, shouldAnimatePointer, trimInputBurst, visualInputForActivity, workVisualFor } from './activity';
 import { describe, expect, it } from 'vitest';
+import { nextActivity } from './activity';
 describe('privacy-first activity classification', () => {
+  it('wakes up after idle or lock even when the foreground app is unknown', () => {
+    const active = { locked: false, idleSeconds: 0, appClass: 'unknown' as const };
+    expect(nextActivity('rest', active)).toBe('work');
+    expect(nextActivity('idle', active)).toBe('work');
+    expect(nextActivity('meeting', active)).toBe('meeting');
+    expect(nextActivity('rest', { ...active, locked: true })).toBe('rest');
+    expect(nextActivity('work', { ...active, idleSeconds: 600 })).toBe('rest');
+  });
   it('treats lock as rest regardless of app', () => expect(classify({ locked: true, idleSeconds: 0, appClass: 'editor' })).toBe('rest'));
   it('uses idle thresholds before app class', () => expect(classify({ locked: false, idleSeconds: 200, appClass: 'meeting' })).toBe('idle'));
   it('merges AI tools, editors, documents, and browsers into work', () => {

@@ -171,6 +171,10 @@ button { font: inherit; }
 .cup-symbol.bottle::before { content: ''; position: absolute; left: 1px; right: 1px; top: -5px; height: 4px; border: 2px solid currentColor; border-bottom: 0; border-radius: 2px 2px 0 0; }
 .cup-symbol.bottle::after { display: none; }
 
+.cup-icon { display: block; flex: 0 0 24px; min-width: 24px; overflow: visible; color: #b86082; }
+.cup-icon-tumbler { color: #4e80b5; }
+.cup-icon-bottle { color: #398f80; }
+
 .pet-pair {
   position: absolute;
   z-index: 2;
@@ -607,6 +611,7 @@ button { font: inherit; }
 .pet-color-swatch.lavender { background: linear-gradient(135deg, #f1e8ff 0 50%, #8967c8 51% 100%); }
 .pet-color-swatch.luka { background: linear-gradient(135deg, #fffaf0 0 50%, #8c8982 51% 100%); }
 .pet-color-swatch.sixtySix { background: linear-gradient(135deg, #f1d6aa 0 50%, #81502f 51% 100%); }
+.pet-color-swatch.shell { background: linear-gradient(135deg, #fff6dd 0 48%, #d4b37f 49% 84%, #514135 85% 100%); }
 
 .prop-picker { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-top: 10px; }
 .prop-picker > b { color: #765765; font-size: 9px; }

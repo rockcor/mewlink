@@ -37,6 +37,12 @@ export const nextSampleDelay = (signal: PresenceSignal) => {
   return 500;
 };
 
+export function nextActivity(previous: ActivityKind, signal: PresenceSignal): ActivityKind {
+  if (!signal.locked && signal.idleSeconds < 120 && signal.appClass === 'unknown'
+    && previous !== 'rest' && previous !== 'idle') return previous;
+  return classify(signal);
+}
+
 export const visualInputForActivity = (activity: ActivityKind, keyboard: boolean, pointer: boolean): InputMotion => {
   if (activity !== 'work') return 'none';
   if (keyboard && pointer) return 'both';

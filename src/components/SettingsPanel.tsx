@@ -1,6 +1,9 @@
 import { open } from '@tauri-apps/plugin-dialog';
 import { useEffect, useState } from 'react';
 import { PanelFrame } from './PanelFrame';
+import { CupIcon } from './CupIcon';
+import { AutostartSetting } from './AutostartSetting';
+import { appCopy } from '../i18n';
 import { blanketStyles, cupStyles, petSkins, type CupStyle, type PetSkin } from '../domain/types';
 import type { AnimationSpeed, Preferences } from '../settings/preferences';
 import { pairingInviteSecondsLeft, type PairingState } from '../pairing/pairing';
@@ -51,12 +54,12 @@ const copy = {
     createInvite: '生成配对码', or: '或', pasteInvite: '输入对方的 8 位配对码', invite: '配对码', connectAction: '连接', myInvite: '我的配对码', copyInvite: '复制配对码', cancel: '取消',
     expired: '已过期', inviteExpired: '配对码已过期，请重新生成', regenerate: '重新生成', expiresIn: (time: string) => `${time} 后失效`,
     petsConnected: '两只宠物已经连在一起', compareNumber: '请和 TA 核对下方号码', disconnect: '解除绑定', safetyNumber: '核对号码',
-    replay: '时差重放', replayNote: '两人连接后自动识别时差，上线时重放错过的片刻',
+    replay: '时差重放', replayNote: '点击回放，重温 TA 最近的状态和互动',
     recording: '回放录像', recordingNote: '只保存宠物回放，不录制真实屏幕', saveLocation: '保存位置', chooseFolder: '选择', defaultFolder: '应用默认文件夹', retention: '保留时长', hours: (hours: number) => `${hours} 小时`, chooseFolderTitle: '选择回放录像保存位置',
     update: '自动更新', updateNote: '点击检查将安装新版本并重启应用', goUpdate: '前往更新', installNow: '立即更新', checkNow: '立即检查',
     timezone: '时区', timezoneNote: '自动识别双方时差，可随时关闭', auto: '自动', manual: '手动', off: '关闭', me: '你', partnerPending: 'TA · 连接后识别', step: '每格 15 分钟', hideClocks: '重放中不显示双方时间', manualAria: '手动时区 UTC 偏移',
     petSize: '宠物大小', petSizeNote: '两只宠物可分别调整', selfPet: '我的宠物', partnerPet: 'TA 的宠物', petSizeAria: '宠物大小',
-    petColor: '宠物配色', petColorNote: '选择自己的颜色；连接后会同步显示', petColorAria: '我的宠物配色', skins: { cream: '奶油', peach: '蜜桃', mint: '薄荷', sky: '晴空', lavender: '丁香', luka: 'Luka', sixtySix: '66' },
+    petColor: '宠物配色', petColorNote: '选择自己的颜色；连接后会同步显示', petColorAria: '我的宠物配色', skins: { cream: '奶油', peach: '蜜桃', mint: '薄荷', sky: '晴空', lavender: '丁香', luka: 'Luka', sixtySix: '66', shell: '贝壳' },
     props: '互动道具', propsNote: '只有水杯和被子可以更换', cup: '水杯', blanket: '被子', blankets: { blush: '樱粉', night: '星夜', mint: '薄荷' },
     speed: '动画速度', speedNote: '默认采用更从容的节奏', speedAria: '动画速度', speeds: { calm: '舒缓', natural: '自然', lively: '活泼' },
     feedback: '意见反馈', feedbackNote: '提交后会公开显示在官网评论区', nickname: '昵称', nicknamePlaceholder: '怎么称呼你', nicknameAria: '反馈昵称', feedbackPlaceholder: '写下你的感受或建议…', feedbackAria: '反馈内容', sendFeedback: '发送反馈',
@@ -67,12 +70,12 @@ const copy = {
     createInvite: '產生配對碼', or: '或', pasteInvite: '輸入對方的 8 位配對碼', invite: '配對碼', connectAction: '連線', myInvite: '我的配對碼', copyInvite: '複製配對碼', cancel: '取消',
     expired: '已過期', inviteExpired: '配對碼已過期，請重新產生', regenerate: '重新產生', expiresIn: (time: string) => `${time} 後失效`,
     petsConnected: '兩隻寵物已經連在一起', compareNumber: '請和 TA 核對下方號碼', disconnect: '解除綁定', safetyNumber: '核對號碼',
-    replay: '時差重放', replayNote: '兩人連線後自動識別時差，上線時重放錯過的片刻',
+    replay: '時差重放', replayNote: '點擊回放，重溫 TA 最近的狀態和互動',
     recording: '回放錄影', recordingNote: '只儲存寵物回放，不錄製真實螢幕', saveLocation: '儲存位置', chooseFolder: '選擇', defaultFolder: '應用程式預設資料夾', retention: '保留時長', hours: (hours: number) => `${hours} 小時`, chooseFolderTitle: '選擇回放錄影儲存位置',
     update: '自動更新', updateNote: '點擊檢查將安裝新版本並重新啟動應用程式', goUpdate: '前往更新', installNow: '立即更新', checkNow: '立即檢查',
     timezone: '時區', timezoneNote: '自動識別雙方時差，可隨時關閉', auto: '自動', manual: '手動', off: '關閉', me: '你', partnerPending: 'TA · 連線後識別', step: '每格 15 分鐘', hideClocks: '重放中不顯示雙方時間', manualAria: '手動時區 UTC 偏移',
     petSize: '寵物大小', petSizeNote: '兩隻寵物可分別調整', selfPet: '我的寵物', partnerPet: 'TA 的寵物', petSizeAria: '寵物大小',
-    petColor: '寵物配色', petColorNote: '選擇自己的顏色；連線後會同步顯示', petColorAria: '我的寵物配色', skins: { cream: '奶油', peach: '蜜桃', mint: '薄荷', sky: '晴空', lavender: '丁香', luka: 'Luka', sixtySix: '66' },
+    petColor: '寵物配色', petColorNote: '選擇自己的顏色；連線後會同步顯示', petColorAria: '我的寵物配色', skins: { cream: '奶油', peach: '蜜桃', mint: '薄荷', sky: '晴空', lavender: '丁香', luka: 'Luka', sixtySix: '66', shell: '貝殼' },
     props: '互動道具', propsNote: '只有水杯和被子可以更換', cup: '水杯', blanket: '被子', blankets: { blush: '櫻粉', night: '星夜', mint: '薄荷' },
     speed: '動畫速度', speedNote: '預設採用更從容的節奏', speedAria: '動畫速度', speeds: { calm: '舒緩', natural: '自然', lively: '活潑' },
     feedback: '意見回饋', feedbackNote: '提交後會公開顯示在官網留言區', nickname: '暱稱', nicknamePlaceholder: '怎麼稱呼你', nicknameAria: '回饋暱稱', feedbackPlaceholder: '寫下你的感受或建議…', feedbackAria: '回饋內容', sendFeedback: '傳送回饋',
@@ -83,12 +86,12 @@ const copy = {
     createInvite: 'Create pairing code', or: 'or', pasteInvite: 'Enter the 8-character pairing code', invite: 'Pairing code', connectAction: 'Connect', myInvite: 'My pairing code', copyInvite: 'Copy code', cancel: 'Cancel',
     expired: 'Expired', inviteExpired: 'This code has expired. Create a new one.', regenerate: 'Create new code', expiresIn: (time: string) => `Expires in ${time}`,
     petsConnected: 'Your two companions are connected', compareNumber: 'Compare the number below with your partner', disconnect: 'Unpair', safetyNumber: 'Safety number',
-    replay: 'Time-zone replay', replayNote: 'Detects your time difference and replays moments you missed',
+    replay: 'Time-zone replay', replayNote: 'Click replay to revisit their recent activities and interactions',
     recording: 'Replay recordings', recordingNote: 'Saves companion replays, never your real screen', saveLocation: 'Save location', chooseFolder: 'Choose', defaultFolder: 'App default folder', retention: 'Keep for', hours: (hours: number) => `${hours}h`, chooseFolderTitle: 'Choose where to save replay recordings',
     update: 'Automatic updates', updateNote: 'Check now installs available updates and restarts the app', goUpdate: 'Get update', installNow: 'Install now', checkNow: 'Check now',
     timezone: 'Time zone', timezoneNote: 'Detect your time difference automatically or turn it off', auto: 'Auto', manual: 'Manual', off: 'Off', me: 'You', partnerPending: 'Partner · after pairing', step: '15-minute steps', hideClocks: 'Hide both local times during replay', manualAria: 'Manual UTC offset',
     petSize: 'Companion size', petSizeNote: 'Adjust each companion independently', selfPet: 'Mine', partnerPet: 'Partner', petSizeAria: 'Companion size',
-    petColor: 'Companion color', petColorNote: 'Choose yours; it appears for your partner after pairing', petColorAria: 'My companion color', skins: { cream: 'Cream', peach: 'Peach', mint: 'Mint', sky: 'Sky', lavender: 'Lilac', luka: 'Luka', sixtySix: '66' },
+    petColor: 'Companion color', petColorNote: 'Choose yours; it appears for your partner after pairing', petColorAria: 'My companion color', skins: { cream: 'Cream', peach: 'Peach', mint: 'Mint', sky: 'Sky', lavender: 'Lilac', luka: 'Luka', sixtySix: '66', shell: 'Shell' },
     props: 'Interaction props', propsNote: 'Only mugs and blankets can be changed', cup: 'Mug', blanket: 'Blanket', blankets: { blush: 'Blush', night: 'Night', mint: 'Mint' },
     speed: 'Animation speed', speedNote: 'A calmer pace is selected by default', speedAria: 'Animation speed', speeds: { calm: 'Calm', natural: 'Natural', lively: 'Lively' },
     feedback: 'Feedback', feedbackNote: 'Your message will appear publicly in the website comments', nickname: 'Nickname', nicknamePlaceholder: 'How should we call you?', nicknameAria: 'Feedback nickname', feedbackPlaceholder: 'Share a thought or suggestion…', feedbackAria: 'Feedback message', sendFeedback: 'Send feedback',
@@ -177,7 +180,7 @@ export function SettingsPanel({
         <article hidden={page !== 'general'} className="setting-row language-setting">
           <div><b>{text.language}</b><small>{text.languageNote}</small></div>
           <div className="mini-tabs language-options" role="group" aria-label={text.language}>
-            <button type="button" aria-pressed={preferences.languageMode === 'system'} className={preferences.languageMode === 'system' ? 'selected' : ''} onClick={() => patchPreferences({ languageMode: 'system' })}>{text.system}</button>
+            <button type="button" aria-pressed={preferences.languageMode === 'system'} className={`language-system ${preferences.languageMode === 'system' ? 'selected' : ''}`} onClick={() => patchPreferences({ languageMode: 'system' })}>{text.system}</button>
             {(['zh', 'zh-Hant', 'en'] as const).map(language => <button key={language} type="button" lang={language} aria-pressed={preferences.languageMode === 'manual' && preferences.language === language} className={preferences.languageMode === 'manual' && preferences.language === language ? 'selected' : ''} onClick={() => patchPreferences({ languageMode: 'manual', language })}>{({ zh: '简体中文', 'zh-Hant': '繁體中文', en: 'English' })[language]}</button>)}
           </div>
         </article>
@@ -225,6 +228,8 @@ export function SettingsPanel({
           </div>
         </article>
 
+        {page === 'general' && <AutostartSetting language={preferences.language} />}
+
         <article hidden={page !== 'general'} className="setting-row">
           <div><b>{text.update}</b><small>{text.updateNote}</small></div>
           <button type="button" className={`switch ${preferences.autoUpdate ? 'on' : ''}`} role="switch" aria-label={text.update} aria-checked={preferences.autoUpdate} onClick={() => patchPreferences({ autoUpdate: !preferences.autoUpdate })}><span /></button>
@@ -261,7 +266,7 @@ export function SettingsPanel({
 
         <article hidden={page !== 'pet'} className="setting-block">
           <div className="setting-title"><div><b>{text.props}</b><small>{text.propsNote}</small></div></div>
-          <div className="prop-picker"><b>{text.cup}</b><div className="mini-tabs">{cupStyles.map(style => <button key={style} type="button" className={cupStyle === style ? 'selected' : ''} onClick={() => onCupStyleChange(style)}>{style === 'ceramic' ? '☕' : style === 'tumbler' ? '🥤' : '▣'}</button>)}</div></div>
+          <div className="prop-picker"><b>{text.cup}</b><div className="mini-tabs">{cupStyles.map(style => <button key={style} type="button" className={cupStyle === style ? 'selected' : ''} aria-label={appCopy[preferences.language].cups[style].label} aria-pressed={cupStyle === style} onClick={() => onCupStyleChange(style)}><CupIcon style={style} /></button>)}</div></div>
           <div className="prop-picker"><b>{text.blanket}</b><div className="mini-tabs">{blanketStyles.map(style => <button key={style} type="button" className={preferences.blanketStyle === style ? 'selected' : ''} onClick={() => patchPreferences({ blanketStyle: style })}>{text.blankets[style]}</button>)}</div></div>
         </article>
 

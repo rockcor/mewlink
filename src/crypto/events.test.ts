@@ -1,6 +1,6 @@
 import sodium from 'libsodium-wrappers-sumo';
 import { describe, expect, it } from 'vitest';
-import type { EncryptedEnvelope, PlainEvent } from '../domain/types';
+import { petSkins, type EncryptedEnvelope, type PlainEvent } from '../domain/types';
 import { decryptEvent, encryptEvent, newDemoKey } from './events';
 
 const statisticsSnapshots = {
@@ -10,6 +10,13 @@ const statisticsSnapshots = {
 };
 
 describe('encrypted event compatibility', () => {
+  it('encrypts a consumed cup acknowledgement without revealing the cup identifier', async () => {
+    const key = await newDemoKey();
+    const event: PlainEvent = { id: 'drink-ack', version: 1, relationshipId: 'relationshipTest01', senderDeviceId: 'recipientDevice001', createdAt: new Date().toISOString(), kind: 'cup.consumed', payload: { cupEventId: 'received-cup-id' } };
+    const envelope = await encryptEvent(event, 'senderDevice000001', 1, key);
+    expect(JSON.stringify(envelope)).not.toContain('received-cup-id');
+    await expect(decryptEvent(envelope, key)).resolves.toEqual(event);
+  });
   it('decrypts an envelope created by an independent libsodium peer', async () => {
     await sodium.ready;
     const key = await newDemoKey();
@@ -59,14 +66,14 @@ describe('encrypted event compatibility', () => {
     await expect(decryptEvent(envelope, key)).resolves.toEqual(event);
   });
 
-  it('encrypts and validates a companion skin update', async () => {
+  it.each(petSkins)('encrypts and validates the %s companion skin', async skin => {
     const key = await newDemoKey();
     const event: PlainEvent = {
       id: crypto.randomUUID(), version: 1, relationshipId: 'relationshipTest01', senderDeviceId: 'skinDevice000001',
-      createdAt: new Date().toISOString(), kind: 'profile.skin', payload: { skin: 'sixtySix' }
+      createdAt: new Date().toISOString(), kind: 'profile.skin', payload: { skin }
     };
     const envelope = await encryptEvent(event, 'recipientDevice001', 3, key);
-    expect(JSON.stringify(envelope)).not.toContain('sixtySix');
+    expect(JSON.stringify(envelope)).not.toContain(`"skin":"${skin}"`);
     await expect(decryptEvent(envelope, key)).resolves.toEqual(event);
   });
 

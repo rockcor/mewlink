@@ -2,6 +2,10 @@ import { describe, expect, it } from 'vitest';
 import type { EncryptedEnvelope, PlainEvent } from '../domain/types';
 import { createPairingJoinRequest, createPairingState, openPairingInvite, pairingInviteCode, relayTokenHash } from '../pairing/pairing';
 import { claimPairingJoin, registerPairCreator, registerPairJoiner, requestPairingJoin, sendEncryptedEvent, syncEncryptedEvents } from './relayTransport';
+import { companionStates } from './companionState';
+import { encryptEvent } from '../crypto/events';
+import { pairingKey } from '../pairing/pairing';
+import { consumeCup, waterClickAction, type PendingCups } from '../pet/pendingCups';
 
 interface Relationship {
   tokenHash: string;
@@ -145,6 +149,85 @@ function skin(relationshipId: string, senderDeviceId: string): PlainEvent {
 }
 
 describe('two macOS encrypted relay', () => {
+  it('syncs Shell to the partner without replacing the partner own skin', async () => {
+    const relay = fakeRelay();
+    const { first, second } = await pairThroughCode(relay);
+    const update: PlainEvent = { id: crypto.randomUUID(), version: 1, relationshipId: first.relationshipId,
+      senderDeviceId: first.deviceId, createdAt: new Date().toISOString(), kind: 'profile.skin', payload: { skin: 'shell' } };
+    const sent = await sendEncryptedEvent(first, update, relay.fetcher);
+    const received = await syncEncryptedEvents(second, relay.fetcher);
+    const own = { activity: 'work', workVisual: 'code', skin: 'luka' } as const;
+    const view = companionStates(own, received.received, received.state);
+    expect(received.received[0].event).toEqual(update);
+    expect(view.partner.skin).toBe('shell');
+    expect(view.self).toEqual(own);
+    expect(JSON.stringify(sent.envelope)).not.toContain('"skin":"shell"');
+  });
+
+  it('drinks the received cup first and removes only that cup at its sender', async () => {
+    const relay = fakeRelay();
+    let { first, second } = await pairThroughCode(relay);
+    const water = interaction(first.relationshipId, first.deviceId, 'water');
+    first = (await sendEncryptedEvent(first, water, relay.fetcher)).state;
+    const delivery = await syncEncryptedEvents(second, relay.fetcher);
+    second = delivery.state;
+    expect(delivery.received[0].event).toEqual(water);
+    const cup = { id: water.id, style: 'tumbler' as const, placedAt: Date.now() };
+    const senderCups: PendingCups = { self: { ...cup, id: 'separate-cup' }, partner: cup };
+    const receiverCups: PendingCups = { self: cup };
+    expect(waterClickAction(receiverCups)).toBe('drink-self');
+    expect(consumeCup(receiverCups, 'self', water.id)).toEqual({});
+    const ack: PlainEvent = { id: crypto.randomUUID(), version: 1, relationshipId: second.relationshipId,
+      senderDeviceId: second.deviceId, createdAt: new Date().toISOString(), kind: 'cup.consumed', payload: { cupEventId: water.id } };
+    second = (await sendEncryptedEvent(second, ack, relay.fetcher)).state;
+    const confirmation = await syncEncryptedEvents(first, relay.fetcher);
+    expect(confirmation.received.map(item => item.event)).toEqual([ack]);
+    expect(consumeCup(senderCups, 'partner', water.id)).toEqual({ self: senderCups.self });
+    expect((await syncEncryptedEvents(confirmation.state, relay.fetcher)).received).toHaveLength(0);
+    expect(relay.bodies.join('')).not.toContain(water.id);
+    expect(relay.bodies.join('')).not.toContain('cup.consumed');
+    expect(second.nextSequence).toBe(1); // One acknowledgement, not a second water gesture.
+  });
+
+  it('keeps live activity and skin assigned to the sender on both paired clients', async () => {
+    const relay = fakeRelay();
+    let { first, second } = await pairThroughCode(relay);
+    const now = new Date().toISOString();
+    const aSelf = { activity: 'work', workVisual: 'code', skin: 'mint' } as const;
+    const bSelf = { activity: 'meeting', workVisual: 'web', skin: 'sky' } as const;
+    const status = (state: typeof first, category: 'work' | 'meeting'): PlainEvent => ({
+      id: crypto.randomUUID(), version: 1, relationshipId: state.relationshipId,
+      senderDeviceId: state.deviceId, senderUtcOffsetMinutes: -420, createdAt: now,
+      kind: 'activity.segment', payload: { category, workVisual: 'code', startedAt: now, endedAt: now },
+    });
+    first = (await sendEncryptedEvent(first, status(first, 'work'), relay.fetcher)).state;
+    second = (await sendEncryptedEvent(second, status(second, 'meeting'), relay.fetcher)).state;
+    second = (await sendEncryptedEvent(second, skin(second.relationshipId, second.deviceId), relay.fetcher)).state;
+    const aReceived = await syncEncryptedEvents(first, relay.fetcher);
+    const bReceived = await syncEncryptedEvents(second, relay.fetcher);
+    const aView = companionStates(aSelf, aReceived.received, aReceived.state);
+    const bView = companionStates(bSelf, bReceived.received, bReceived.state);
+    expect(aView.self).toEqual(aSelf);
+    expect(aView.partner.activity).toBe('meeting');
+    expect(aView.partner.skin).toBe('sky');
+    expect(bView.self).toEqual(bSelf);
+    expect(bView.partner.activity).toBe('work');
+    expect(relay.bodies.filter(body => body.includes('"operation":"send"')).join('')).not.toContain('activity.segment');
+    expect(relay.bodies.filter(body => body.includes('"operation":"send"')).join('')).not.toContain('profile.skin');
+  });
+
+  it('does not reassign an established partner from a relay device list', async () => {
+    const relay = fakeRelay();
+    const { first, second } = await pairThroughCode(relay);
+    const forged = interaction(first.relationshipId, 'unexpectedDevice123', 'hug');
+    const envelope = await encryptEvent(forged, first.deviceId, 1, await pairingKey(first), first.keyId);
+    const fetched: typeof fetch = async () => json({ cursor: 1, devices: ['unexpectedDevice123', second.deviceId], messages: [{ relayId: 1, envelope }] });
+    const result = await syncEncryptedEvents(first, fetched);
+    expect(result.state.partnerDeviceId).toBe(second.deviceId);
+    expect(result.received).toEqual([]);
+    await expect(sendEncryptedEvent(first, interaction(first.relationshipId, second.deviceId, 'hug'), relay.fetcher))
+      .rejects.toThrow('outgoing event identity mismatch');
+  });
   it('delivers opaque interactions in both directions without duplicates', async () => {
     const relay = fakeRelay();
     let { first, second } = await pairThroughCode(relay);

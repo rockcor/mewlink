@@ -9,6 +9,23 @@ struct Rect {
     height: u32,
 }
 
+fn panel_bounds(pet: Rect, area: Rect, scale: f64) -> Rect {
+    let scale = if scale.is_finite() && scale > 0.0 {
+        scale
+    } else {
+        1.0
+    };
+    // Calculate logical dimensions first. Apply the target display's DPI once.
+    let width = (area.width as f64 / scale * 0.5).clamp(640.0, 800.0);
+    let height = (area.height as f64 / scale * 0.88).clamp(560.0, 880.0);
+    Rect {
+        width: (width * scale).round() as u32,
+        height: (height * scale).round() as u32,
+        ..pet
+    }
+    .fit(area, (12.0 * scale).round() as u32)
+}
+
 impl Rect {
     fn fit(self, area: Self, margin: u32) -> Self {
         let margin = margin.min(area.width / 4).min(area.height / 4);
@@ -128,12 +145,7 @@ pub fn set_panel_open(
         }
         let pet = bounds(&window)?;
         let (area, scale) = monitor_area(&window, pet)?;
-        let panel = Rect {
-            width: (540.0 * scale) as u32,
-            height: (640.0 * scale) as u32,
-            ..pet
-        }
-        .fit(area, (12.0 * scale) as u32);
+        let panel = panel_bounds(pet, area, scale);
         // Remember the pet, not the expanded panel, even while the panel is being dragged.
         *saved = Some(pet);
         if let Err(error) = place(&window, panel, true) {
@@ -188,6 +200,56 @@ pub fn restore_pet_position(
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn readable_panel_size_is_consistent_across_display_scaling() {
+        for scale in [1.0, 1.25, 1.5, 2.0, 3.0] {
+            let area = Rect {
+                x: 0,
+                y: 0,
+                width: (1440.0 * scale) as u32,
+                height: (850.0 * scale) as u32,
+            };
+            let pet = Rect {
+                x: area.width as i32 - 100,
+                y: area.height as i32 - 100,
+                width: 440,
+                height: 320,
+            };
+            let panel = panel_bounds(pet, area, scale);
+            assert!((panel.width as f64 / scale - 720.0).abs() < 1.0);
+            assert!((panel.height as f64 / scale - 748.0).abs() < 1.0);
+            assert!(panel.x >= 0 && panel.y >= 0);
+            assert!(panel.x as u32 + panel.width <= area.width);
+            assert!(panel.y as u32 + panel.height <= area.height);
+        }
+    }
+    #[test]
+    fn adaptive_panels_fit_small_and_negative_origin_work_areas() {
+        for (width, height, scale) in [
+            (3840, 2100, 1.0),
+            (1920, 1040, 1.5),
+            (1280, 680, 2.0),
+            (320, 300, 1.0),
+        ] {
+            let area = Rect {
+                x: -(width as i32),
+                y: -50,
+                width,
+                height,
+            };
+            let pet = Rect {
+                x: -30,
+                y: height as i32,
+                width: 440,
+                height: 320,
+            };
+            let panel = panel_bounds(pet, area, scale);
+            assert!(panel.x >= area.x && panel.y >= area.y);
+            assert!(panel.x as i64 + panel.width as i64 <= area.x as i64 + area.width as i64);
+            assert!(panel.y as i64 + panel.height as i64 <= area.y as i64 + area.height as i64);
+            assert!(panel.width > 0 && panel.height > 0);
+        }
+    }
     #[test]
     fn bottom_right_panel_is_fully_visible() {
         let area = Rect {
