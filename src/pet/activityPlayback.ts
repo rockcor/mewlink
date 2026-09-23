@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import type { ActivityKind, WorkVisual } from '../domain/types';
-import { preloadSprite, spriteSheets } from './spriteAssets';
+import { spriteSheets } from './spriteAssets';
 
 export interface ActivityTransition {
   from: ActivityKind;
@@ -64,18 +64,19 @@ export function useActivityPlayback({
   }, []);
 
   const beginTransition = useCallback((atLoopBoundary: boolean) => {
-    if (paused || transitionRef.current) return;
+    if (paused || transitionRef.current) return false;
     const descriptor = pendingDescriptor();
-    if (!descriptor) return;
+    if (!descriptor) return false;
     if (descriptor.from === 'work') {
-      if (!workHandsSettledRef.current) return;
+      if (!workHandsSettledRef.current) return false;
     } else if (!atLoopBoundary) {
-      return;
+      return false;
     }
-    if (!spriteSheets.has(transitionAssetName(descriptor))) return;
+    if (!spriteSheets.has(transitionAssetName(descriptor))) return false;
     const next = { ...descriptor, key: ++sequenceRef.current };
     transitionRef.current = next;
     setTransition(next);
+    return true;
   }, [paused, pendingDescriptor]);
 
   useEffect(() => {
@@ -85,14 +86,24 @@ export function useActivityPlayback({
       setDisplayedWorkVisual(desiredWorkVisual);
       return;
     }
-    const descriptor = pendingDescriptor();
+    const descriptor = transition ?? pendingDescriptor();
     if (!descriptor) return;
     let cancelled = false;
-    void preloadSprite(transitionAssetName(descriptor)).then(() => {
+    // Retain the sheet until the destination is committed; preloading then
+    // releasing allows the memory budget to evict it before a loop completes.
+    const lease = spriteSheets.acquire(transitionAssetName(descriptor));
+    void lease.ready.then(() => {
       if (!cancelled) setAssetRevision(current => current + 1);
-    }).catch(() => undefined);
-    return () => { cancelled = true; };
-  }, [desiredActivity, desiredWorkVisual, displayedActivity, paused, pendingDescriptor]);
+    }).catch(() => {
+      if (cancelled || transitionRef.current) return;
+      // A missing transition must not leave a connected pet idle forever.
+      displayedActivityRef.current = descriptor.to;
+      displayedWorkVisualRef.current = descriptor.toWorkVisual;
+      setDisplayedActivity(descriptor.to);
+      setDisplayedWorkVisual(descriptor.toWorkVisual);
+    });
+    return () => { cancelled = true; lease.release(); };
+  }, [desiredActivity, desiredWorkVisual, displayedActivity, paused, pendingDescriptor, transition]);
 
   useEffect(() => {
     if (displayedActivity === 'work') beginTransition(false);

@@ -35,14 +35,20 @@ button { font: inherit; }
 }
 
 .hover-ui {
+  --menu-bottom: clamp(6px, calc(100% - 174px), 166px);
   position: absolute;
   z-index: 5;
-  bottom: 166px;
+  /* Keep the menu near the pet, but leave room above it on short displays. */
+  bottom: var(--menu-bottom);
   left: 50%;
   display: grid;
   justify-items: center;
   gap: 7px;
-  width: min(100% - 24px, 430px);
+  width: min(100% - 16px, 430px);
+  max-height: calc(100% - var(--menu-bottom) - 6px);
+  overflow: auto;
+  overscroll-behavior: contain;
+  padding: 4px;
   opacity: 0;
   pointer-events: none;
   transform: translate(-50%, 7px) scale(.96);
@@ -55,6 +61,7 @@ button { font: inherit; }
   justify-content: center;
   gap: 6px;
   width: 100%;
+  flex-wrap: wrap;
 }
 
 .hover-ui.menu-visible {
@@ -107,7 +114,10 @@ button { font: inherit; }
 
 .quick-actions {
   display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
   gap: 7px;
+  width: 100%;
   max-width: 100%;
 }
 
@@ -116,30 +126,29 @@ button { font: inherit; }
   grid-template-columns: auto auto;
   align-items: center;
   gap: 4px;
-  min-height: 36px;
-  padding: 7px 11px;
-  border: 1px solid rgba(118, 74, 96, .1);
-  border-radius: 999px;
-  background: rgba(255, 246, 247, .96);
-  box-shadow: 0 8px 20px rgba(75, 42, 60, .14);
+  min-width: 44px;
+  min-height: 44px;
+  max-width: 100%;
+  padding: 6px 9px;
+  border: 2px solid #ae778b;
+  border-radius: 0;
+  background: #fff3e4;
+  box-shadow: inset 2px 2px #fffdf5, inset -2px -2px #edc5bd, 0 2px #865569;
   color: #704c5f;
-  font-size: 11px;
+  font-size: 12px;
   font-weight: 700;
   cursor: pointer;
-  transition: transform 120ms ease, background 120ms ease;
+  overflow-wrap: anywhere;
 }
 
 .quick-actions button:hover {
   background: #ffe8ed;
-  transform: translateY(-2px);
 }
 
-.quick-actions button:active { transform: scale(.96); }
+.quick-actions button:active { translate: 0 2px; box-shadow: inset 2px 2px #edc5bd; }
 .quick-actions button:focus-visible { outline: 3px solid rgba(218, 126, 161, .35); outline-offset: 2px; }
 .quick-actions button > span { font-size: 16px; }
 .quick-actions .replay-action { padding-inline: 10px; }
-.quick-actions .cup-switch { grid-template-columns: auto auto; position: relative; padding-right: 14px; }
-.quick-actions .cup-switch small { position: absolute; right: 7px; bottom: -6px; padding: 1px 5px; border-radius: 999px; background: #fff; color: #8c7180; font-size: 7px; box-shadow: 0 3px 8px rgba(75, 42, 60, .12); }
 
 .cup-symbol {
   position: relative;
@@ -171,9 +180,17 @@ button { font: inherit; }
 .cup-symbol.bottle::before { content: ''; position: absolute; left: 1px; right: 1px; top: -5px; height: 4px; border: 2px solid currentColor; border-bottom: 0; border-radius: 2px 2px 0 0; }
 .cup-symbol.bottle::after { display: none; }
 
-.cup-icon { display: block; flex: 0 0 24px; min-width: 24px; overflow: visible; color: #b86082; }
-.cup-icon-tumbler { color: #4e80b5; }
-.cup-icon-bottle { color: #398f80; }
+.pixel-icon {
+  display: inline-block;
+  flex: 0 0 16px;
+  width: 16px;
+  height: 16px;
+  min-width: 16px;
+  background: url('/ui/pixel-controls.png') var(--icon-position) 0 / 800% 100% no-repeat;
+  image-rendering: pixelated;
+  pointer-events: none;
+}
+.prop-picker .cup-icon { width: 32px; height: 32px; flex-basis: 32px; }
 
 .pet-pair {
   position: absolute;

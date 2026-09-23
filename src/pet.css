@@ -13,7 +13,7 @@
   transform: none;
 }
 
-/* CSS still owns the frame clock; only the current frame becomes a GPU surface. */
+/* Canvas owns playback; CSS keyframes remain only as an image-load fallback. */
 .canvas-sprite { background-image: none !important; filter: none !important; }
 .canvas-sprite canvas { position: absolute; left: -16.666667%; top: -25%; width: 133.333333%; height: 150%; pointer-events: none; }
 [data-render-paused="true"] .pet-sprite,

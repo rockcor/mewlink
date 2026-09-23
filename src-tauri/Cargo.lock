@@ -1916,7 +1916,7 @@ dependencies = [
 
 [[package]]
 name = "mewlink"
-version = "0.3.24"
+version = "0.3.25"
 dependencies = [
  "objc2",
  "objc2-app-kit",

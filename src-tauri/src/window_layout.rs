@@ -49,6 +49,32 @@ impl Rect {
 #[derive(Default)]
 pub struct DesktopLayout(Mutex<Option<Rect>>);
 
+fn place_pet(window: &WebviewWindow, rect: Rect, area: Rect) -> Result<(), String> {
+    let fitted = rect.fit(area, 0);
+    if fitted.width != rect.width || fitted.height != rect.height {
+        // Moving alone still leaves controls outside a smaller work area.
+        place(window, fitted, false)
+    } else {
+        window
+            .set_position(PhysicalPosition::new(fitted.x, fitted.y))
+            .map_err(|e| e.to_string())
+    }
+}
+
+pub fn position_initial_pet(window: &WebviewWindow) -> Result<(), String> {
+    let rect = bounds(window)?;
+    let (area, _) = monitor_area(window, rect)?;
+    place_pet(
+        window,
+        Rect {
+            x: area.x + area.width as i32 - rect.width as i32 - 16,
+            y: area.y + area.height as i32 - rect.height as i32 - 16,
+            ..rect
+        },
+        area,
+    )
+}
+
 fn bounds(window: &WebviewWindow) -> Result<Rect, String> {
     let p = window.outer_position().map_err(|e| e.to_string())?;
     let s = window.outer_size().map_err(|e| e.to_string())?;
@@ -191,10 +217,7 @@ pub fn restore_pet_position(
         ..bounds(&window)?
     };
     let (area, _) = monitor_area(&window, rect)?;
-    let fitted = rect.fit(area, 0);
-    window
-        .set_position(PhysicalPosition::new(fitted.x, fitted.y))
-        .map_err(|e| e.to_string())
+    place_pet(&window, rect, area)
 }
 
 #[cfg(test)]
@@ -356,5 +379,34 @@ mod tests {
         }
         .fit(area, 0);
         assert_eq!((pet.x, pet.y), (0, 25));
+    }
+    #[test]
+    fn pet_and_panel_fit_low_resolution_high_dpi_work_areas() {
+        for scale in [1.0, 1.25, 1.5, 2.0, 3.0] {
+            for (width, height) in [(1024, 728), (800, 560), (640, 440)] {
+                let area = Rect {
+                    x: -width,
+                    y: 24,
+                    width: width as u32,
+                    height,
+                };
+                let pet = Rect {
+                    x: -30,
+                    y: 900,
+                    width: (440.0 * scale) as u32,
+                    height: (320.0 * scale) as u32,
+                };
+                for fitted in [pet.fit(area, 0), panel_bounds(pet, area, scale)] {
+                    assert!(fitted.x >= area.x && fitted.y >= area.y);
+                    assert!(
+                        fitted.x as i64 + fitted.width as i64 <= area.x as i64 + area.width as i64
+                    );
+                    assert!(
+                        fitted.y as i64 + fitted.height as i64
+                            <= area.y as i64 + area.height as i64
+                    );
+                }
+            }
+        }
     }
 }

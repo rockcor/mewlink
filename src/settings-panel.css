@@ -183,6 +183,45 @@
 .pixel-panel .switch.on { background-image: linear-gradient(#d986a5, #d986a5); }
 .pixel-panel .switch.on span { transform: translateX(1.25rem); }
 
+/* Crisp, shared controls without shrinking text or hit targets on high DPI. */
+.pixel-panel button:not(.switch), .pixel-panel .update-line a {
+  border: 2px solid #ba8496;
+  border-radius: 0;
+  box-shadow: inset 2px 2px #fffdf5, inset -2px -2px #edc5bd, 0 2px #ba8496;
+  text-decoration: none;
+}
+.pixel-panel button:not(.switch):hover:not(:disabled), .pixel-panel .update-line a:hover { background-color: #ffe3dc; }
+.pixel-panel button:not(.switch):active:not(:disabled) { box-shadow: inset 2px 2px #edc5bd; translate: 0 2px; }
+.pixel-panel button:disabled { opacity: .5; cursor: not-allowed; }
+.pixel-panel .mini-tabs, .pixel-panel .speed-options { border-radius: 0; gap: 6px; padding: 6px; }
+.pixel-panel .mini-tabs button.selected,
+.pixel-panel .speed-options button.selected,
+.pixel-panel button[aria-pressed='true'],
+.pixel-panel button[aria-selected='true'] { border-color: #824760; background-color: #ffdbdf; box-shadow: inset 2px 2px #edb0c3; color: #63394a; }
+.pixel-panel .switch, .pixel-panel .switch span { border-radius: 0; }
+.pixel-panel .switch span { border: 2px solid #a67588; box-shadow: 2px 2px #a67588; }
+.pixel-panel .settings-close { display: grid; place-items: center; }
+.pixel-panel .settings-close .pixel-icon { width: 32px; height: 32px; }
+.pixel-panel .settings-scroll { overflow-y: auto; overscroll-behavior: contain; }
+@media (max-height: 420px) {
+  .pixel-panel { inset: 4px; }
+  .pixel-panel .settings-header { padding: 4px 8px; gap: 8px; }
+  .pixel-panel .settings-header h2 { font-size: 1.25em; margin: 0; }
+  .pixel-panel .settings-header small, .pixel-panel .settings-mascot { display: none; }
+  .pixel-panel .settings-navigation, .pixel-panel .statistics-navigation { padding: 4px 8px; }
+  .pixel-panel .settings-navigation button { padding: 4px 2px; }
+}
+@media (max-width: 360px) {
+  .pixel-panel .settings-navigation {
+    display: flex;
+    overflow-x: auto;
+    overscroll-behavior-x: contain;
+  }
+  .pixel-panel .settings-navigation button { flex: 0 0 auto; padding-inline: 8px; }
+  .pixel-panel .setting-row { flex-wrap: wrap; gap: 10px; }
+  .pixel-panel .language-options { width: 100%; }
+}
+
 /* Charts grow with text. Labels wrap, never shrink to fit a fixed chart. */
 .pixel-panel .statistics-scroll { padding: .75em 0 0; }
 .pixel-panel .statistics-controls { gap: .75em; padding: .875em; margin-bottom: 1em; }

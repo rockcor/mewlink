@@ -4,7 +4,7 @@ import { getCurrentWindow } from '@tauri-apps/api/window';
 import { v4 as uuid } from 'uuid';
 import { SettingsPanel, type UpdateViewState } from './components/SettingsPanel';
 import { StatisticsPanel } from './components/StatisticsPanel';
-import { CupIcon } from './components/CupIcon';
+import { PetActions } from './components/PetActions';
 import { consumeCup, restorePendingCups, waterClickAction, type PendingCups, type PetTarget } from './pet/pendingCups';
 import { hugSkins } from './pet/hugOwnership';
 import type { ActivityKind, BlanketStyle, CupStyle, InteractionKind, InteractionPayload, PetSkin, PlainEvent, StatisticsPayload, StatisticsVisibility, StoredEvent, WorkVisual } from './domain/types';
@@ -753,14 +753,6 @@ export default function App() {
     } finally { panelBusy.current = false; }
   }
 
-  function cycleCup() {
-    const next = cupStyles[(cupStyles.indexOf(cupStyle) + 1) % cupStyles.length];
-    setCupStyle(next);
-    window.clearTimeout(noticeTimer.current);
-    setNotice(text.cupChanged(text.cups[next].label));
-    noticeTimer.current = window.setTimeout(() => setNotice(''), Math.round(2_800 * durationScale));
-  }
-
   function beginPetDrag(event: ReactPointerEvent<HTMLButtonElement>) {
     if (event.button !== 0 || !isTauriWindow) return;
     petDragStart.current = { pointerId: event.pointerId, x: event.clientX, y: event.clientY };
@@ -848,27 +840,13 @@ export default function App() {
               </span>
             </div>}
           </div>
-          <div className="quick-actions" aria-label={text.actionsAria}>
-            {connected && <>
-              <button type="button" onClick={() => { void send('hug'); }}><span aria-hidden="true">🫂</span>{text.hug}</button>
-              <button type="button" onClick={() => { void send('water'); }}><CupIcon style={pendingCups.self?.style ?? cupStyle} />{text.water}</button>
-              <button className="cup-switch" type="button" onClick={cycleCup} title={text.cups[cupStyle].label}><CupIcon style={cupStyle} />{text.changeCup}<small>{text.cups[cupStyle].shortLabel}</small></button>
-            </>}
-            {connected && replay.length > 0 && (
-              <button className="replay-action" type="button" onClick={() => { dismissPetMenu(); setFrame(0); setPlaying(true); }}>
-                <span aria-hidden="true">▶</span>
-                {text.replay}
-              </button>
-            )}
-            <button className="statistics-action" type="button" onClick={() => { void openPanel('statistics'); }}>
-              <span aria-hidden="true">▥</span>
-              {text.statistics}
-            </button>
-            <button className="settings-action" type="button" onClick={() => { void openPanel('settings'); }}>
-              <span aria-hidden="true">⚙</span>
-              {text.settings}
-            </button>
-          </div>
+          <PetActions language={preferences.language} connected={connected} canReplay={replay.length > 0}
+            cupStyle={pendingCups.self?.style ?? cupStyle}
+            onSettings={() => { void openPanel('settings'); }}
+            onStatistics={() => { void openPanel('statistics'); }}
+            onHug={() => { void send('hug'); }}
+            onWater={() => { void send('water'); }}
+            onReplay={() => { dismissPetMenu(); setFrame(0); setPlaying(true); }} />
         </div>
 
         <div className={`pet-pair ${connected ? 'paired' : 'solo'} ${displayedGesture ? `interacting target-${displayedGesture.target} interaction-${displayedGesture.variant.startsWith('hug') ? 'hug' : 'water'}` : ''}`}>
@@ -892,13 +870,13 @@ export default function App() {
             <SpriteCanvas skin={companions.self.skin} paused={renderPaused}
               className={`pet-sprite ${selfPlayback.displayedActivity} ${selfPlayback.displayedActivity === 'work' ? `work-${selfPlayback.displayedWorkVisual}` : ''} input-${selfPlayback.transition ? 'none' : visualInputKind} ${inputStressed && !selfPlayback.transition ? 'input-stressed' : ''} ${selfPlayback.transition ? 'transition-source-frame' : ''}`}
               aria-hidden="true"
-              onAnimationIteration={selfPlayback.handleLoopBoundary}
+              onLoopBoundary={selfPlayback.handleLoopBoundary}
             />
             {selfPlayback.transition && <SpriteCanvas skin={companions.self.skin} paused={renderPaused}
               key={selfPlayback.transition.key}
               className={`pet-sprite activity-transition ${transitionAssetName(selfPlayback.transition)}`}
               aria-hidden="true"
-              onAnimationEnd={() => selfPlayback.completeTransition(selfPlayback.transition!.key)}
+              onPlaybackEnd={() => selfPlayback.completeTransition(selfPlayback.transition!.key)}
             />}
           </button>
           {connected && <button
@@ -917,13 +895,13 @@ export default function App() {
             <SpriteCanvas skin={partnerSkin} paused={renderPaused}
               className={`pet-sprite partner-sprite ${partnerPlayback.displayedActivity} ${partnerPlayback.displayedActivity === 'work' ? `work-${partnerPlayback.displayedWorkVisual}` : ''} input-none ${playing ? 'replaying' : ''} ${partnerPlayback.transition ? 'transition-source-frame' : ''}`}
               aria-hidden="true"
-              onAnimationIteration={partnerPlayback.handleLoopBoundary}
+              onLoopBoundary={partnerPlayback.handleLoopBoundary}
             />
             {partnerPlayback.transition && <SpriteCanvas skin={partnerSkin} paused={renderPaused}
               key={partnerPlayback.transition.key}
               className={`pet-sprite partner-sprite activity-transition ${transitionAssetName(partnerPlayback.transition)}`}
               aria-hidden="true"
-              onAnimationEnd={() => partnerPlayback.completeTransition(partnerPlayback.transition!.key)}
+              onPlaybackEnd={() => partnerPlayback.completeTransition(partnerPlayback.transition!.key)}
             />}
           </button>}
           {displayedGesture && <SpriteCanvas key={displayedGesture.id} skin={gestureSkins.receiver} senderSkin={displayedGesture.variant.startsWith('hug') ? gestureSkins.sender : undefined} paused={renderPaused} className={`interaction-sprite ${displayedGesture.variant} target-${displayedGesture.target} cup-${displayedGesture.cupStyle ?? 'ceramic'} blanket-${displayedGesture.blanketStyle ?? preferences.blanketStyle}`} aria-hidden="true" />}

@@ -5,12 +5,12 @@ import { cupStyles } from '../domain/types';
 import { CupIcon } from './CupIcon';
 
 describe('built-in mug icons', () => {
-  it('renders a sized vector for every mug without requiring emoji support', () => {
+  it('uses an Aseprite atlas cell for every mug without emoji dependencies', () => {
     const icons = cupStyles.map(style => renderToStaticMarkup(createElement(CupIcon, { style })));
     for (const icon of icons) {
-      expect(icon).toContain('<svg');
-      expect(icon).toContain('<path');
-      expect(icon).toContain('width="24"');
+      expect(icon).toContain('pixel-icon');
+      expect(icon).toContain('data-icon=');
+      expect(icon).toContain('--icon-position:');
       expect(icon).not.toContain('🥤');
     }
     expect(new Set(icons).size).toBe(3);

@@ -4,17 +4,25 @@ import { petSkinFilters } from './skins';
 import { frameFromPosition, SOURCE_FRAME_HEIGHT as H, SOURCE_FRAME_WIDTH as W, spriteAssetFor, spriteSheets } from './spriteAssets';
 import { hugFrameSamples, hugSenderContour } from './hugOwnership';
 import { normalizeHugSenderPalette } from './hugPalette';
+import { spriteClock } from './frameClock';
 
-interface Props extends HTMLAttributes<HTMLSpanElement> { skin: PetSkin; senderSkin?: PetSkin; paused: boolean }
+interface Props extends HTMLAttributes<HTMLSpanElement> {
+  skin: PetSkin; senderSkin?: PetSkin; paused: boolean;
+  onLoopBoundary?: () => boolean;
+  onPlaybackEnd?: () => void;
+}
 const PAD = 64;
 
-// Keep the existing CSS clock and animation boundary events. Only rasterization
-// changes: a small current-frame canvas replaces the GPU's entire strip/filter.
-export function SpriteCanvas({ skin, senderSkin, paused, className = '', ...props }: Props) {
+// Paint at source-frame boundaries, not 60 fps, using a monotonic canvas clock.
+// Work stays input-driven. Only the current frame occupies a GPU surface.
+export function SpriteCanvas({ skin, senderSkin, paused, className = '', onLoopBoundary, onPlaybackEnd, ...props }: Props) {
   const element = useRef<HTMLSpanElement>(null);
   const canvas = useRef<HTMLCanvasElement>(null);
   const senderCanvas = useRef<HTMLCanvasElement>(null);
   const [failed, setFailed] = useState(false);
+  const callbacks = useRef({ onLoopBoundary, onPlaybackEnd });
+  callbacks.current = { onLoopBoundary, onPlaybackEnd };
+  const clockState = useRef<{ key: string; start: number; duration: number; cycle: number } | undefined>(undefined);
   const asset = spriteAssetFor(className);
   useLayoutEffect(() => {
     const node = element.current;
@@ -22,6 +30,7 @@ export function SpriteCanvas({ skin, senderSkin, paused, className = '', ...prop
     const senderSurface = senderCanvas.current;
     if (!node || !surface) return;
     if (paused) {
+      clockState.current = undefined;
       // Setting dimensions releases the backing surface, not just its contents.
       surface.width = surface.height = 1;
       if (senderSurface) senderSurface.width = senderSurface.height = 1;
@@ -54,10 +63,32 @@ export function SpriteCanvas({ skin, senderSkin, paused, className = '', ...prop
       // Older WKWebView versions retain colors using a small-canvas CSS fallback.
       if (!dualSkin) surface.style.filter = nativeFilter ? 'none' : `${petSkinFilters[skin]} drop-shadow(0 ${shadow[0]}px ${shadow[1]}px rgba(86,45,67,${shadow[2]}))`;
       let previousFrame = -1;
+      const loop = ['idle', 'meeting', 'leisure', 'rest'].includes(asset) && !className.includes('transition-source-frame');
+      const finite = className.includes('activity-transition') || className.includes('interaction-sprite');
+      const clockKey = `${asset}:${loop ? 'loop' : finite ? 'once' : 'still'}`;
       const paint = () => {
         if (cancelled) return;
         const style = getComputedStyle(node);
-        const frame = frameFromPosition(style.backgroundPositionX, sheet.frames);
+        const cssDuration = Number.parseFloat(style.animationDuration) * 1000 || 0;
+        const reduced = cssDuration <= 1 || style.animationName === 'none';
+        const duration = reduced && loop ? 1000 : Math.max(1, cssDuration);
+        const now = performance.now();
+        let state = clockState.current;
+        if (!state || state.key !== clockKey) state = clockState.current = { key: clockKey, start: now, duration, cycle: 0 };
+        if (duration !== state.duration) {
+          // Speed changes preserve phase; changing skin never rewinds the body.
+          state.start = now - (now - state.start) * duration / state.duration;
+          state.duration = duration;
+        }
+        const clock = spriteClock(now - state.start, duration, sheet.frames, loop);
+        let stopAtBoundary = false;
+        if (loop && clock.cycle > state.cycle) {
+          state.cycle = clock.cycle;
+          stopAtBoundary = callbacks.current.onLoopBoundary?.() ?? false;
+        }
+        const frame = stopAtBoundary ? sheet.frames - 1
+          : reduced ? (finite ? sheet.frames - 1 : frameFromPosition(style.backgroundPositionX, sheet.frames))
+          : loop || finite ? clock.frame : frameFromPosition(style.backgroundPositionX, sheet.frames);
         if (frame !== previousFrame) {
           context.clearRect(0, 0, surface.width, surface.height);
           if (dualSkin && senderContext) {
@@ -98,20 +129,26 @@ export function SpriteCanvas({ skin, senderSkin, paused, className = '', ...prop
             context.drawImage(sheet.image, frame * W, 0, W, H, PAD, PAD, W, H);
           }
           previousFrame = frame;
+          node.dataset.frame = String(frame);
         }
-        const animation = node.getAnimations().find(item => item.playState === 'running');
-        if (!animation) return;
-        const duration = Number(animation.effect?.getTiming().duration) || 0;
-        const time = Number(animation.currentTime) || 0;
-        const interval = duration / sheet.frames;
-        // Wake at an actual frame boundary, never at the display refresh rate.
-        if (interval > 0) timer = window.setTimeout(paint, Math.max(8, interval - time % interval + 2));
+        if (finite && (reduced || clock.complete)) { callbacks.current.onPlaybackEnd?.(); return; }
+        if (stopAtBoundary || !(loop || finite)) return;
+        // Reduced motion still reconciles new remote states, without animating.
+        timer = window.setTimeout(paint, reduced ? 1000 : clock.nextMs);
       };
       paint();
     }).catch(() => { if (!cancelled) setFailed(true); });
     return () => { cancelled = true; window.clearTimeout(timer); lease.release(); };
   }, [asset, className, paused, skin, senderSkin]);
-  return <span {...props} ref={element} className={`${className} ${failed ? '' : 'canvas-sprite'}`}>
+  return <span {...props} ref={element} data-sprite={asset} className={`${className} ${failed ? '' : 'canvas-sprite'}`}
+    onAnimationIteration={event => {
+      props.onAnimationIteration?.(event);
+      if (failed) callbacks.current.onLoopBoundary?.();
+    }}
+    onAnimationEnd={event => {
+      props.onAnimationEnd?.(event);
+      if (failed) callbacks.current.onPlaybackEnd?.();
+    }}>
     <canvas ref={canvas} aria-hidden="true" style={{ display: failed ? 'none' : undefined }} />
     {senderSkin && <canvas ref={senderCanvas} aria-hidden="true" style={{ display: failed ? 'none' : undefined }} />}
   </span>;

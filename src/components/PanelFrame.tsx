@@ -2,6 +2,7 @@ import { useEffect, useRef, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
 import { getCurrentWindow } from '@tauri-apps/api/window';
 import { languageTags, type Language } from '../platform/language';
+import { PixelIcon } from './PixelIcon';
 
 interface Props {
   title: string;
@@ -54,7 +55,7 @@ export function PanelFrame({ title, closeLabel, language, onClose, children, nav
     }}>
       <span className="settings-mascot" aria-hidden="true" />
       <div><small>MewLink</small><h2 id="panel-title">{title}</h2></div>
-      <button ref={close} type="button" className="settings-close" onClick={onClose} aria-label={closeLabel}>×</button>
+      <button ref={close} type="button" className="settings-close" onClick={onClose} aria-label={closeLabel}><PixelIcon name="close" /></button>
     </header>
     {navigation}
     <div ref={scroll} className="settings-scroll">{children}</div>

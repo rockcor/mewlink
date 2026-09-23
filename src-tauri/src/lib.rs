@@ -1,5 +1,5 @@
 use serde::Serialize;
-use tauri::{Manager, PhysicalPosition};
+use tauri::Manager;
 mod autostart;
 mod language;
 mod resources;
@@ -859,16 +859,7 @@ pub fn run() {
         .setup(|app| {
             resources::start_input_monitor(app.handle().clone());
             if let Some(window) = app.get_webview_window("main") {
-                if let Some(monitor) = window.current_monitor()? {
-                    let work_area = monitor.work_area();
-                    let window_size = window.outer_size()?;
-                    let margin = 16;
-                    let right = work_area.position.x + work_area.size.width as i32;
-                    let bottom = work_area.position.y + work_area.size.height as i32;
-                    let x = (right - window_size.width as i32 - margin).max(work_area.position.x);
-                    let y = (bottom - window_size.height as i32 - margin).max(work_area.position.y);
-                    window.set_position(PhysicalPosition::new(x, y))?;
-                }
+                window_layout::position_initial_pet(&window)?;
             }
             Ok(())
         })

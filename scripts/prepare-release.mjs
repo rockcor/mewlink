@@ -32,7 +32,7 @@ try {
   const macDownload = { url: `https://github.com/${repository}/releases/download/v${version}/MewLink_${version}_universal.dmg`, format: 'dmg' };
   const manifest = {
     schema: 1, version, source: process.env.GITHUB_SHA,
-    notes: '新增贝壳皮肤与开机启动开关；改善设置和统计窗口适配，修复双方状态、皮肤和喝水/拥抱互动。 / Adds Shell skin and launch-at-login controls; improves settings and statistics layout; fixes companion presence, skin ownership, and water/hug interactions.',
+    notes: '修复对方宠物停在空闲动画的问题；改善小屏幕下的菜单与设置，统一像素按钮，水杯改为在设置中选择。 / Fixes companions stuck in idle animations; improves menus and settings on small displays, adds pixel controls, and moves mug selection into Settings.',
     pub_date: new Date().toISOString(),
     platforms: { 'darwin-aarch64': macUpdate, 'darwin-x86_64': macUpdate, 'windows-x86_64': winUpdate },
     downloads: { 'darwin-aarch64': macDownload, 'darwin-x86_64': macDownload, 'windows-x86_64': { url: winUpdate.url, format: 'exe' } },
