@@ -8,6 +8,7 @@ interface Props {
   language: Language;
   connected: boolean;
   canReplay: boolean;
+  replaying?: boolean;
   cupStyle: CupStyle;
   onSettings: () => void;
   onStatistics: () => void;
@@ -16,7 +17,7 @@ interface Props {
   onReplay: () => void;
 }
 
-export function PetActions({ language, connected, canReplay, cupStyle, onSettings, onStatistics, onHug, onWater, onReplay }: Props) {
+export function PetActions({ language, connected, canReplay, replaying, cupStyle, onSettings, onStatistics, onHug, onWater, onReplay }: Props) {
   const text = appCopy[language];
   return <div className="quick-actions" role="group" aria-label={text.actionsAria}>
     <button className="settings-action" type="button" onClick={onSettings}><PixelIcon name="settings" />{text.settings}</button>
@@ -24,7 +25,7 @@ export function PetActions({ language, connected, canReplay, cupStyle, onSetting
     {connected && <>
       <button type="button" onClick={onHug}><PixelIcon name="hug" />{text.hug}</button>
       <button type="button" onClick={onWater}><CupIcon style={cupStyle} />{text.water}</button>
-      {canReplay && <button className="replay-action" type="button" onClick={onReplay}><PixelIcon name="replay" />{text.replay}</button>}
+      {canReplay && <button className="replay-action" type="button" aria-pressed={Boolean(replaying)} onClick={onReplay}><PixelIcon name="replay" />{replaying ? text.stopReplay : text.replay}</button>}
     </>}
   </div>;
 }

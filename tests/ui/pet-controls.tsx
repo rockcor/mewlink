@@ -50,7 +50,7 @@ export function Checks() {
     updateState={{ kind: 'current', message: 'UI fixture · no network' }}
     feedback="" feedbackNickname="" feedbackSending={false} feedbackStatus="" pairingStatus="" pairingBusy={false}
     inviteCode="" joinCode="" safetyCode="" onCheckUpdate={noop} onInstallUpdate={noop} onFeedbackChange={noop}
-    onFeedbackNicknameChange={noop} onShareFeedback={noop} onCreatePairing={noop} onCopyInvite={noop}
+    onFeedbackNicknameChange={noop} onShareFeedback={noop} onCreatePairing={noop} onCopyInvite={async () => undefined}
     onJoinCodeChange={noop} onJoinPairing={noop} onDisconnect={noop} onClose={() => setPanel('')} />}
   {panel === 'statistics' && <StatisticsPanel language={preferences.language} connected visibility="private" onVisibilityChange={noop} onClose={() => setPanel('')} />}
   </>;

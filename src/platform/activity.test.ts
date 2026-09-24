@@ -1,4 +1,4 @@
-import { classify, inputBurstReached, inputChangesForSequence, keyboardEventsForSequence, KEYBOARD_STRESS_THRESHOLD, nextSampleDelay, POINTER_ANIMATION_INTERVAL_MS, POINTER_EVENTS_PER_ANIMATION, POINTER_STRESS_THRESHOLD, pointerClicksForSequence, pointerEventsForSequence, shouldAnimatePointer, trimInputBurst, visualInputForActivity, workVisualFor } from './activity';
+import { classify, inputBurstReached, inputBurstSampleForSequence, inputChangesForSequence, keyboardEventsForSequence, KEYBOARD_STRESS_THRESHOLD, nextSampleDelay, POINTER_ANIMATION_INTERVAL_MS, POINTER_EVENTS_PER_ANIMATION, POINTER_CLICK_STRESS_THRESHOLD, pointerClicksForSequence, pointerEventsForSequence, shouldAnimatePointer, trimInputBurst, visualInputForActivity, workVisualFor, type InputBurstSample } from './activity';
 import { describe, expect, it } from 'vitest';
 import { nextActivity } from './activity';
 describe('privacy-first activity classification', () => {
@@ -64,11 +64,62 @@ describe('privacy-first activity classification', () => {
     expect(shouldAnimatePointer(1_000, 1_000 + POINTER_ANIMATION_INTERVAL_MS)).toBe(true);
   });
   it('shows the tense face only after a real input burst', () => {
-    expect(inputBurstReached([{ at: 1_000, keyboard: KEYBOARD_STRESS_THRESHOLD - 1, pointer: 0 }])).toBe(false);
-    expect(inputBurstReached([{ at: 1_000, keyboard: KEYBOARD_STRESS_THRESHOLD, pointer: 0 }])).toBe(true);
-    expect(inputBurstReached([{ at: 1_000, keyboard: 0, pointer: POINTER_STRESS_THRESHOLD - 1 }])).toBe(false);
-    expect(inputBurstReached([{ at: 1_000, keyboard: 0, pointer: POINTER_STRESS_THRESHOLD }])).toBe(true);
-    expect(trimInputBurst([{ at: 100, keyboard: 10, pointer: 0 }, { at: 1_900, keyboard: 1, pointer: 0 }], 2_000))
-      .toEqual([{ at: 1_900, keyboard: 1, pointer: 0 }]);
+    expect(inputBurstReached([{ at: 1_000, keyboard: KEYBOARD_STRESS_THRESHOLD - 1, pointerClicks: 0 }])).toBe(false);
+    expect(inputBurstReached([{ at: 1_000, keyboard: KEYBOARD_STRESS_THRESHOLD, pointerClicks: 0 }])).toBe(true);
+    expect(inputBurstReached([{ at: 1_000, keyboard: 0, pointerClicks: POINTER_CLICK_STRESS_THRESHOLD - 1 }])).toBe(false);
+    expect(inputBurstReached([{ at: 1_000, keyboard: 0, pointerClicks: POINTER_CLICK_STRESS_THRESHOLD }])).toBe(true);
+    expect(trimInputBurst([{ at: 100, keyboard: 10, pointerClicks: 0 }, { at: 1_900, keyboard: 1, pointerClicks: 0 }], 2_000))
+      .toEqual([{ at: 1_900, keyboard: 1, pointerClicks: 0 }]);
+  });
+});
+
+describe('tense eyes respond to presses, not pointer movement', () => {
+  const baseline = { keyboardSequence: 20, pointerSequence: 100, pointerClickSequence: 7, recentKind: 'pointer' as const };
+
+  it('ignores dense movement, dragging and scrolling while still moving the pointer hand', () => {
+    const moving = { ...baseline, pointerSequence: 50_000 };
+    expect(inputChangesForSequence(baseline, moving).pointer).toBe(true);
+    expect(pointerEventsForSequence(baseline, moving)).toBeGreaterThan(POINTER_EVENTS_PER_ANIMATION);
+    expect(inputBurstSampleForSequence(baseline, moving, 1000)).toBeUndefined();
+  });
+  it('does not let movement turn a single or double click into a click burst', () => {
+    for (const clicks of [1, 2]) {
+      const sample = inputBurstSampleForSequence(baseline, { ...baseline, pointerSequence: 50_000, pointerClickSequence: 7 + clicks }, 1000)!;
+      expect(sample.pointerClicks).toBe(clicks);
+      expect(inputBurstReached([sample])).toBe(false);
+    }
+  });
+  it('allows a real rapid click burst to trigger the face', () => {
+    const sample = inputBurstSampleForSequence(baseline, { ...baseline, pointerSequence: 100 + POINTER_CLICK_STRESS_THRESHOLD, pointerClickSequence: 7 + POINTER_CLICK_STRESS_THRESHOLD }, 1000)!;
+    expect(inputBurstReached([sample])).toBe(true);
+  });
+  it('allows typing to trigger the face independently of mouse movement', () => {
+    const sample = inputBurstSampleForSequence(baseline, { ...baseline, keyboardSequence: 20 + KEYBOARD_STRESS_THRESHOLD, pointerSequence: 50_000 }, 1000)!;
+    expect(sample).toEqual({ at: 1000, keyboard: KEYBOARD_STRESS_THRESHOLD, pointerClicks: 0 });
+    expect(inputBurstReached([sample])).toBe(true);
+  });
+  it('does not retrigger or extend a previous burst when only the pointer continues moving', () => {
+    let previous = { ...baseline, keyboardSequence: 20 + KEYBOARD_STRESS_THRESHOLD };
+    let samples: InputBurstSample[] = [inputBurstSampleForSequence(baseline, previous, 0)!];
+    expect(inputBurstReached(samples)).toBe(true);
+    for (let at = 100; at <= 2000; at += 100) {
+      const moving = { ...previous, pointerSequence: previous.pointerSequence + 1000 };
+      samples = trimInputBurst(samples, at);
+      // The caller only restarts the eye timer when this returns a new sample.
+      expect(inputBurstSampleForSequence(previous, moving, at)).toBeUndefined();
+      previous = moving;
+    }
+    expect(inputBurstReached(samples)).toBe(false);
+  });
+  it('does not accumulate spaced-out clicks into a burst', () => {
+    let previous = baseline;
+    let samples: InputBurstSample[] = [];
+    for (let click = 1; click <= POINTER_CLICK_STRESS_THRESHOLD * 2; click++) {
+      const at = click * 1000;
+      const current = { ...previous, pointerClickSequence: previous.pointerClickSequence + 1, pointerSequence: previous.pointerSequence + 1 };
+      samples = [...trimInputBurst(samples, at), inputBurstSampleForSequence(previous, current, at)!];
+      expect(inputBurstReached(samples)).toBe(false);
+      previous = current;
+    }
   });
 });

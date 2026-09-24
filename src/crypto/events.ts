@@ -1,4 +1,5 @@
 import { petSkins, workVisuals, type EncryptedEnvelope, type PlainEvent } from '../domain/types';
+import { validOperationBatch } from '../history/operations';
 
 type Sodium = typeof import('libsodium-wrappers-sumo').default;
 let sodiumPromise: Promise<Sodium> | undefined;
@@ -21,6 +22,8 @@ function isPlainEvent(value: unknown): value is PlainEvent {
     || typeof event.relationshipId !== 'string' || typeof event.senderDeviceId !== 'string'
     || typeof event.createdAt !== 'string' || typeof event.payload !== 'object' || !event.payload) return false;
   const payload = event.payload as Record<string, unknown>;
+  if (event.kind === 'operation.batch') return Number.isFinite(Date.parse(event.createdAt))
+    && validOperationBatch(payload) && event.createdAt === payload.startedAt;
   if (event.kind === 'cup.consumed') return typeof payload.cupEventId === 'string' && payload.cupEventId.length > 0 && payload.cupEventId.length <= 80;
   if (event.kind === 'interaction') {
     return payload.action === 'water' || payload.action === 'hug';

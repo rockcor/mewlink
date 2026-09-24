@@ -14,6 +14,10 @@ export const statisticsVisibilities = ['private', 'partner'] as const;
 export type StatisticsVisibility = (typeof statisticsVisibilities)[number];
 
 export interface ActivitySegment { category: ActivityKind; startedAt: string; endedAt: string; workVisual?: WorkVisual }
+// Relative milliseconds, key presses, pointer events, clicks, activity, work screen.
+// Counts and categories only: never key values, titles, URLs or coordinates.
+export type OperationPoint = [number, number, number, number, number, number];
+export interface OperationBatch { format: 1; startedAt: string; points: OperationPoint[] }
 export interface InteractionPayload { action: InteractionKind; cupStyle?: CupStyle; blanketStyle?: BlanketStyle; phraseId?: string }
 export interface PetSkinPayload { skin: PetSkin }
 export interface CupConsumedPayload { cupEventId: string }
@@ -31,8 +35,8 @@ export interface StatisticsPayload {
 export interface PlainEvent {
   id: string; version: 1; relationshipId: string; senderDeviceId: string; createdAt: string;
   senderUtcOffsetMinutes?: number;
-  kind: 'activity.segment' | 'interaction' | 'profile.skin' | 'statistics.snapshot' | 'cup.consumed';
-  payload: ActivitySegment | InteractionPayload | PetSkinPayload | StatisticsPayload | CupConsumedPayload;
+  kind: 'activity.segment' | 'interaction' | 'profile.skin' | 'statistics.snapshot' | 'cup.consumed' | 'operation.batch';
+  payload: ActivitySegment | InteractionPayload | PetSkinPayload | StatisticsPayload | CupConsumedPayload | OperationBatch;
 }
 export interface EncryptedEnvelope {
   protocolVersion: 1; relationshipId: string; senderDeviceId: string; recipientDeviceId: string;

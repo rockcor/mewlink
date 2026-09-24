@@ -1,6 +1,6 @@
 [package]
 name = "mewlink"
-version = "0.3.25"
+version = "0.3.26"
 description = "Privacy-first ambient couple companion"
 authors = ["MewLink contributors"]
 edition = "2021"
@@ -17,6 +17,7 @@ serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 tauri = { version = "~2.11", features = ["macos-private-api"] }
 tauri-plugin-autostart = "~2.5.1"
+tauri-plugin-clipboard-manager = "2"
 tauri-plugin-dialog = "2"
 tauri-plugin-process = "2"
 tauri-plugin-updater = "2"
@@ -30,4 +31,4 @@ objc2-app-kit = { version = "0.3", default-features = false, features = ["std", 
 winreg = "0.55"
 webview2-com = "=0.38.2"
 windows-core = "=0.61.2"
-windows-sys = { version = "0.61", features = ["Win32_Foundation", "Win32_Globalization", "Win32_System_StationsAndDesktops", "Win32_System_SystemInformation", "Win32_System_Threading", "Win32_UI_Input_KeyboardAndMouse", "Win32_UI_WindowsAndMessaging"] }
+windows-sys = { version = "0.61", features = ["Win32_Foundation", "Win32_Globalization", "Win32_System_LibraryLoader", "Win32_System_StationsAndDesktops", "Win32_System_SystemInformation", "Win32_System_Threading", "Win32_UI_Input_KeyboardAndMouse", "Win32_UI_WindowsAndMessaging"] }

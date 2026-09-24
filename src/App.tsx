@@ -14,12 +14,11 @@ import {
   createPairingState,
   loadPairing,
   pairingInviteCode,
-  pairingInviteSecondsLeft,
   pairingSafetyCode,
   savePairing,
   type PairingState,
 } from './pairing/pairing';
-import { activityProbe, nextActivity, demoInitialActivity, demoInitialWorkVisual, inputBurstReached, inputChangesForSequence, INPUT_STRESS_HOLD_MS, keyboardEventsForSequence, nextSampleDelay, POINTER_ANIMATION_HOLD_MS, POINTER_EVENTS_PER_ANIMATION, pointerClicksForSequence, pointerEventsForSequence, shouldAnimatePointer, trimInputBurst, visualInputForActivity, workVisualFor, type InputBurstSample, type InputSignal } from './platform/activity';
+import { activityProbe, nextActivity, demoInitialActivity, demoInitialWorkVisual, inputBurstReached, inputBurstSampleForSequence, inputChangesForSequence, INPUT_STRESS_HOLD_MS, keyboardEventsForSequence, nextSampleDelay, POINTER_ANIMATION_HOLD_MS, POINTER_EVENTS_PER_ANIMATION, pointerClicksForSequence, pointerEventsForSequence, shouldAnimatePointer, trimInputBurst, visualInputForActivity, workVisualFor, type InputBurstSample, type InputSignal } from './platform/activity';
 import { ACTIVITY_TRANSITION_MS, gestureFor, waterDrinkDelay, type GestureVariant } from './pet/interaction';
 import { transitionAssetName, useActivityPlayback } from './pet/activityPlayback';
 import { petSkinFilters } from './pet/skins';
@@ -29,14 +28,16 @@ import { watchInput } from './platform/inputStream';
 import { useRenderBudget } from './platform/resources';
 import { localUtcOffsetMinutes } from './platform/clock';
 import { languageTags, watchSystemLanguage } from './platform/language';
-import { joinWithPairingCode, registerPairCreator, sendEncryptedEvent, syncEncryptedEvents } from './services/relayTransport';
+import { joinWithPairingCode, registerPairCreator, syncEncryptedEvents } from './services/relayTransport';
 import { checkForUpdate, installUpdate } from './services/update';
 import { submitFeedback } from './services/feedback';
 import type { Update } from '@tauri-apps/plugin-updater';
-import { pruneEventsOlderThan, putEvent } from './storage/events';
-import { buildReplay } from './services/replay';
+import { discardRelationshipHistory, pruneEventsOlderThan, putEvent } from './storage/events';
+import { queueEncryptedEvent, flushEncryptedOutbox } from './history/outbox';
+import { useOperationHistory } from './history/useOperationHistory';
 import { companionStates, partnerEventsFor, PRESENCE_HEARTBEAT_MS } from './services/companionState';
 import { createSessionQueue } from './pairing/sessionQueue';
+import { copyPairingInvite } from './pairing/copyInvite';
 import { animationDurationScale, effectiveUtcOffsetMinutes, loadPreferences, savePreferences, scalePetWithPinch } from './settings/preferences';
 import { currentStatisticsBundle, flushStatistics, recordActivityStatistics, recordInputStatistics } from './statistics/statistics';
 import { appCopy } from './i18n';
@@ -67,8 +68,16 @@ export default function App() {
   const [pointerPressed, setPointerPressed] = useState(false);
   const [inputStressed, setInputStressed] = useState(false);
   const [events, setEvents] = useState<StoredEvent[]>([]);
-  const [playing, setPlaying] = useState(false);
-  const [frame, setFrame] = useState(0);
+  const [historyRevision, setHistoryRevision] = useState(0);
+  const historyInput = useRef<(previous: InputSignal, current: InputSignal) => void>(() => undefined);
+  const historyScreenChange = useRef<() => void>(() => undefined);
+  const historyStart = useRef<(unseenOnly?: boolean) => Promise<void>>(async () => undefined);
+  const historyStop = useRef<() => void>(() => undefined);
+  const replayingRef = useRef(false);
+  const syncStartedAt = useRef(Date.now());
+  const outboxFlushAt = useRef(0);
+  const autoReplayPending = useRef(true);
+  const autoReplayRunning = useRef(false);
   const [gesture, setGesture] = useState<{ id: string; variant: GestureVariant; target: PetTarget; cupStyle?: CupStyle; blanketStyle?: BlanketStyle }>();
   const [pendingCups, setPendingCups] = useState(loadPendingCups);
   const pendingCupsRef = useRef(pendingCups);
@@ -117,10 +126,6 @@ export default function App() {
   const partnerUtcOffsetMinutes = useMemo(() => [...partnerEvents].reverse().find(({ event }) => event.senderUtcOffsetMinutes !== undefined)?.event.senderUtcOffsetMinutes, [partnerEvents]);
   const inviteCode = pairing && !pairing.partnerDeviceId ? pairingInviteCode(pairing) : '';
   const durationScale = demoInitialActivity ? 0.2 : animationDurationScale(preferences.animationSpeed);
-  const replay = useMemo(
-    () => preferences.replayEnabled ? buildReplay(partnerEvents, receiverUtcOffsetMinutes, preferences.timezoneMode !== 'off', preferences.language) : [],
-    [partnerEvents, preferences.language, preferences.replayEnabled, preferences.timezoneMode, receiverUtcOffsetMinutes]
-  );
   const partnerStatisticsSnapshots = useMemo(() => {
     const latest = [...partnerEvents].reverse().find(({ event }) => event.kind === 'statistics.snapshot');
     if (!latest) return undefined;
@@ -129,12 +134,11 @@ export default function App() {
   }, [partnerEvents]);
   const companions = useMemo(() => companionStates(
     { activity, workVisual, skin: preferences.selfPetSkin }, partnerEvents, pairing,
-    playing ? { items: replay, frame } : undefined, presenceNow,
-  ), [activity, workVisual, preferences.selfPetSkin, partnerEvents, pairing, playing, replay, frame, presenceNow]);
+    undefined, presenceNow,
+  ), [activity, workVisual, preferences.selfPetSkin, partnerEvents, pairing, presenceNow]);
   const partnerSkin = companions.partner.skin;
-  const current = playing ? replay[frame] : undefined;
-  const partnerActivity = companions.partner.activity;
-  const partnerLabel = current?.label ?? (companions.partnerLive ? text.status[partnerActivity] : text.partnerWaiting);
+  const [historyDisplay, setHistoryDisplay] = useState<{ activity: ActivityKind; workVisual: WorkVisual }>();
+  const partnerActivity = historyDisplay?.activity ?? companions.partner.activity;
   const visualInputKind = visualInputForActivity(activity, keyboardPressed, pointerPressed);
   const selfPlayback = useActivityPlayback({
     paused: renderPaused,
@@ -147,9 +151,9 @@ export default function App() {
   });
   const partnerPlayback = useActivityPlayback({
     paused: renderPaused || !connected,
-    desiredActivity: partnerActivity,
-    desiredWorkVisual: companions.partner.workVisual,
-    initialActivity: 'idle',
+    desiredActivity: historyDisplay?.activity ?? (companions.partnerLive ? partnerActivity : 'work'),
+    desiredWorkVisual: historyDisplay?.workVisual ?? companions.partner.workVisual,
+    initialActivity: 'work',
     initialWorkVisual: 'web',
     workHandsSettled: true,
     transitionDurationMs: Math.round(ACTIVITY_TRANSITION_MS * durationScale),
@@ -237,16 +241,34 @@ export default function App() {
     return sessionQueue(async () => {
       const active = pairingRef.current;
       if (!active?.partnerDeviceId || active.relationshipId !== relationshipId) throw new Error('pairing_required');
-      const result = await sendEncryptedEvent(active, createEvent(active));
+      const result = await queueEncryptedEvent(active, createEvent(active));
       if (pairingRef.current?.relationshipId !== relationshipId) throw new Error('pairing_changed');
       persistPairing(result.state);
-      await putEvent(result.stored);
-      setEvents(currentEvents => currentEvents.some(item => item.event.id === result.stored.event.id)
-        ? currentEvents
-        : [...currentEvents, result.stored]);
+      if (result.stored.event.kind !== 'operation.batch') {
+        setEvents(currentEvents => currentEvents.some(item => item.event.id === result.stored.event.id)
+          ? currentEvents : [...currentEvents, result.stored]);
+      }
       return result.stored;
     });
   }, [persistPairing, sessionQueue]);
+
+  const history = useOperationHistory({
+    pairing, enabled: preferences.replayEnabled, activity, workVisual, paused: renderPaused,
+    retentionHours: preferences.replayRetentionHours, receiverOffset: receiverUtcOffsetMinutes,
+    showTimezone: preferences.timezoneMode !== 'off', language: preferences.language,
+    revision: historyRevision, onRecord: enqueueEncryptedEvent, durationScale,
+    displayReady: (target, visual) => !partnerPlayback.transition && partnerPlayback.displayedActivity === target
+      && (target !== 'work' || partnerPlayback.displayedWorkVisual === visual),
+  });
+  historyInput.current = history.recordInput;
+  historyScreenChange.current = history.recordScreenChange;
+  historyStart.current = history.start;
+  historyStop.current = history.stop;
+  replayingRef.current = history.playing;
+  const playing = history.playing;
+  const current = history.current;
+  const partnerLabel = current?.label ?? (companions.partnerLive ? text.status[partnerActivity] : text.partnerWaiting);
+  useEffect(() => { setHistoryDisplay(history.playing ? history.display : undefined); }, [history.playing, history.display]);
 
   const publishStatistics = useCallback((visibility: StatisticsVisibility) => enqueueEncryptedEvent(active => {
     const generatedAt = new Date().toISOString();
@@ -300,12 +322,16 @@ export default function App() {
   }), [enqueueEncryptedEvent]);
 
   useEffect(() => {
-    void pruneEventsOlderThan(preferences.replayRetentionHours).then(saved => {
+    const prune = () => { void pruneEventsOlderThan(preferences.replayRetentionHours).then(saved => {
       const cutoff = Date.now() - preferences.replayRetentionHours * 3_600_000;
       setEvents(currentEvents => [...new Map([...saved, ...currentEvents]
         .filter(item => Date.parse(item.event.createdAt) >= cutoff)
         .map(item => [item.event.id, item])).values()]);
-    });
+      setHistoryRevision(revision => revision + 1);
+    }).catch(() => undefined); };
+    prune();
+    const timer = window.setInterval(prune, 60_000);
+    return () => window.clearInterval(timer);
   }, [preferences.replayRetentionHours]);
   useEffect(() => {
     if (!connected) return;
@@ -414,14 +440,26 @@ export default function App() {
         await sessionQueue(async () => {
           const active = pairingRef.current;
           if (stopped || !active) return;
+          if (active.partnerDeviceId && Date.now() - outboxFlushAt.current >= 3000) {
+            outboxFlushAt.current = Date.now();
+            try { await flushEncryptedOutbox(active); } catch { /* Persisted ciphertext retries on the next sync. */ }
+          }
           const result = await syncEncryptedEvents(active);
           if (stopped || pairingRef.current?.relationshipId !== active.relationshipId) return;
           setPairingStatus(result.state.partnerDeviceId ? text.connected : text.waitingForInvite);
           for (const stored of result.received) {
             await putEvent(stored);
             if (stopped || pairingRef.current?.relationshipId !== active.relationshipId) return;
-            setEvents(currentEvents => currentEvents.some(item => item.event.id === stored.event.id) ? currentEvents : [...currentEvents, stored]);
-            if (stored.event.kind === 'interaction') {
+            if (stored.event.kind === 'operation.batch') {
+              setHistoryRevision(revision => revision + 1);
+            } else {
+              setEvents(currentEvents => currentEvents.some(item => item.event.id === stored.event.id) ? currentEvents : [...currentEvents, stored]);
+            }
+            // Historical interactions belong in replay, never fire a pile of
+            // old animations immediately after reconnecting.
+            if (stored.event.kind === 'interaction' && !replayingRef.current
+              && Date.now() - Date.parse(stored.event.createdAt) < 15_000
+              && Date.parse(stored.event.createdAt) >= syncStartedAt.current) {
               const payload = stored.event.payload as InteractionPayload;
               incomingInteractionRef.current(payload.action, payload.cupStyle, payload.blanketStyle, stored.event.id);
             } else if (stored.event.kind === 'cup.consumed') {
@@ -434,6 +472,14 @@ export default function App() {
             persistPairing(result.state);
           }
           setPresenceNow(Date.now());
+          if (result.partnerOnline && autoReplayRunning.current) historyStop.current();
+          if (autoReplayPending.current && result.caughtUp) {
+            autoReplayPending.current = false;
+            if (!result.partnerOnline) {
+              autoReplayRunning.current = true;
+              void historyStart.current(true).finally(() => { autoReplayRunning.current = false; });
+            }
+          }
         });
       } catch {
         if (!stopped) setPairingStatus(text.connectionRetry);
@@ -442,17 +488,24 @@ export default function App() {
       }
     };
     void sync();
+    const reconnect = () => { autoReplayPending.current = true; syncStartedAt.current = Date.now(); void sync(); };
+    window.addEventListener('online', reconnect);
     const timer = window.setInterval(() => { void sync(); }, 2_500);
-    return () => { stopped = true; window.clearInterval(timer); };
+    return () => { stopped = true; window.clearInterval(timer); window.removeEventListener('online', reconnect); };
   }, [pairing?.relationshipId, pairing?.deviceId, persistPairing, sessionQueue, text, drinkCup]);
   useEffect(() => {
     let timer: number | undefined;
     let stopped = false;
+    let foregroundSequence: number | undefined;
     const sample = async () => {
       let delay = 1_000;
       try {
         const signal = await activityProbe.sample();
         if (stopped) return;
+        if (signal.foregroundSequence !== undefined && foregroundSequence !== undefined && signal.foregroundSequence !== foregroundSequence) {
+          historyScreenChange.current();
+        }
+        foregroundSequence = signal.foregroundSequence;
         setLocked(current => current === signal.locked ? current : signal.locked);
         if (!signal.locked && signal.idleSeconds < 120 && signal.appClass !== 'unknown') setWorkVisual(workVisualFor(signal));
         setActivity(currentActivity => nextActivity(currentActivity, signal));
@@ -479,6 +532,7 @@ export default function App() {
     const sample = (signal: InputSignal) => {
       if (stopped) return;
       if (previous) {
+        historyInput.current(previous, signal);
         const changes = inputChangesForSequence(previous, signal);
         const keyboardEvents = keyboardEventsForSequence(previous, signal);
         const pointerEvents = pointerEventsForSequence(previous, signal);
@@ -493,8 +547,9 @@ export default function App() {
         }
         const now = performance.now();
         burstSamples = trimInputBurst(burstSamples, now);
-        if (keyboardEvents > 0 || pointerEvents > 0) {
-          burstSamples.push({ at: now, keyboard: keyboardEvents, pointer: pointerEvents });
+        const burstSample = inputBurstSampleForSequence(previous, signal, now);
+        if (burstSample) {
+          burstSamples.push(burstSample);
           if (inputBurstReached(burstSamples)) {
             setInputStressed(true);
             window.clearTimeout(stressReleaseTimer);
@@ -563,21 +618,12 @@ export default function App() {
   }, [text]);
   useEffect(() => {
     if (connected) return;
-    setPlaying(false);
-    setFrame(0);
+    historyStop.current();
     setGesture(undefined);
     pendingCupsRef.current = {};
     setPendingCups({});
   }, [connected]);
   useEffect(() => { if (preferences.autoUpdate) void runUpdateCheck(); }, [preferences.autoUpdate, runUpdateCheck]);
-  useEffect(() => { if (!preferences.replayEnabled) { setPlaying(false); setFrame(0); } }, [preferences.replayEnabled]);
-  useEffect(() => {
-    if (!playing || !replay.length || renderPaused) return;
-    const timer = window.setInterval(() => {
-      setFrame(current => current + 1 >= replay.length ? (setPlaying(false), 0) : current + 1);
-    }, Math.round(1_700 * durationScale));
-    return () => clearInterval(timer);
-  }, [durationScale, playing, renderPaused, replay.length]);
   useEffect(() => {
     if (renderPaused || gesture) return;
     const timers = (['self', 'partner'] as const).flatMap(target => {
@@ -658,16 +704,12 @@ export default function App() {
   }
 
   async function copyInvite() {
-    if (!pairingRef.current || pairingInviteSecondsLeft(pairingRef.current) === 0) return;
-    try {
-      await navigator.clipboard.writeText(inviteCode);
-      setPairingStatus(text.inviteCopied);
-    } catch {
-      setPairingStatus(text.inviteCopyError);
-    }
+    await copyPairingInvite(pairingRef.current);
   }
 
   function disconnectPairing() {
+    const oldRelationship = pairingRef.current?.relationshipId;
+    if (oldRelationship) void sessionQueue(() => discardRelationshipHistory(oldRelationship));
     clearPairing();
     pairingRef.current = undefined;
     setPairing(undefined);
@@ -704,7 +746,7 @@ export default function App() {
         kind: 'interaction',
         payload: { action, ...(action === 'water' ? { cupStyle } : { blanketStyle: preferences.blanketStyle }) }
       }));
-      showGesture(action, action === 'hug' ? text.hugSent : text.cupSent(text.cups[cupStyle].label), 'partner', {
+      showGesture(action, sent.status === 'queued' ? text.interactionQueued : action === 'hug' ? text.hugSent : text.cupSent(text.cups[cupStyle].label), 'partner', {
         cupStyle,
         blanketStyle: preferences.blanketStyle,
         receiverActivity: partnerActivity,
@@ -840,13 +882,13 @@ export default function App() {
               </span>
             </div>}
           </div>
-          <PetActions language={preferences.language} connected={connected} canReplay={replay.length > 0}
+          <PetActions language={preferences.language} connected={connected} canReplay={history.available} replaying={playing}
             cupStyle={pendingCups.self?.style ?? cupStyle}
             onSettings={() => { void openPanel('settings'); }}
             onStatistics={() => { void openPanel('statistics'); }}
             onHug={() => { void send('hug'); }}
             onWater={() => { void send('water'); }}
-            onReplay={() => { dismissPetMenu(); setFrame(0); setPlaying(true); }} />
+            onReplay={() => { dismissPetMenu(); void history.start(); }} />
         </div>
 
         <div className={`pet-pair ${connected ? 'paired' : 'solo'} ${displayedGesture ? `interacting target-${displayedGesture.target} interaction-${displayedGesture.variant.startsWith('hug') ? 'hug' : 'water'}` : ''}`}>
@@ -893,7 +935,7 @@ export default function App() {
             onWheel={event => handlePetPinch(event, 'partner')}
           >
             <SpriteCanvas skin={partnerSkin} paused={renderPaused}
-              className={`pet-sprite partner-sprite ${partnerPlayback.displayedActivity} ${partnerPlayback.displayedActivity === 'work' ? `work-${partnerPlayback.displayedWorkVisual}` : ''} input-none ${playing ? 'replaying' : ''} ${partnerPlayback.transition ? 'transition-source-frame' : ''}`}
+              className={`pet-sprite partner-sprite ${partnerPlayback.displayedActivity} ${partnerPlayback.displayedActivity === 'work' ? `work-${partnerPlayback.displayedWorkVisual}` : ''} input-${playing && !partnerPlayback.transition ? visualInputForActivity(partnerActivity, history.hands.keyboard, history.hands.pointer) : 'none'} ${history.hands.stressed && !partnerPlayback.transition ? 'input-stressed' : ''} ${playing ? 'replaying' : ''} ${partnerPlayback.transition ? 'transition-source-frame' : ''}`}
               aria-hidden="true"
               onLoopBoundary={partnerPlayback.handleLoopBoundary}
             />
@@ -907,7 +949,7 @@ export default function App() {
           {displayedGesture && <SpriteCanvas key={displayedGesture.id} skin={gestureSkins.receiver} senderSkin={displayedGesture.variant.startsWith('hug') ? gestureSkins.sender : undefined} paused={renderPaused} className={`interaction-sprite ${displayedGesture.variant} target-${displayedGesture.target} cup-${displayedGesture.cupStyle ?? 'ceramic'} blanket-${displayedGesture.blanketStyle ?? preferences.blanketStyle}`} aria-hidden="true" />}
           {(['self', 'partner'] as const).map(target => pendingCups[target] && !(displayedGesture?.target === target && displayedGesture.variant.startsWith('water')) && <span key={target} className={`waiting-cup target-${target} ${pendingCups[target]!.style}`} aria-label={text.water}><i /><i /></span>)}
         </div>
-        {notice && <div className="pet-toast" aria-live="polite">{notice}</div>}
+        {(notice || history.error) && <div className="pet-toast" aria-live="polite">{notice || text.historyError}</div>}
         {settingsOpen && <SettingsPanel
           preferences={preferences}
           localUtcOffsetMinutes={receiverUtcOffsetMinutes}
@@ -931,7 +973,7 @@ export default function App() {
           onFeedbackNicknameChange={value => { setFeedbackNickname(value); setFeedbackStatus(''); }}
           onShareFeedback={() => { void shareFeedback(); }}
           onCreatePairing={() => { void createPairing(); }}
-          onCopyInvite={() => { void copyInvite(); }}
+          onCopyInvite={copyInvite}
           onJoinCodeChange={setJoinCode}
           onJoinPairing={() => { void joinPairing(); }}
           onDisconnect={disconnectPairing}

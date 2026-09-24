@@ -1,5 +1,5 @@
 import { open } from '@tauri-apps/plugin-dialog';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { PanelFrame } from './PanelFrame';
 import { CupIcon } from './CupIcon';
 import { AutostartSetting } from './AutostartSetting';
@@ -39,7 +39,7 @@ interface SettingsPanelProps {
   onFeedbackNicknameChange: (value: string) => void;
   onShareFeedback: () => void;
   onCreatePairing: () => void;
-  onCopyInvite: () => void;
+  onCopyInvite: () => Promise<void>;
   onJoinCodeChange: (value: string) => void;
   onJoinPairing: () => void;
   onDisconnect: () => void;
@@ -130,6 +130,11 @@ export function SettingsPanel({
 }: SettingsPanelProps) {
   const [page, setPage] = useState('pet');
   const [now, setNow] = useState(Date.now);
+  const inviteInput = useRef<HTMLInputElement>(null);
+  const copyInFlight = useRef(false);
+  const [copyResult, setCopyResult] = useState<{ key: string; status: 'copying' | 'copied' | 'error' }>();
+  const copyKey = `${pairing?.relationshipId}:${pairing?.inviteExpiresAt}:${inviteCode}`;
+  const copyStatus = copyResult?.key === copyKey ? copyResult.status : undefined;
   const hasPendingInvite = Boolean(pairing && !pairing.partnerDeviceId);
   useEffect(() => {
     if (page !== 'connection' || !hasPendingInvite) return;
@@ -147,6 +152,28 @@ export function SettingsPanel({
     : preferences.language === 'zh-Hant' ? { pet: '外觀', connection: '連線', replay: '回放', general: '一般' }
     : { pet: 'Companion', connection: 'Pairing', replay: 'Replay', general: 'General' };
   const text = copy[preferences.language];
+  const copyLabels = preferences.language === 'zh'
+    ? { copying: '正在复制…', copied: '已复制' }
+    : preferences.language === 'zh-Hant' ? { copying: '正在複製…', copied: '已複製' }
+    : { copying: 'Copying…', copied: 'Copied' };
+  const copyInvite = async () => {
+    if (copyInFlight.current || pairingBusy || inviteExpired) return;
+    copyInFlight.current = true;
+    setCopyResult({ key: copyKey, status: 'copying' });
+    try {
+      await onCopyInvite();
+      setCopyResult({ key: copyKey, status: 'copied' });
+    } catch {
+      setCopyResult({ key: copyKey, status: 'error' });
+      // Keep the code selectable for a manual copy if the OS refuses the write.
+      if (inviteInput.current?.value === inviteCode) {
+        inviteInput.current.focus();
+        inviteInput.current.select();
+      }
+    } finally {
+      copyInFlight.current = false;
+    }
+  };
   const speedLabels: Record<AnimationSpeed, string> = text.speeds;
   const skinLabels: Record<PetSkin, string> = text.skins;
   const patchPreferences = (patch: Partial<Preferences>) => onChange({ ...preferences, ...patch });
@@ -200,9 +227,10 @@ export function SettingsPanel({
             <button type="button" className="pairing-secondary" onClick={onJoinPairing} disabled={pairingBusy || !joinCode.trim()}>{text.connectAction}</button>
           </>}
           {pairing && !pairing.partnerDeviceId && <>
-            <input className="pairing-code-input invite-code short-code" value={inviteExpired ? '' : inviteCode} placeholder={inviteExpired ? text.expired : undefined} readOnly aria-label={text.myInvite}/>
+            <input ref={inviteInput} className="pairing-code-input invite-code short-code" value={inviteExpired ? '' : inviteCode} placeholder={inviteExpired ? text.expired : undefined} readOnly aria-label={text.myInvite} onClick={event => event.currentTarget.select()}/>
             <p className="pairing-status" role="timer" aria-live="off">{inviteExpired ? text.inviteExpired : text.expiresIn(remainingTime)}</p>
-            <div className="pairing-actions"><button type="button" className="pairing-primary" onClick={inviteExpired ? onCreatePairing : onCopyInvite} disabled={pairingBusy}>{inviteExpired ? text.regenerate : text.copyInvite}</button><button type="button" className="pairing-quiet" onClick={onDisconnect} disabled={pairingBusy}>{text.cancel}</button></div>
+            <div className="pairing-actions"><button type="button" className="pairing-primary" onClick={inviteExpired ? onCreatePairing : () => { void copyInvite(); }} disabled={pairingBusy || (!inviteExpired && (copyStatus === 'copying' || !inviteCode))} aria-busy={copyStatus === 'copying'}>{inviteExpired ? text.regenerate : copyStatus === 'copying' ? copyLabels.copying : copyStatus === 'copied' ? copyLabels.copied : text.copyInvite}</button><button type="button" className="pairing-quiet" onClick={onDisconnect} disabled={pairingBusy}>{text.cancel}</button></div>
+            {!inviteExpired && (copyStatus === 'copied' || copyStatus === 'error') && <p className="pairing-status" role="status">{copyStatus === 'copied' ? appCopy[preferences.language].inviteCopied : appCopy[preferences.language].inviteCopyError}</p>}
           </>}
           {pairing?.partnerDeviceId && <div className="pairing-connected"><span className="pairing-heart" aria-hidden="true">♥</span><div><b>{text.petsConnected}</b><small>{text.compareNumber}</small></div><button type="button" className="pairing-quiet" onClick={onDisconnect}>{text.disconnect}</button></div>}
           {pairing && safetyCode && !inviteExpired && <div className="safety-code"><small>{text.safetyNumber}</small><b>{safetyCode}</b></div>}

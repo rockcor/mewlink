@@ -2,6 +2,8 @@ import type { ActivityKind, CupStyle } from './domain/types';
 import type { Language } from './settings/preferences';
 
 interface AppCopy {
+  interactionQueued: string;
+  stopReplay: string;
   cups: Record<CupStyle, { label: string; shortLabel: string }>;
   status: Record<ActivityKind, string>;
   updateUnchecked: string;
@@ -43,12 +45,15 @@ interface AppCopy {
   statistics: string;
   settings: string;
   panelError: string;
+  historyError: string;
   myPet: (status: string) => string;
   partnerPet: (status: string) => string;
 }
 
 export const appCopy: Record<Language, AppCopy> = {
   zh: {
+    historyError: '回放记录未完成，请检查剩余空间后重新打开 MewLink',
+    interactionQueued: '已保存，联网后送出', stopReplay: '结束回放',
     panelError: '窗口未能展开，请重新打开设置',
     cups: { ceramic: { label: '樱粉陶瓷杯', shortLabel: '陶瓷杯' }, tumbler: { label: '天空随行杯', shortLabel: '随行杯' }, bottle: { label: '薄荷运动瓶', shortLabel: '运动瓶' } },
     status: { work: '工作中', meeting: '在开会', leisure: '休闲娱乐', idle: '暂时离开', rest: '休息中' },
@@ -60,6 +65,8 @@ export const appCopy: Record<Language, AppCopy> = {
     petZone: 'MewLink 双人桌面宠物', soloPetZone: 'MewLink 桌面宠物', partnerWaiting: '等待同步', actionsAria: '给 TA 一个小动作', hug: '拥抱', water: '喝水', changeCup: '换杯', replay: '回放', statistics: '统计', settings: '设置', myPet: status => `我的宠物：${status}`, partnerPet: status => `TA 的宠物：${status}`,
   },
   'zh-Hant': {
+    historyError: '回放記錄未完成，請檢查剩餘空間後重新開啟 MewLink',
+    interactionQueued: '已儲存，連線後送出', stopReplay: '結束回放',
     panelError: '視窗未能展開，請重新開啟設定',
     cups: { ceramic: { label: '櫻粉陶瓷杯', shortLabel: '陶瓷杯' }, tumbler: { label: '天空隨行杯', shortLabel: '隨行杯' }, bottle: { label: '薄荷運動瓶', shortLabel: '運動瓶' } },
     status: { work: '工作中', meeting: '在開會', leisure: '休閒娛樂', idle: '暫時離開', rest: '休息中' },
@@ -71,6 +78,8 @@ export const appCopy: Record<Language, AppCopy> = {
     petZone: 'MewLink 雙人桌面寵物', soloPetZone: 'MewLink 桌面寵物', partnerWaiting: '等待同步', actionsAria: '給 TA 一個小動作', hug: '擁抱', water: '喝水', changeCup: '換杯', replay: '回放', statistics: '統計', settings: '設定', myPet: status => `我的寵物：${status}`, partnerPet: status => `TA 的寵物：${status}`,
   },
   en: {
+    historyError: 'Replay could not be saved or loaded. Check free space and reopen MewLink.',
+    interactionQueued: 'Saved — will send when connected', stopReplay: 'End replay',
     panelError: 'The window could not expand. Please reopen settings.',
     cups: { ceramic: { label: 'Blush ceramic mug', shortLabel: 'Ceramic' }, tumbler: { label: 'Sky tumbler', shortLabel: 'Tumbler' }, bottle: { label: 'Mint sports bottle', shortLabel: 'Bottle' } },
     status: { work: 'Working', meeting: 'In a meeting', leisure: 'Taking a break', idle: 'Away for a moment', rest: 'Resting' },

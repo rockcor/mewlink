@@ -27,6 +27,7 @@ interface SyncResponse {
   inviteExpiresAt?: number;
   devices: string[];
   messages: RelayMessage[];
+  partnerOnline?: boolean;
   pairingRequest?: { deviceId: string; publicKey: string };
 }
 
@@ -143,7 +144,7 @@ export async function syncEncryptedEvents(state: PairingState, fetcher: Fetcher 
   url.searchParams.set('relationshipId', state.relationshipId);
   url.searchParams.set('deviceId', state.deviceId);
   url.searchParams.set('after', String(state.relayCursor));
-  const response = await checked(await fetcher(url, { headers: headers(state) }));
+  const response = await checked(await fetcher(url, { headers: headers(state), signal: AbortSignal.timeout(15_000) }));
   const payload = await response.json() as Partial<SyncResponse>;
   const pairingRequest = payload.pairingRequest;
   if (!state.partnerDeviceId && pairingRequest && typeof pairingRequest.deviceId === 'string' && typeof pairingRequest.publicKey === 'string') {
@@ -185,7 +186,8 @@ export async function syncEncryptedEvents(state: PairingState, fetcher: Fetcher 
     relayCursor: cursor,
     receivedSequences,
   };
-  return { state: next, received };
+  return { state: next, received, partnerOnline: payload.partnerOnline === true,
+    caughtUp: !Array.isArray(payload.messages) || payload.messages.length < 100 };
 }
 
 export async function sendEncryptedEvent(state: PairingState, event: PlainEvent, fetcher: Fetcher = fetch) {
@@ -205,4 +207,14 @@ export async function sendEncryptedEvent(state: PairingState, event: PlainEvent,
   const next = { ...active, nextSequence: sequence };
   const stored: StoredEvent = { event, direction: 'out', status: 'delivered', receivedAt: new Date().toISOString() };
   return { state: next, stored, envelope };
+}
+
+export async function sendEncryptedBatch(state: PairingState, envelopes: EncryptedEnvelope[], fetcher: Fetcher = fetch) {
+  if (!envelopes.length || envelopes.length > 12 || envelopes.some(envelope =>
+    envelope.relationshipId !== state.relationshipId || envelope.senderDeviceId !== state.deviceId
+    || envelope.recipientDeviceId !== state.partnerDeviceId || envelope.keyId !== state.keyId)) throw new Error('invalid outgoing batch');
+  await checked(await fetcher(RELAY_ENDPOINT, { method: 'POST', headers: headers(state),
+    body: JSON.stringify({ operation: 'send_batch', relationshipId: state.relationshipId, envelopes }),
+    signal: AbortSignal.timeout(15_000),
+  }));
 }

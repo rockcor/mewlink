@@ -4,6 +4,8 @@ mod autostart;
 mod language;
 mod resources;
 mod window_layout;
+#[cfg(target_os = "windows")]
+mod windows_input;
 
 #[derive(Debug, PartialEq, Eq, Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -11,6 +13,24 @@ struct PresenceSignal {
     idle_seconds: u64,
     locked: bool,
     app_class: &'static str,
+    foreground_sequence: u64,
+}
+
+static FOREGROUND: std::sync::Mutex<(String, u64)> = std::sync::Mutex::new((String::new(), 0));
+
+fn note_foreground(identity: String) {
+    let mut state = FOREGROUND.lock().unwrap_or_else(|error| error.into_inner());
+    if state.0 != identity {
+        state.0 = identity;
+        state.1 += 1;
+    }
+}
+
+fn foreground_sequence() -> u64 {
+    FOREGROUND
+        .lock()
+        .unwrap_or_else(|error| error.into_inner())
+        .1
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
@@ -355,6 +375,7 @@ mod platform {
             idle_seconds: finite_seconds(idle),
             locked: session_is_locked(),
             app_class: foreground_app_class(),
+            foreground_sequence: super::foreground_sequence(),
         }
     }
 
@@ -395,6 +416,7 @@ mod platform {
             .localizedName()
             .map(|value| value.to_string())
             .unwrap_or_default();
+        super::note_foreground(identifier.clone());
         classify_foreground_app(&format!("{identifier} {name}"))
     }
 
@@ -514,8 +536,7 @@ mod platform {
 mod platform {
     use super::{classify_foreground_app, InputSignal, PresenceSignal};
     use std::mem::size_of;
-    use std::sync::atomic::{AtomicU64, Ordering};
-    use windows_sys::Win32::Foundation::{CloseHandle, POINT};
+    use windows_sys::Win32::Foundation::CloseHandle;
     use windows_sys::Win32::System::StationsAndDesktops::{
         CloseDesktop, OpenInputDesktop, SwitchDesktop, DESKTOP_SWITCHDESKTOP,
     };
@@ -523,19 +544,10 @@ mod platform {
     use windows_sys::Win32::System::Threading::{
         OpenProcess, QueryFullProcessImageNameW, PROCESS_QUERY_LIMITED_INFORMATION,
     };
-    use windows_sys::Win32::UI::Input::KeyboardAndMouse::{
-        GetAsyncKeyState, GetLastInputInfo, LASTINPUTINFO, VK_LBUTTON, VK_MBUTTON, VK_RBUTTON,
-    };
+    use windows_sys::Win32::UI::Input::KeyboardAndMouse::{GetLastInputInfo, LASTINPUTINFO};
     use windows_sys::Win32::UI::WindowsAndMessaging::{
-        GetCursorPos, GetForegroundWindow, GetWindowThreadProcessId,
+        GetForegroundWindow, GetWindowThreadProcessId,
     };
-
-    static LAST_CURSOR: AtomicU64 = AtomicU64::new(u64::MAX);
-    static LAST_INPUT_TICK: AtomicU64 = AtomicU64::new(u64::MAX);
-    static KEYBOARD_SEQUENCE: AtomicU64 = AtomicU64::new(0);
-    static POINTER_SEQUENCE: AtomicU64 = AtomicU64::new(0);
-    static POINTER_CLICK_SEQUENCE: AtomicU64 = AtomicU64::new(0);
-    static LAST_POINTER_BUTTONS: AtomicU64 = AtomicU64::new(0);
 
     pub(super) fn sample() -> PresenceSignal {
         let (idle_seconds, _) = input_state();
@@ -543,33 +555,12 @@ mod platform {
             idle_seconds,
             locked: session_is_locked(),
             app_class: foreground_app_class(),
+            foreground_sequence: super::foreground_sequence(),
         }
     }
 
     pub(super) fn input_sample() -> InputSignal {
-        let (idle_seconds, input_tick) = input_state();
-        let (pointer_buttons, pointer_presses) = pointer_button_state();
-        let previous_buttons = LAST_POINTER_BUTTONS.swap(pointer_buttons, Ordering::Relaxed);
-        let fresh_clicks = ((pointer_buttons & !previous_buttons) | pointer_presses).count_ones();
-        if fresh_clicks > 0 {
-            POINTER_CLICK_SEQUENCE.fetch_add(u64::from(fresh_clicks), Ordering::Relaxed);
-        }
-        let recent_kind = recent_input_kind(input_tick, idle_seconds, pointer_buttons != 0);
-        match recent_kind {
-            "keyboard" => {
-                KEYBOARD_SEQUENCE.fetch_add(1, Ordering::Relaxed);
-            }
-            "pointer" => {
-                POINTER_SEQUENCE.fetch_add(1, Ordering::Relaxed);
-            }
-            _ => {}
-        }
-        InputSignal {
-            keyboard_sequence: KEYBOARD_SEQUENCE.load(Ordering::Relaxed),
-            pointer_sequence: POINTER_SEQUENCE.load(Ordering::Relaxed),
-            pointer_click_sequence: POINTER_CLICK_SEQUENCE.load(Ordering::Relaxed),
-            recent_kind,
-        }
+        super::windows_input::sample()
     }
 
     fn foreground_app_class() -> &'static str {
@@ -580,6 +571,7 @@ mod platform {
             }
             let mut process_id = 0;
             GetWindowThreadProcessId(window, &mut process_id);
+            super::note_foreground(format!("{window:p}:{process_id}"));
             if process_id == 0 {
                 return "unknown";
             }
@@ -596,59 +588,6 @@ mod platform {
             }
             classify_foreground_app(&String::from_utf16_lossy(&buffer[..length as usize]))
         }
-    }
-
-    fn recent_input_kind(
-        input_tick: u64,
-        idle_seconds: u64,
-        pointer_button_down: bool,
-    ) -> &'static str {
-        if idle_seconds > 2 {
-            return "none";
-        }
-        let mut cursor = POINT { x: 0, y: 0 };
-        let packed_cursor = if unsafe { GetCursorPos(&mut cursor) } != 0 {
-            ((cursor.x as u32 as u64) << 32) | cursor.y as u32 as u64
-        } else {
-            u64::MAX
-        };
-        let previous_cursor = LAST_CURSOR.swap(packed_cursor, Ordering::Relaxed);
-        let previous_tick = LAST_INPUT_TICK.swap(input_tick, Ordering::Relaxed);
-        if packed_cursor != u64::MAX
-            && previous_cursor != u64::MAX
-            && packed_cursor != previous_cursor
-        {
-            "pointer"
-        } else if previous_tick != u64::MAX && input_tick != previous_tick && pointer_button_down {
-            "pointer"
-        } else if previous_tick != u64::MAX && input_tick != previous_tick {
-            // A fresh non-pointer event is treated as keyboard/trackpad activity; content is unknown.
-            "keyboard"
-        } else {
-            "none"
-        }
-    }
-
-    fn pointer_button_state() -> (u64, u64) {
-        let keys = [VK_LBUTTON, VK_RBUTTON, VK_MBUTTON];
-        keys.iter()
-            .enumerate()
-            .fold((0, 0), |(down, pressed), (index, key)| {
-                let state = unsafe { GetAsyncKeyState(*key as i32) } as u16;
-                let bit = 1_u64 << index;
-                (
-                    if state & 0x8000 != 0 {
-                        down | bit
-                    } else {
-                        down
-                    },
-                    if state & 0x0001 != 0 {
-                        pressed | bit
-                    } else {
-                        pressed
-                    },
-                )
-            })
     }
 
     fn input_state() -> (u64, u64) {
@@ -689,6 +628,7 @@ mod platform {
             idle_seconds: 0,
             locked: false,
             app_class: "unknown",
+            foreground_sequence: 0,
         }
     }
 
@@ -842,6 +782,7 @@ pub fn run() {
             None,
         ))
         .plugin(tauri_plugin_dialog::init())
+        .plugin(tauri_plugin_clipboard_manager::init())
         .plugin(tauri_plugin_process::init())
         .plugin(tauri_plugin_updater::Builder::new().build())
         .manage(window_layout::DesktopLayout::default())

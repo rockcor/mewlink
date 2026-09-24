@@ -4,7 +4,9 @@ import { readFileSync, readdirSync } from 'node:fs';
 import { drizzle } from '../website/node_modules/drizzle-orm/d1';
 import { GET, POST } from '../website/app/api/relay/route';
 import { createPairingJoinRequest, createPairingState, openPairingInvite, sealPairingInvite } from '../src/pairing/pairing';
-import { claimPairingJoin, registerPairCreator, registerPairJoiner, requestPairingJoin, sendEncryptedEvent, syncEncryptedEvents } from '../src/services/relayTransport';
+import { claimPairingJoin, registerPairCreator, registerPairJoiner, requestPairingJoin, sendEncryptedEvent, sendEncryptedBatch, syncEncryptedEvents } from '../src/services/relayTransport';
+import { encryptEvent } from '../src/crypto/events';
+import { pairingKey } from '../src/pairing/pairing';
 
 const context = vi.hoisted(() => ({ db: undefined as unknown }));
 vi.mock('../website/db', () => ({ getDb: () => context.db }));
@@ -38,6 +40,63 @@ beforeEach(() => {
 afterEach(() => { sqlite.close(); vi.restoreAllMocks(); });
 
 describe('production relay invitation expiry (requires the website checkout)', () => {
+  async function pair() {
+    let creator = await registerPairCreator(await createPairingState(), fetcher);
+    const request = await createPairingJoinRequest(creator.inviteCode!);
+    await requestPairingJoin(request, fetcher);
+    creator = (await syncEncryptedEvents(creator, fetcher)).state;
+    const joiner = await openPairingInvite(request, (await claimPairingJoin(request, fetcher))!);
+    await registerPairJoiner(joiner, fetcher);
+    creator = (await syncEncryptedEvents(creator, fetcher)).state;
+    return { creator, joiner };
+  }
+  it('stores encrypted input batches while the receiver is offline and deduplicates retries after a lost response', async () => {
+    const { creator, joiner } = await pair();
+    const event = { id: crypto.randomUUID(), version: 1 as const, relationshipId: creator.relationshipId,
+      senderDeviceId: creator.deviceId, createdAt: new Date(start).toISOString(), kind: 'operation.batch' as const,
+      payload: { format: 1 as const, startedAt: new Date(start).toISOString(), points: [[0, 2, 5, 1, 0, 0] as [number, number, number, number, number, number]] } };
+    const encrypted = await encryptEvent(event, joiner.deviceId, 1, await pairingKey(creator), creator.keyId);
+    await sendEncryptedBatch(creator, [encrypted], fetcher);
+    await sendEncryptedBatch(creator, [encrypted], fetcher);
+    expect(sqlite.prepare('SELECT count(*) AS total FROM mailbox_envelopes').get()?.total).toBe(1);
+    const row = sqlite.prepare('SELECT envelope_json FROM mailbox_envelopes').get();
+    expect(row?.envelope_json).not.toContain('points');
+    expect(row?.envelope_json).not.toContain('startedAt');
+    vi.mocked(Date.now).mockReturnValue(start + 3600_000);
+    const received = await syncEncryptedEvents(joiner, fetcher);
+    expect(received.received.map(item => item.event)).toEqual([event]);
+    expect(received.partnerOnline).toBe(false);
+    expect(received.caughtUp).toBe(true);
+    expect((await syncEncryptedEvents(received.state, fetcher)).received).toEqual([]);
+    await syncEncryptedEvents(creator, fetcher);
+    expect((await syncEncryptedEvents(received.state, fetcher)).partnerOnline).toBe(true);
+  });
+  it('accepts full batches atomically, rejects mixed identities and paginates without skipping records', async () => {
+    const { creator, joiner } = await pair();
+    const key = await pairingKey(creator);
+    const envelopes = [];
+    for (let i = 1; i <= 105; i++) {
+      envelopes.push(await encryptEvent({ id: crypto.randomUUID(), version: 1, relationshipId: creator.relationshipId,
+        senderDeviceId: creator.deviceId, createdAt: new Date(start + i).toISOString(), kind: 'interaction', payload: { action: 'hug' } },
+      joiner.deviceId, i, key, creator.keyId));
+    }
+    await expect(sendEncryptedBatch(creator, [envelopes[0], { ...envelopes[1], senderDeviceId: 'not-the-sender' }], fetcher)).rejects.toThrow();
+    expect(sqlite.prepare('SELECT count(*) AS total FROM mailbox_envelopes').get()?.total).toBe(0);
+    for (let i = 0; i < envelopes.length; i += 12) await sendEncryptedBatch(creator, envelopes.slice(i, i + 12), fetcher);
+    const pageOne = await syncEncryptedEvents(joiner, fetcher);
+    expect(pageOne.received).toHaveLength(100);
+    expect(pageOne.caughtUp).toBe(false);
+    const pageTwo = await syncEncryptedEvents(pageOne.state, fetcher);
+    expect(pageTwo.received).toHaveLength(5);
+    expect(pageTwo.caughtUp).toBe(true);
+    expect(pageTwo.state.receivedSequences[creator.deviceId]).toBe(105);
+  });
+  it('rejects oversized bodies before parsing or storing a batch', async () => {
+    const response = await POST(new Request('https://relay.test/api/relay', { method: 'POST',
+      headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ operation: 'send_batch', extra: 'x'.repeat(400_000) }) }));
+    expect(response.status).toBe(400);
+    expect(sqlite.prepare('SELECT count(*) AS total FROM mailbox_envelopes').get()?.total).toBe(0);
+  });
   it('clamps old clients to 15 minutes and retries cannot extend the deadline', async () => {
     const old = { ...await createPairingState(), inviteExpiresAt: start + 86_400_000 };
     const registered = await registerPairCreator(old, fetcher);

@@ -36,7 +36,7 @@
 .pet-sprite.work.input-keyboard { background-position: 33.333333% 0; }
 .pet-sprite.work.input-pointer { background-position: 66.666667% 0; }
 .pet-sprite.work.input-both { background-position: 100% 0; }
-.pet-sprite.partner-sprite.work { background-position: 0 0; }
+.pet-sprite.partner-sprite.work.input-none { background-position: 0 0; }
 
 .pet-sprite.meeting {
   background-image: url('/pets/animations/meeting.png');

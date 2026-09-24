@@ -11,6 +11,7 @@
     "core:window:allow-start-resize-dragging",
     "core:window:allow-set-position",
     "dialog:default",
+    "clipboard-manager:allow-write-text",
     "autostart:allow-is-enabled",
     "autostart:allow-disable",
     "updater:default",

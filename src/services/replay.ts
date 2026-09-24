@@ -28,5 +28,5 @@ export function buildReplay(events: StoredEvent[], receiverUtcOffsetMinutes?: nu
       clockLabel: showTimezone ? replayClock(event.createdAt, event.senderUtcOffsetMinutes, receiverUtcOffsetMinutes, language).label : '',
       ...(event.kind === 'interaction' ? { interaction: key as InteractionKind, cupStyle: (payload as InteractionPayload).cupStyle, blanketStyle: (payload as InteractionPayload).blanketStyle } : { activity: key as ActivityKind, workVisual: (payload as ActivitySegment).workVisual })
     }];
-  }).slice(-12);
+  });
 }
