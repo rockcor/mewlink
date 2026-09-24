@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { OperationRecorder, MAX_OPERATION_POINTS, validOperationBatch } from './operations';
 import type { OperationBatch, PlainEvent, StoredEvent } from '../domain/types';
 import { decryptEvent, encryptEvent, newDemoKey } from '../crypto/events';
-import { framesForEvent, replayDelay, replayFrames } from './playback';
+import { condensedReplay, framesForEvent, replayDelay, replayFrames, replaySpeed } from './playback';
 const at = Date.parse('2026-09-23T01:00:00Z');
 const batch = (): OperationBatch => ({ format: 1, startedAt: new Date(at).toISOString(),
   points: [[0, 2, 0, 0, 0, 0], [120, 0, 8, 0, 0, 0], [900, 1, 1, 1, 0, 1]] });
@@ -65,6 +65,25 @@ describe('operation recording', () => {
   });
 });
 describe('streaming replay', () => {
+  it('condenses a dense six-hour track without losing input counts or gestures', async () => {
+    const first = framesForEvent(stored(), 0, false, 'en')[0];
+    async function* track() {
+      for (let index = 0; index < 21_600; index++) {
+        yield { ...first, id: String(index), at: new Date(at + index * 1000).toISOString(), keyboard: 2, pointer: 6, clicks: 1 };
+        if (index === 5000) yield { ...first, id: 'hug', at: new Date(at + index * 1000 + 1).toISOString(),
+          interaction: 'hug' as const, keyboard: 0, pointer: 0, clicks: 0 };
+      }
+    }
+    const speed = replaySpeed([{ id: 'first', at: new Date(at).toISOString(), kind: 'operation.batch' },
+      { id: 'last', at: new Date(at + 21_600_000).toISOString(), kind: 'operation.batch' }]);
+    const frames = [];
+    for await (const frame of condensedReplay(track(), speed)) frames.push(frame);
+    expect(speed).toBe(1080);
+    expect(frames.length).toBeLessThan(205);
+    expect(frames.reduce((sum, frame) => sum + frame.keyboard, 0)).toBe(43_200);
+    expect(frames.reduce((sum, frame) => sum + frame.clicks, 0)).toBe(21_600);
+    expect(frames.filter(frame => frame.interaction).map(frame => frame.id)).toEqual(['hug']);
+  });
   it('time zones change labels, never event order or input counts', () => {
     const asia = framesForEvent(stored(), 480, true, 'zh');
     const us = framesForEvent(stored(), -420, true, 'en');

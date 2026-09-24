@@ -5,7 +5,7 @@ import type { InputSignal } from '../platform/activity';
 import { inputBurstReached, INPUT_STRESS_HOLD_MS, trimInputBurst, type InputBurstSample } from '../platform/activity';
 import { hasReplayHistory, historySeen, loadHistoryDraft, markHistorySeen, readReplayEvent, replayReferences, saveHistoryDraft } from '../storage/events';
 import { OperationRecorder } from './operations';
-import { replayDelay, replayFrames, type OperationFrame } from './playback';
+import { condensedReplay, replayDelay, replayFrames, replaySpeed, type OperationFrame } from './playback';
 import { ACTIVITY_TRANSITION_MS } from '../pet/interaction';
 import type { Language } from '../platform/language';
 
@@ -143,8 +143,10 @@ export function useOperationHistory(options: Options) {
       let previous: OperationFrame | undefined;
       let activity: ActivityKind | undefined;
       let visual: WorkVisual = 'web';
-      for await (const frame of replayFrames(refs, readReplayEvent, config.receiverOffset, config.showTimezone, config.language)) {
-        await wait(replayDelay(previous, frame));
+      const speed = replaySpeed(refs);
+      const frames = replayFrames(refs, readReplayEvent, config.receiverOffset, config.showTimezone, config.language);
+      for await (const frame of condensedReplay(frames, speed)) {
+        await wait(replayDelay(previous, frame, speed));
         if (!valid()) break;
         setPlaying(true);
         setCurrent(frame);
@@ -171,12 +173,13 @@ export function useOperationHistory(options: Options) {
         const at = Date.parse(frame.at);
         samples = trimInputBurst(samples, at);
         if (frame.keyboard || frame.clicks) {
-          samples.push({ at, keyboard: frame.keyboard, pointerClicks: frame.clicks });
+          const factor = Math.min(1, 1200 / (frame.sourceSpanMs ?? 1));
+          samples.push({ at, keyboard: Math.floor(frame.keyboard * factor), pointerClicks: Math.floor(frame.clicks * factor) });
           if (inputBurstReached(samples)) stressUntil = at + INPUT_STRESS_HOLD_MS;
         }
         if (frame.keyboard || frame.pointer) {
           setHands(value => ({ keyboard: frame.keyboard ? !value.keyboard : value.keyboard,
-            pointer: frame.pointer > 0, stressed: at < stressUntil }));
+            pointer: frame.pointer ? !value.pointer : value.pointer, stressed: at < stressUntil }));
           clearTimeout(releaseTimer);
           releaseTimer = setTimeout(() => { if (valid()) setHands({ keyboard: false, pointer: false, stressed: false }); }, 110);
         }
