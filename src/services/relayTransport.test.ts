@@ -239,7 +239,7 @@ describe('two macOS encrypted relay', () => {
     const sentHug = await sendEncryptedEvent(first, hug, relay.fetcher);
     first = sentHug.state;
     const serializedHug = JSON.stringify(sentHug.envelope);
-    expect(serializedHug).not.toContain('hug');
+    expect(serializedHug).not.toContain('"action":"hug"');
     expect(serializedHug).not.toContain(hug.id);
 
     const receivedHug = await syncEncryptedEvents(second, relay.fetcher);
@@ -252,7 +252,7 @@ describe('two macOS encrypted relay', () => {
     const water = interaction(second.relationshipId, second.deviceId, 'water');
     const sentWater = await sendEncryptedEvent(second, water, relay.fetcher);
     second = sentWater.state;
-    expect(JSON.stringify(sentWater.envelope)).not.toContain('water');
+    expect(JSON.stringify(sentWater.envelope)).not.toContain('"action":"water"');
 
     const receivedWater = await syncEncryptedEvents(first, relay.fetcher);
     first = receivedWater.state;
@@ -263,7 +263,7 @@ describe('two macOS encrypted relay', () => {
     const sharedStatistics = statistics(first.relationshipId, first.deviceId);
     const sentStatistics = await sendEncryptedEvent(first, sharedStatistics, relay.fetcher);
     first = sentStatistics.state;
-    expect(JSON.stringify(sentStatistics.envelope)).not.toContain('keyboard');
+    expect(JSON.stringify(sentStatistics.envelope)).not.toContain('"keyboard":');
     const receivedStatistics = await syncEncryptedEvents(second, relay.fetcher);
     second = receivedStatistics.state;
     expect(receivedStatistics.received[0].event).toEqual(sharedStatistics);
@@ -271,7 +271,8 @@ describe('two macOS encrypted relay', () => {
     const sharedSkin = skin(first.relationshipId, first.deviceId);
     const sentSkin = await sendEncryptedEvent(first, sharedSkin, relay.fetcher);
     first = sentSkin.state;
-    expect(JSON.stringify(sentSkin.envelope)).not.toContain('sky');
+    // Random base64 ciphertext can legitimately contain the substring "sky".
+    expect(JSON.stringify(sentSkin.envelope)).not.toContain('"skin":"sky"');
     const receivedSkin = await syncEncryptedEvents(second, relay.fetcher);
     second = receivedSkin.state;
     expect(receivedSkin.received[0].event).toEqual(sharedSkin);

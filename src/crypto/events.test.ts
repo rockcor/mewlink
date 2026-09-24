@@ -62,7 +62,7 @@ describe('encrypted event compatibility', () => {
       payload: { visibility: 'partner', generatedAt: new Date().toISOString(), snapshots: statisticsSnapshots }
     };
     const envelope = await encryptEvent(event, 'recipientDevice001', 2, key);
-    expect(JSON.stringify(envelope)).not.toContain('keyboard');
+    expect(JSON.stringify(envelope)).not.toContain('"keyboard":');
     await expect(decryptEvent(envelope, key)).resolves.toEqual(event);
   });
 

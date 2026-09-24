@@ -16,8 +16,10 @@ struct PresenceSignal {
     foreground_sequence: u64,
 }
 
+#[cfg(any(target_os = "macos", target_os = "windows"))]
 static FOREGROUND: std::sync::Mutex<(String, u64)> = std::sync::Mutex::new((String::new(), 0));
 
+#[cfg(any(target_os = "macos", target_os = "windows"))]
 fn note_foreground(identity: String) {
     let mut state = FOREGROUND.lock().unwrap_or_else(|error| error.into_inner());
     if state.0 != identity {
@@ -26,6 +28,7 @@ fn note_foreground(identity: String) {
     }
 }
 
+#[cfg(any(target_os = "macos", target_os = "windows"))]
 fn foreground_sequence() -> u64 {
     FOREGROUND
         .lock()

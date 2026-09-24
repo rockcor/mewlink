@@ -53,7 +53,7 @@ describe('operation recording', () => {
   it('encrypts operation batches and rejects wrong keys or tampered routing', async () => {
     const key = await newDemoKey();
     const envelope = await encryptEvent(stored().event, 'receiver', 1, key);
-    expect(JSON.stringify(envelope)).not.toContain('points');
+    expect(JSON.stringify(envelope)).not.toContain('"points":');
     expect(await decryptEvent(envelope, key)).toEqual(stored().event);
     await expect(decryptEvent(envelope, await newDemoKey())).rejects.toThrow();
     await expect(decryptEvent({ ...envelope, recipientDeviceId: 'intruder' }, key)).rejects.toThrow();
