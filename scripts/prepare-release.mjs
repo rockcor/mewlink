@@ -32,7 +32,7 @@ try {
   const macDownload = { url: `https://github.com/${repository}/releases/download/v${version}/MewLink_${version}_universal.dmg`, format: 'dmg' };
   const manifest = {
     schema: 1, version, source: process.env.GITHUB_SHA,
-    notes: '修复对方宠物停在空闲动画的问题；改善小屏幕下的菜单与设置，统一像素按钮，水杯改为在设置中选择。 / Fixes companions stuck in idle animations; improves menus and settings on small displays, adds pixel controls, and moves mug selection into Settings.',
+    notes: '新增加密动作历史与离线补传，可回放按键、鼠标和前台应用类别变化；双方在线时优先显示当前状态。修复配对码复制，鼠标移动不再触发紧张闭眼。双方请更新至此版本。 / Adds encrypted operation history, offline retry and replay of input rhythm and foreground categories. Live presence takes priority when both people are online. Fixes pairing-code copy and prevents pointer movement from triggering tense eyes. Update both devices.',
     pub_date: new Date().toISOString(),
     platforms: { 'darwin-aarch64': macUpdate, 'darwin-x86_64': macUpdate, 'windows-x86_64': winUpdate },
     downloads: { 'darwin-aarch64': macDownload, 'darwin-x86_64': macDownload, 'windows-x86_64': { url: winUpdate.url, format: 'exe' } },
