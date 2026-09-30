@@ -55,11 +55,14 @@ never commit their values or paste private keys into an issue:
   `TAURI_SIGNING_PRIVATE_KEY_PASSWORD`: the existing updater signing key. Do not
   replace the updater public key to work around a missing private key.
 
-The release workflow checks required names before building, uses Tauri's
-Developer ID signing/notarization flow, then runs codesign, stapler and Gatekeeper
-checks. Releases remain drafts. Do not publish a draft whose verification job
-failed. Windows updater artifacts have updater signatures; Authenticode signing
-is still separate and not configured here.
+These Apple secrets are optional while MewLink is a public beta. Without them,
+`scripts/check-release.mjs` allows an ad-hoc signed, unnotarized macOS build only
+for build-only runs or when the `allow_unnotarized` release input is set, and the
+release notes say so. With them, the workflow uses Tauri's Developer ID
+signing/notarization flow, then runs codesign, stapler and Gatekeeper checks.
+The updater key is always required. Do not publish a release whose verification
+job failed. Windows updater artifacts have updater signatures; Authenticode
+signing is still separate and not configured here.
 
 References: [Tauri macOS signing](https://v2.tauri.app/distribute/sign/macos/),
 [Apple Developer ID](https://developer.apple.com/developer-id/),

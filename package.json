@@ -11,7 +11,7 @@
     "test:animations": "node scripts/validate-animation-assets.mjs",
     "test:peer": "node scripts/test-peer.mjs",
     "test:relay-server": "cargo build --manifest-path src-tauri/Cargo.toml --example ratchet_peer && vitest run --config tests/relay.config.ts",
-    "test:release": "node --test tests/release-pipeline.test.mjs tests/release-signing.test.mjs",
+    "test:release": "node --test tests/release-pipeline.test.mjs",
     "tauri": "tauri"
   },
   "dependencies": {

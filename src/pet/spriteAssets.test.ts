@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { frameFromPosition, spriteAssetFor } from './spriteAssets';
+import { frameFromPosition, SOURCE_FRAME_HEIGHT, SOURCE_FRAME_WIDTH, SPRITE_CACHE_BUDGET_BYTES, spriteAssetFor } from './spriteAssets';
 
 describe('current-frame rendering keeps the Aseprite rig', () => {
   it('resolves screens, eyes, transitions and custom interaction items', () => {
@@ -16,5 +16,10 @@ describe('current-frame rendering keeps the Aseprite rig', () => {
     for (let frame = 0; frame < 13; frame++) expect(frameFromPosition(`${frame / 12 * 100}%`, 13)).toBe(frame);
     expect(frameFromPosition('33.333333%', 4)).toBe(1);
     expect(frameFromPosition('66.666667%', 4)).toBe(2);
+  });
+  it('budgets enough decoded memory for both pets mid-transition during an interaction', () => {
+    const decoded = (frames: number) => frames * SOURCE_FRAME_WIDTH * SOURCE_FRAME_HEIGHT * 4;
+    const peak = 2 * (decoded(24) + decoded(32)) + decoded(24) + decoded(4);
+    expect(SPRITE_CACHE_BUDGET_BYTES).toBeGreaterThanOrEqual(peak);
   });
 });

@@ -61,11 +61,13 @@ not an account-level device manager: a lost sole device cannot be remotely
 revoked without the other paired device. An active compromised endpoint cannot
 be made trustworthy by re-pairing alone.
 
-Release automation now refuses missing macOS signing/notarization credentials
-and verifies the resulting ticket. No Developer ID certificate was available
-for this change, so no newly signed/notarized release is claimed. Tauri updater
-signatures and Apple Developer ID signatures serve different purposes. Apple
-notarization is not a review of this encryption protocol.
+MewLink ships as a public beta without an Apple Developer ID. macOS builds are
+ad-hoc signed and not notarized, so macOS shows a security warning on first
+launch. Publishing such a build requires the explicit `allow_unnotarized`
+release input; if Developer ID credentials are configured later, the same
+workflow notarizes and verifies the ticket instead. Update packages always
+require the Tauri updater signature, which is separate from Apple signing.
+Apple notarization is not a review of this encryption protocol.
 
 See [release preparation](docs/SECURITY-HARDENING.md) for remaining gates and tests.
 See [ratchet audit handoff](docs/RATCHET-AUDIT.md) for the exact protocol,
