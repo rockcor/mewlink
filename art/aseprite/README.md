@@ -1,21 +1,29 @@
 # MewLink pet animations
 
-Open `mewlink-pet-animation-master.aseprite` in Aseprite. It contains 972 frames and 92 named tags.
+Open `mewlink-pet-animation-master.aseprite` in Aseprite. It holds 2448 frames in 92 named tags on four layers (`back`, `pet`, `front`, `fx`), indexed to one shared 256-colour palette. All artwork is the approved illustrated pup from `frames/`; the rig only moves it.
 
 ## Animation groups
 
-- Eight-frame activity loops: `meeting`, `leisure`, `idle`, `rest`
-- Work screens: `work-code`, `work-document`, `work-web`, `work-ai`, `work-mewlink`; each stores exact `none`, `keyboard`, `pointer`, `both` input frames
-- High-intensity input variants: `work-<screen>-stress`, with authored `> <` eyes while the body and equipment remain locked
-- Eight-frame state-aware interactions: `hug-<state>` and `water-<state>-<cup>`
-- Rest hugs support the three blanket choices: `blush`, `night`, `mint`
-- Every ordered state change has its own thirteen-frame `transition-<from>-<to>` tag lasting 4.8 seconds. Work transitions also include screen-matched document and web variants.
-- Website demo: 24-frame `website-replay`
+- Activity loops, 24 frames each: `idle` (sways, squashes, then hops with the `> <` face), `meeting` (nods and waves behind the laptop, sound waves by the mic), `leisure` (munches with a bob, laughs with flying chips), `rest` (breathes on the cushion, rising z's)
+- Work screens: `work-code`, `work-document`, `work-web`, `work-ai`, `work-mewlink`; each stores the exact authored `none`, `keyboard`, `pointer`, `both` input frames
+- High-intensity input variants: `work-<screen>-stress`, with authored `> <` eyes while the body and equipment stay locked
+- 24-frame interactions: `hug-<state>`, `hug-rest-<blanket>` (`blush`, `night`, `mint`), `water-<state>-<cup>` and `water-drink-<cup>` (`ceramic`, `tumbler`, `bottle`); authored poses land with a squash, bob gently and add hearts and sparkles
+- Every ordered state change has its own 32-frame `transition-<from>-<to>` tag lasting 4.8 seconds, plus screen-matched `transition-work-<screen>-<state>` and `transition-<state>-work-<screen>` variants
+- Website demo: 48-frame `website-replay`
 
-All frames use a 384×256 transparent canvas and the same bottom-center anchor. Work frames are imported from the approved two-arm source sheet. The viewer-left arm only touches the keyboard. On pointer input, the viewer-right hand and mouse glide together by three source pixels while the shoulder, torso, head, ears, face, monitor, and keyboard stay fixed.
+## How transitions move
 
-`import-approved-work.lua` cuts and aligns the approved source sheet. `prepare-local-variants.lua` changes only the monitor pixels, expressions, cup, steam, and incoming arm for local variants. The AI screen uses a brand-neutral prompt-and-response graphic without provider logos or text. The MewLink screen uses the product's own floppy-ear dog-head mark. `motion-tween.py` creates motion-compensated in-betweens so faces and limbs travel instead of appearing twice. `build-animation-master.lua` imports those frames into the master project while preserving total timing, then exports the horizontal PNG strips under `public/pets/animations`.
+`rig/cutout.py` separates the pup from its props in each authored scene (fur and outlines that hug it stay with the pup; desk, laptop, TV, snacks and cushion go to the props), so both can move independently. A transition then plays in three beats: the pup winds up with a squash and a lean while its props shrink away under a dust poof and it re-appears in its sitting pose; it cheer-hops to the next spot and lands squashed with the `> <` face; the next props pop in with a springy overshoot and a sparkle, and a second poof reveals the destination pose. Every transition starts with the exact final bitmap of its source loop (or the neutral work frame) and ends with the exact first bitmap of its destination loop.
 
-Each transition starts with the exact final bitmap of its source loop and ends with the exact first bitmap of its destination loop. Work waits for both hands to return to their neutral frame and retains the current code, document, web, AI, or MewLink screen before leaving.
+## Building
 
-Create a temporary Python environment from `requirements-animation.txt`, make an empty temporary tween directory, and pass its Python executable and directory to `build-animation-master.lua` as the `python` and `tweenDir` script parameters.
+```bash
+python3 -m venv /tmp/mewlink-venv && /tmp/mewlink-venv/bin/pip install -r art/aseprite/requirements-animation.txt
+/tmp/mewlink-venv/bin/python art/aseprite/rig/build.py --out /tmp/mewlink-rig
+aseprite -b --script-param root="$PWD" --script-param build=/tmp/mewlink-rig --script art/aseprite/build-animation-master.lua
+pnpm test:animations
+```
+
+`rig/original.py` choreographs every loop, transition and interaction. `rig/fx.py` and `rig/pixel.py` draw the effects. `rig/palette.json` is the shared palette; regenerate it with `rig/palette.py` only when the source artwork changes. `build.py` writes per-layer strips and a manifest; `build-animation-master.lua` imports them into the layered master, converts it to the indexed palette and exports every tag under `public/pets/animations`.
+
+The older helper scripts (`import-*.lua`, `lock-work-rig.lua`, `prepare-*.lua`, `normalize-frame.lua`, `validate-work-rig.lua`) produced the frames in `frames/`. `motion-tween.py` is the retired optical-flow in-betweener; the build no longer uses it.
