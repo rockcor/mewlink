@@ -1,13 +1,11 @@
 import { describe, expect, it } from 'vitest';
-import { clearPairing, createPairingJoinRequest, createPairingState, loadPairing, openPairingInvite, pairingInviteCode, pairingInviteSecondsLeft, savePairing, sealPairingInvite } from './pairing';
+import { createPairingJoinRequest, createPairingState, openPairingInvite, pairingInviteCode, pairingInviteSecondsLeft, sealPairingInvite } from './pairing';
+import { SecurePairingStore } from './secureStore';
 
 function memoryStorage() {
   let value: string | null = null;
-  return {
-    getItem: () => value,
-    setItem: (_key: string, next: string) => { value = next; },
-    removeItem: () => { value = null; },
-  };
+  return new SecurePairingStore({ read: async () => value, write: async next => { value = next; } },
+    { getItem: () => null, removeItem: () => undefined });
 }
 
 describe('macOS test pairing', () => {
@@ -24,8 +22,9 @@ describe('macOS test pairing', () => {
     await expect(openPairingInvite(request, sealed, creator.inviteExpiresAt)).rejects.toThrow();
     await expect(openPairingInvite(request, sealed, creator.inviteExpiresAt + 60_000)).rejects.toThrow();
     const storage = memoryStorage();
-    savePairing(joiner, storage);
-    expect(loadPairing(storage)?.partnerDeviceId).toBe(creator.deviceId);
+    await storage.load();
+    await storage.save(joiner);
+    expect((await storage.load())?.partnerDeviceId).toBe(creator.deviceId);
   });
 
   it('creates two distinct devices with one shared relationship key', async () => {
@@ -50,14 +49,17 @@ describe('macOS test pairing', () => {
   it('persists one device identity between launches', async () => {
     const storage = memoryStorage();
     const state = await createPairingState();
-    savePairing(state, storage);
-    expect(loadPairing(storage)?.deviceId).toBe(state.deviceId);
+    await storage.load();
+    await storage.save(state);
+    expect((await storage.load())?.deviceId).toBe(state.deviceId);
   });
 
   it('returns to standalone mode as soon as pairing is cleared', async () => {
     const storage = memoryStorage();
-    savePairing(await createPairingState(), storage);
-    clearPairing(storage);
-    expect(loadPairing(storage)).toBeUndefined();
+    const state = await createPairingState();
+    await storage.load();
+    await storage.save(state);
+    await storage.beginRevocation(state);
+    expect(await storage.load()).toBeUndefined();
   });
 });

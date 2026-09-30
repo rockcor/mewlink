@@ -10,8 +10,22 @@ The current developer preview has no account system. Two Macs can pair using a
 private invite and exchange encrypted interaction, companion-color, and optional
 statistics envelopes through a mailbox relay. The relay receives routing identifiers,
 approximate request timing, and ciphertext, but not the event body. Local events are stored in IndexedDB;
-the test relationship secret is stored locally by the app. Removing app data
-removes those local events and pairing material.
+the desktop pairing credential is stored in the system credential store. New
+pairings use a native ratchet whose session snapshot is encrypted on disk, with
+its rotating wrapping key in the system credential store. The temporary invite
+secret is removed after the handshake. Existing plaintext pairing records are migrated only after a
+verified secure write. Local replay events are not yet encrypted at rest by
+MewLink. Removing ordinary app files does not necessarily remove Keychain or
+Credential Manager entries; unpair in the app before uninstalling.
+Old pairings must be replaced on both devices before using the new protocol.
+The ratchet does not remove plaintext replay history or copies in OS backups.
+
+Unpairing stops this device's traffic. When the relay confirms the request, both
+devices lose access to that relationship's mailbox and its queued ciphertext is
+deleted. Offline requests are retained securely and retried while the app runs.
+Previously downloaded history or copies held by the other person cannot be
+remotely erased. Relay revocation tombstones retain opaque relationship/device
+identifiers and a credential hash to reject old requests.
 
 Future networked builds must use audited end-to-end encryption, minimize
 metadata, publish retention periods, and obtain separate opt-in before sharing

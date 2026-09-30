@@ -1,7 +1,9 @@
 use serde::Serialize;
 use tauri::{Manager, PhysicalPosition};
-mod window_layout;
 mod language;
+mod ratchet;
+mod secure_storage;
+mod window_layout;
 
 #[derive(Debug, PartialEq, Eq, Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -838,6 +840,9 @@ pub fn run() {
             presence_signal,
             input_signal,
             language::system_languages,
+            secure_storage::read_pairing_secure,
+            secure_storage::write_pairing_secure,
+            ratchet::ratchet_command,
             window_layout::set_panel_open,
             window_layout::pet_window_position,
             window_layout::restore_pet_position

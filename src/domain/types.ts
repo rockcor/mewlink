@@ -34,7 +34,7 @@ export interface PlainEvent {
   payload: ActivitySegment | InteractionPayload | PetSkinPayload | StatisticsPayload;
 }
 export interface EncryptedEnvelope {
-  protocolVersion: 1; relationshipId: string; senderDeviceId: string; recipientDeviceId: string;
+  protocolVersion: 1 | 2; relationshipId: string; senderDeviceId: string; recipientDeviceId: string;
   keyId: string; sequence: number; nonce: string; ciphertext: string;
 }
-export interface StoredEvent { event: PlainEvent; direction: 'in' | 'out'; status: 'queued' | 'cached' | 'delivered'; receivedAt: string }
+export interface StoredEvent { event: PlainEvent; direction: 'in' | 'out'; status: 'queued' | 'cached' | 'delivered'; receivedAt: string; ratchetReceipt?: string }

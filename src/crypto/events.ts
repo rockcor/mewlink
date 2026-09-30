@@ -14,7 +14,7 @@ export async function newDemoKey(): Promise<Uint8Array> { const sodium = await r
 export async function encodeSecret(bytes: Uint8Array): Promise<string> { return b64(await readySodium(), bytes); }
 export async function decodeSecret(value: string): Promise<Uint8Array> { return unb64(await readySodium(), value); }
 
-function isPlainEvent(value: unknown): value is PlainEvent {
+export function isPlainEvent(value: unknown): value is PlainEvent {
   if (!value || typeof value !== 'object') return false;
   const event = value as Record<string, unknown>;
   if (event.version !== 1 || typeof event.id !== 'string' || event.id.length > 80
@@ -82,6 +82,7 @@ export async function encryptEvent(event: PlainEvent, recipientDeviceId: string,
   return { ...header, nonce: b64(sodium, nonce), ciphertext: b64(sodium, ciphertext) };
 }
 export async function decryptEvent(envelope: EncryptedEnvelope, key: Uint8Array): Promise<PlainEvent> {
+  if (envelope.protocolVersion !== 1) throw new Error('unsupported protocol');
   const sodium = await readySodium();
   const { nonce, ciphertext, ...header } = envelope;
   const plaintext = sodium.crypto_aead_xchacha20poly1305_ietf_decrypt(null, unb64(sodium, ciphertext), aad(header), unb64(sodium, nonce), key);

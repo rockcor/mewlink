@@ -1,14 +1,17 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { DatabaseSync } from 'node:sqlite';
 import { readFileSync, readdirSync } from 'node:fs';
-import { drizzle } from '../website/node_modules/drizzle-orm/d1';
 import { GET, POST } from '../website/app/api/relay/route';
 import { createPairingJoinRequest, createPairingState, openPairingInvite, sealPairingInvite } from '../src/pairing/pairing';
-import { claimPairingJoin, registerPairCreator, registerPairJoiner, requestPairingJoin, sendEncryptedEvent, syncEncryptedEvents } from '../src/services/relayTransport';
+import { claimPairingJoin, registerPairCreator, registerPairJoiner, requestPairingJoin, revokeRelationship, sendEncryptedEvent, syncEncryptedEvents } from '../src/services/relayTransport';
+import { initializeRatchet, type RatchetPending } from '../src/crypto/ratchet';
+import { ratchetPeer } from './ratchetPeer';
 
 const context = vi.hoisted(() => ({ db: undefined as unknown }));
-vi.mock('../website/db', () => ({ getDb: () => context.db }));
+vi.mock('../website/db', () => ({ getRelayDb: () => context.db }));
 let sqlite: DatabaseSync;
+const peers: ReturnType<typeof ratchetPeer>[] = [];
+function peer() { const value = ratchetPeer(); peers.push(value); return value.port; }
 const start = 1_800_000_000_000;
 const fetcher: typeof fetch = async (input, init) => {
   const request = new Request(input, init);
@@ -21,21 +24,98 @@ beforeEach(() => {
   for (const file of readdirSync('website/drizzle').filter(file => file.endsWith('.sql')).sort()) {
     sqlite.exec(readFileSync(`website/drizzle/${file}`, 'utf8'));
   }
-  // Execute production Drizzle queries against SQLite; only the D1 driver is replaced.
-  context.db = drizzle({
+  // Execute production prepared SQL against real SQLite; only D1 is replaced.
+  context.db = {
     prepare(sql: string) {
       const statement = sqlite.prepare(sql);
       return { bind(...params: never[]) {
         return {
           async run() { return statement.run(...params); },
           async all() { return { results: statement.all(...params) }; },
+          async first() { return statement.get(...params) ?? null; },
           async raw() { statement.setReturnArrays(true); return statement.all(...params); },
         };
       } };
     },
-  } as never);
+    async batch(statements: Array<{ run(): Promise<unknown> }>) {
+      sqlite.exec('BEGIN');
+      try { const results = []; for (const statement of statements) results.push(await statement.run()); sqlite.exec('COMMIT'); return results; }
+      catch (error) { sqlite.exec('ROLLBACK'); throw error; }
+    },
+  };
 });
-afterEach(() => { sqlite.close(); vi.restoreAllMocks(); });
+afterEach(() => { for (const peer of peers.splice(0)) peer.stop(); sqlite.close(); vi.restoreAllMocks(); });
+
+async function pairedRatchet() {
+  const a = peer(); const b = peer();
+  let first = await registerPairCreator(await initializeRatchet(await createPairingState(), a), fetcher);
+  const request = await createPairingJoinRequest(first.inviteCode!);
+  await requestPairingJoin(request, fetcher);
+  await syncEncryptedEvents(first, fetcher, a);
+  let second = await initializeRatchet(await openPairingInvite(request, (await claimPairingJoin(request, fetcher))!), b);
+  await registerPairJoiner(second, fetcher);
+  second = (await syncEncryptedEvents(second, fetcher, b)).state;
+  first = (await syncEncryptedEvents(first, fetcher, a)).state;
+  second = (await syncEncryptedEvents(second, fetcher, b)).state;
+  expect(first.ratchet!.safetyNumber).toBe(second.ratchet!.safetyNumber);
+  expect(first.relationshipKey).toBe(''); expect(second.relationshipKey).toBe('');
+  await a('confirm', first.relationshipId, { safetyNumber: first.ratchet!.safetyNumber });
+  await b('confirm', second.relationshipId, { safetyNumber: second.ratchet!.safetyNumber });
+  first = (await syncEncryptedEvents(first, fetcher, a)).state;
+  second = (await syncEncryptedEvents(second, fetcher, b)).state;
+  return { first, second, a, b };
+}
+
+describe('real Rust ratchet through production relay SQL', () => {
+  it('exchanges interactions, skin and activity after verification; restart keeps pending receipts', async () => {
+    const { first, second, a, b } = await pairedRatchet();
+    const event = hug(first);
+    await sendEncryptedEvent(first, event, fetcher, a);
+    const incoming = await syncEncryptedEvents(second, fetcher, b);
+    expect(incoming.received[0].event).toEqual(event);
+    await b('restart', second.relationshipId);
+    const retry = await syncEncryptedEvents(incoming.state, fetcher, b);
+    expect(retry.received[0].ratchetReceipt).toBe(incoming.received[0].ratchetReceipt);
+    await b('ack_incoming', second.relationshipId, retry.received[0].ratchetReceipt);
+    expect((await syncEncryptedEvents(retry.state, fetcher, b)).received).toEqual([]);
+    for (const message of [hug(second), { ...hug(second), kind: 'profile.skin' as const, payload: { skin: 'mint' as const } },
+      { ...hug(second), kind: 'activity.segment' as const, payload: { category: 'work' as const, startedAt: '2026-09-09T00:00:00Z', endedAt: '2026-09-09T00:05:00Z' } }]) {
+      await sendEncryptedEvent(second, message, fetcher, b);
+    }
+    expect((await syncEncryptedEvents(first, fetcher, a)).received).toHaveLength(3);
+    const rows = sqlite.prepare('SELECT envelope_json FROM mailbox_envelopes').all();
+    for (const row of rows) {
+      expect(row.envelope_json).not.toContain('"action"');
+      expect(row.envelope_json).not.toContain('"skin"');
+    }
+  });
+
+  it('lost POST response retries identical ciphertext without duplicate delivery; conflicting reuse fails', async () => {
+    const { first, second, a, b } = await pairedRatchet();
+    let lost = false;
+    const lossy: typeof fetch = async (input, init) => {
+      const response = await fetcher(input, init);
+      if (!lost && JSON.parse(String(init?.body || '{}')).operation === 'send') { lost = true; throw new Error('network_lost_after_accept'); }
+      return response;
+    };
+    await expect(sendEncryptedEvent(first, hug(first), lossy, a)).rejects.toThrow('network_lost_after_accept');
+    const pending = await a<RatchetPending>('pending', first.relationshipId);
+    expect(pending.outgoing).toHaveLength(1);
+    await a('restart', first.relationshipId);
+    await syncEncryptedEvents(first, fetcher, a);
+    expect((await a<RatchetPending>('pending', first.relationshipId)).outgoing).toHaveLength(0);
+    expect((await syncEncryptedEvents(second, fetcher, b)).received).toHaveLength(1);
+    const envelope = pending.outgoing[0].envelope;
+    const collision = await POST(new Request('https://relay.test/api/relay', { method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${first.relayToken}` },
+      body: JSON.stringify({ operation: 'send', envelope: { ...envelope, ciphertext: `${envelope.ciphertext}A` } }) }));
+    expect(collision.status).toBe(409);
+    const downgrade = await POST(new Request('https://relay.test/api/relay', { method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${first.relayToken}` },
+      body: JSON.stringify({ operation: 'send', envelope: { ...envelope, protocolVersion: 1 } }) }));
+    expect(downgrade.status).toBe(400);
+  });
+});
 
 describe('production relay invitation expiry (requires the website checkout)', () => {
   it('clamps old clients to 15 minutes and retries cannot extend the deadline', async () => {
@@ -101,5 +181,101 @@ describe('production relay invitation expiry (requires the website checkout)', (
       .run((start + 86_400_000) / 1000, creator.relationshipId);
     vi.mocked(Date.now).mockReturnValue(start + 900_000);
     await expect(requestPairingJoin(await createPairingJoinRequest(creator.inviteCode!), fetcher)).rejects.toMatchObject({ status: 410 });
+  });
+});
+
+async function paired() {
+  let first = await registerPairCreator(await createPairingState(), fetcher);
+  const request = await createPairingJoinRequest(first.inviteCode!);
+  await requestPairingJoin(request, fetcher);
+  await syncEncryptedEvents(first, fetcher);
+  const second = await openPairingInvite(request, (await claimPairingJoin(request, fetcher))!);
+  await registerPairJoiner(second, fetcher);
+  first = (await syncEncryptedEvents(first, fetcher)).state;
+  return { first, second, request };
+}
+function hug(state: Awaited<ReturnType<typeof createPairingState>>) {
+  return { id: crypto.randomUUID(), version: 1 as const, relationshipId: state.relationshipId,
+    senderDeviceId: state.deviceId, createdAt: new Date().toISOString(),
+    kind: 'interaction' as const, payload: { action: 'hug' as const } };
+}
+
+describe('production relay revocation', () => {
+  it('either peer can revoke; deletes only its mailbox and rejects old sync/send/join/create', async () => {
+    const { first, second, request } = await paired();
+    const other = await paired();
+    await sendEncryptedEvent(first, hug(first), fetcher);
+    await sendEncryptedEvent(other.first, hug(other.first), fetcher);
+    await revokeRelationship(second, fetcher);
+    await revokeRelationship(second, fetcher); // lost response retry is safe
+    for (const device of [first, second]) {
+      await expect(syncEncryptedEvents(device, fetcher)).rejects.toMatchObject({ status: 410, code: 'relationship_revoked' });
+      await expect(sendEncryptedEvent(device, hug(device), fetcher)).rejects.toMatchObject({ status: 410 });
+      await expect(registerPairJoiner(device, fetcher)).rejects.toMatchObject({ status: 410 });
+    }
+    await expect(registerPairCreator(first, fetcher)).rejects.toMatchObject({ status: 410 });
+    await expect(requestPairingJoin(request, fetcher)).rejects.toMatchObject({ status: 403 });
+    expect(sqlite.prepare('SELECT COUNT(*) AS n FROM mailbox_envelopes WHERE relationship_id = ?').get(first.relationshipId)?.n).toBe(0);
+    expect((await syncEncryptedEvents(other.second, fetcher)).received).toHaveLength(1);
+  });
+
+  it('wrong credentials cannot revoke another relationship', async () => {
+    const { first, second } = await paired();
+    const unrelated = await createPairingState();
+    await expect(revokeRelationship({ ...first, relayToken: unrelated.relayToken }, fetcher)).rejects.toMatchObject({ status: 403 });
+    await sendEncryptedEvent(first, hug(first), fetcher);
+    expect((await syncEncryptedEvents(second, fetcher)).received).toHaveLength(1);
+  });
+
+  it('cancels an invite including its pending handshake and sealed secret', async () => {
+    const creator = await registerPairCreator(await createPairingState(), fetcher);
+    const request = await createPairingJoinRequest(creator.inviteCode!);
+    await requestPairingJoin(request, fetcher);
+    await syncEncryptedEvents(creator, fetcher);
+    expect(await claimPairingJoin(request, fetcher)).toBeTypeOf('string');
+    await revokeRelationship(creator, fetcher);
+    await expect(claimPairingJoin(request, fetcher)).rejects.toMatchObject({ status: 403 });
+    const row = sqlite.prepare('SELECT pairing_code_hash, pairing_sealed_invite FROM relay_relationships WHERE id = ?').get(creator.relationshipId);
+    expect(row?.pairing_code_hash).toBeNull();
+    expect(row?.pairing_sealed_invite).toBeNull();
+  });
+
+  it('cancels before a delayed create arrives, with no resurrection', async () => {
+    const state = await createPairingState();
+    await revokeRelationship(state, fetcher);
+    await expect(registerPairCreator(state, fetcher)).rejects.toMatchObject({ status: 410 });
+  });
+
+  it('a fresh pair uses new credentials; old devices cannot read its ciphertext', async () => {
+    const old = await paired();
+    await revokeRelationship(old.first, fetcher);
+    const next = await paired();
+    expect(next.first.relationshipId).not.toBe(old.first.relationshipId);
+    expect(next.first.relationshipKey).not.toBe(old.first.relationshipKey);
+    expect(next.first.relayToken).not.toBe(old.first.relayToken);
+    await sendEncryptedEvent(next.first, hug(next.first), fetcher);
+    await expect(syncEncryptedEvents({ ...next.second, relayToken: old.second.relayToken }, fetcher)).rejects.toMatchObject({ status: 403 });
+    expect((await syncEncryptedEvents({ ...next.second, relationshipKey: old.second.relationshipKey }, fetcher)).received).toHaveLength(0);
+    expect((await syncEncryptedEvents(next.second, fetcher)).received).toHaveLength(1);
+  });
+
+  it('a competing requester cannot replace the public key or reset a sealed invite', async () => {
+    const creator = await registerPairCreator(await createPairingState(), fetcher);
+    const first = await createPairingJoinRequest(creator.inviteCode!);
+    const other = await createPairingJoinRequest(creator.inviteCode!);
+    await requestPairingJoin(first, fetcher);
+    await syncEncryptedEvents(creator, fetcher);
+    const sealed = await claimPairingJoin(first, fetcher);
+    await expect(requestPairingJoin(other, fetcher)).rejects.toMatchObject({ status: 409 });
+    await expect(requestPairingJoin({ ...first, publicKey: other.publicKey }, fetcher)).rejects.toMatchObject({ status: 409 });
+    await requestPairingJoin(first, fetcher);
+    expect(await claimPairingJoin(first, fetcher)).toBe(sealed);
+  });
+
+  it('revocation racing a send leaves no deliverable envelope', async () => {
+    const { first, second } = await paired();
+    await Promise.allSettled([sendEncryptedEvent(first, hug(first), fetcher), revokeRelationship(second, fetcher)]);
+    await expect(syncEncryptedEvents(second, fetcher)).rejects.toMatchObject({ status: 410 });
+    expect(sqlite.prepare('SELECT COUNT(*) AS n FROM mailbox_envelopes WHERE relationship_id = ?').get(first.relationshipId)?.n).toBe(0);
   });
 });

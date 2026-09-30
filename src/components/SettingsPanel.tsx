@@ -40,12 +40,14 @@ interface SettingsPanelProps {
   onJoinCodeChange: (value: string) => void;
   onJoinPairing: () => void;
   onDisconnect: () => void;
+  onConfirmPairing: () => void;
   onCupStyleChange: (style: CupStyle) => void;
   onClose: () => void;
 }
 
 const copy = {
   zh: {
+    confirmNumber: '已核对，号码完全一致', verifiedNumber: '已核对',
     settings: '设置', close: '关闭设置', language: '语言', languageNote: '跟随系统或手动选择', system: '跟随系统',
     connect: '连接 TA', connectNote: '可单独使用；连接后两只宠物会同时出现', connected: '已连接', waiting: '等待中',
     createInvite: '生成配对码', or: '或', pasteInvite: '输入对方的 8 位配对码', invite: '配对码', connectAction: '连接', myInvite: '我的配对码', copyInvite: '复制配对码', cancel: '取消',
@@ -62,6 +64,7 @@ const copy = {
     feedback: '意见反馈', feedbackNote: '提交后会公开显示在官网评论区', nickname: '昵称', nicknamePlaceholder: '怎么称呼你', nicknameAria: '反馈昵称', feedbackPlaceholder: '写下你的感受或建议…', feedbackAria: '反馈内容', sendFeedback: '发送反馈',
   },
   'zh-Hant': {
+    confirmNumber: '已核對，號碼完全一致', verifiedNumber: '已核對',
     settings: '設定', close: '關閉設定', language: '語言', languageNote: '跟隨系統或手動選擇', system: '跟隨系統',
     connect: '連線 TA', connectNote: '可單獨使用；連線後兩隻寵物會同時出現', connected: '已連線', waiting: '等待中',
     createInvite: '產生配對碼', or: '或', pasteInvite: '輸入對方的 8 位配對碼', invite: '配對碼', connectAction: '連線', myInvite: '我的配對碼', copyInvite: '複製配對碼', cancel: '取消',
@@ -78,6 +81,7 @@ const copy = {
     feedback: '意見回饋', feedbackNote: '提交後會公開顯示在官網留言區', nickname: '暱稱', nicknamePlaceholder: '怎麼稱呼你', nicknameAria: '回饋暱稱', feedbackPlaceholder: '寫下你的感受或建議…', feedbackAria: '回饋內容', sendFeedback: '傳送回饋',
   },
   en: {
+    confirmNumber: 'Compared — both numbers match', verifiedNumber: 'Verified',
     settings: 'Settings', close: 'Close settings', language: 'Language', languageNote: 'Follow your system or choose a language', system: 'System',
     connect: 'Connect your partner', connectNote: 'Use it solo, or pair to show both companions together', connected: 'Connected', waiting: 'Waiting',
     createInvite: 'Create pairing code', or: 'or', pasteInvite: 'Enter the 8-character pairing code', invite: 'Pairing code', connectAction: 'Connect', myInvite: 'My pairing code', copyInvite: 'Copy code', cancel: 'Cancel',
@@ -122,6 +126,7 @@ export function SettingsPanel({
   onJoinCodeChange,
   onJoinPairing,
   onDisconnect,
+  onConfirmPairing,
   onCupStyleChange,
   onClose
 }: SettingsPanelProps) {
@@ -202,7 +207,9 @@ export function SettingsPanel({
             <div className="pairing-actions"><button type="button" className="pairing-primary" onClick={inviteExpired ? onCreatePairing : onCopyInvite} disabled={pairingBusy}>{inviteExpired ? text.regenerate : text.copyInvite}</button><button type="button" className="pairing-quiet" onClick={onDisconnect} disabled={pairingBusy}>{text.cancel}</button></div>
           </>}
           {pairing?.partnerDeviceId && <div className="pairing-connected"><span className="pairing-heart" aria-hidden="true">♥</span><div><b>{text.petsConnected}</b><small>{text.compareNumber}</small></div><button type="button" className="pairing-quiet" onClick={onDisconnect}>{text.disconnect}</button></div>}
-          {pairing && safetyCode && !inviteExpired && <div className="safety-code"><small>{text.safetyNumber}</small><b>{safetyCode}</b></div>}
+          {pairing?.ratchet?.established && safetyCode && <div className="safety-code"><small>{text.safetyNumber}</small><b>{safetyCode}</b></div>}
+          {pairing?.ratchet?.established && <button type="button" className="pairing-primary" onClick={onConfirmPairing}
+            disabled={pairingBusy || pairing.ratchet.verified}>{pairing.ratchet.verified ? text.verifiedNumber : text.confirmNumber}</button>}
           {pairingStatus && (!inviteExpired || pairingBusy) && <p className="pairing-status" role="status">{pairingStatus}</p>}
         </article>
 
