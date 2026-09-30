@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import type { ActivityKind, WorkVisual } from '../domain/types';
+import { spriteSheets } from './spriteAssets';
 
 export interface ActivityTransition {
   from: ActivityKind;
@@ -15,30 +16,6 @@ export const transitionAssetName = ({ from, to, fromWorkVisual, toWorkVisual }: 
   return `transition-${from}-${to}`;
 };
 
-const loadedTransitionAssets = new Set<string>();
-const loadingTransitionAssets = new Map<string, Promise<void>>();
-
-const loadTransitionAsset = (assetName: string) => {
-  if (loadedTransitionAssets.has(assetName) || typeof Image === 'undefined') return Promise.resolve();
-  const existing = loadingTransitionAssets.get(assetName);
-  if (existing) return existing;
-  const image = new Image();
-  const pending = new Promise<void>((resolve, reject) => {
-    image.onload = () => resolve();
-    image.onerror = () => reject(new Error(`Unable to load ${assetName}`));
-    image.src = `/pets/animations/${assetName}.png`;
-  }).then(async () => {
-    if (typeof image.decode === 'function') await image.decode().catch(() => undefined);
-    loadedTransitionAssets.add(assetName);
-    loadingTransitionAssets.delete(assetName);
-  }, error => {
-    loadingTransitionAssets.delete(assetName);
-    throw error;
-  });
-  loadingTransitionAssets.set(assetName, pending);
-  return pending;
-};
-
 interface ActivityPlaybackOptions {
   desiredActivity: ActivityKind;
   desiredWorkVisual: WorkVisual;
@@ -46,6 +23,7 @@ interface ActivityPlaybackOptions {
   initialWorkVisual: WorkVisual;
   workHandsSettled: boolean;
   transitionDurationMs: number;
+  paused?: boolean;
 }
 
 export function useActivityPlayback({
@@ -55,6 +33,7 @@ export function useActivityPlayback({
   initialWorkVisual,
   workHandsSettled,
   transitionDurationMs,
+  paused = false,
 }: ActivityPlaybackOptions) {
   const [displayedActivity, setDisplayedActivity] = useState(initialActivity);
   const [displayedWorkVisual, setDisplayedWorkVisual] = useState(initialWorkVisual);
@@ -85,34 +64,46 @@ export function useActivityPlayback({
   }, []);
 
   const beginTransition = useCallback((atLoopBoundary: boolean) => {
-    if (transitionRef.current) return;
+    if (paused || transitionRef.current) return false;
     const descriptor = pendingDescriptor();
-    if (!descriptor) return;
+    if (!descriptor) return false;
     if (descriptor.from === 'work') {
-      if (!workHandsSettledRef.current) return;
+      if (!workHandsSettledRef.current) return false;
     } else if (!atLoopBoundary) {
-      return;
+      return false;
     }
-    if (!loadedTransitionAssets.has(transitionAssetName(descriptor))) return;
+    if (!spriteSheets.has(transitionAssetName(descriptor))) return false;
     const next = { ...descriptor, key: ++sequenceRef.current };
     transitionRef.current = next;
     setTransition(next);
-  }, [pendingDescriptor]);
+    return true;
+  }, [paused, pendingDescriptor]);
 
   useEffect(() => {
+    if (paused) return;
     if (!transitionRef.current && desiredActivity === displayedActivity) {
       displayedWorkVisualRef.current = desiredWorkVisual;
       setDisplayedWorkVisual(desiredWorkVisual);
       return;
     }
-    const descriptor = pendingDescriptor();
+    const descriptor = transition ?? pendingDescriptor();
     if (!descriptor) return;
     let cancelled = false;
-    void loadTransitionAsset(transitionAssetName(descriptor)).then(() => {
+    // Retain the sheet until the destination is committed; preloading then
+    // releasing allows the memory budget to evict it before a loop completes.
+    const lease = spriteSheets.acquire(transitionAssetName(descriptor));
+    void lease.ready.then(() => {
       if (!cancelled) setAssetRevision(current => current + 1);
-    }).catch(() => undefined);
-    return () => { cancelled = true; };
-  }, [desiredActivity, desiredWorkVisual, displayedActivity, pendingDescriptor]);
+    }).catch(() => {
+      if (cancelled || transitionRef.current) return;
+      // A missing transition must not leave a connected pet idle forever.
+      displayedActivityRef.current = descriptor.to;
+      displayedWorkVisualRef.current = descriptor.toWorkVisual;
+      setDisplayedActivity(descriptor.to);
+      setDisplayedWorkVisual(descriptor.toWorkVisual);
+    });
+    return () => { cancelled = true; lease.release(); };
+  }, [desiredActivity, desiredWorkVisual, displayedActivity, paused, pendingDescriptor, transition]);
 
   useEffect(() => {
     if (displayedActivity === 'work') beginTransition(false);
@@ -132,13 +123,13 @@ export function useActivityPlayback({
   }, []);
 
   useEffect(() => {
-    if (!transition) return;
+    if (!transition || paused) return;
     const timer = window.setTimeout(
       () => completeTransition(transition.key),
       Math.max(0, transitionDurationMs) + 80,
     );
     return () => window.clearTimeout(timer);
-  }, [completeTransition, transition, transitionDurationMs]);
+  }, [completeTransition, paused, transition, transitionDurationMs]);
 
   return {
     displayedActivity,

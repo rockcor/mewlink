@@ -460,7 +460,14 @@ fn validate_event(event: &Value, relationship: &str, sender: &str) -> Result<()>
         || !event.get("payload").is_some_and(Value::is_object)
         || !matches!(
             event.get("kind").and_then(Value::as_str),
-            Some("interaction" | "activity.segment" | "profile.skin" | "statistics.snapshot")
+            Some(
+                "interaction"
+                    | "activity.segment"
+                    | "profile.skin"
+                    | "statistics.snapshot"
+                    | "cup.consumed"
+                    | "operation.batch"
+            )
         )
     {
         return Err("invalid_event".into());
@@ -504,6 +511,24 @@ mod tests {
     fn event(machine: &Machine, id: usize) -> Value {
         json!({"version":1,"id":format!("event-{id}"),"relationshipId":machine.context.relationship_id,
             "senderDeviceId":machine.context.device_id,"createdAt":"2026-09-09T00:00:00Z","kind":"interaction","payload":{"action":"hug"}})
+    }
+    #[test]
+    fn carries_history_and_cup_events_but_rejects_unknown_kinds() {
+        let (mut a, mut b) = pair();
+        let batch = json!({"version":1,"id":"history-1","relationshipId":a.context.relationship_id,
+            "senderDeviceId":a.context.device_id,"createdAt":"2026-09-09T00:00:00Z","kind":"operation.batch",
+            "payload":{"format":1,"startedAt":"2026-09-09T00:00:00Z","points":[[0,3,1,0,0,0]]}});
+        let cup = json!({"version":1,"id":"cup-1","relationshipId":a.context.relationship_id,
+            "senderDeviceId":a.context.device_id,"createdAt":"2026-09-09T00:00:01Z","kind":"cup.consumed",
+            "payload":{"cupEventId":"event-7"}});
+        for event in [batch, cup] {
+            let envelope = a.send(event).unwrap();
+            b.receive(&envelope).unwrap();
+        }
+        assert_eq!(b.deliveries().len(), 2);
+        let mut unknown = event(&a, 99);
+        unknown["kind"] = json!("location.share");
+        assert_eq!(a.send(unknown).err().as_deref(), Some("invalid_event"));
     }
     #[test]
     fn exchange_and_ratchet_both_directions() {

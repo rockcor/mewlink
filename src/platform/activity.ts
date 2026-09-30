@@ -3,10 +3,10 @@ import type { ActivityKind, WorkVisual } from '../domain/types';
 
 export type InputKind = 'keyboard' | 'pointer' | 'none';
 export type InputMotion = InputKind | 'both';
-export interface PresenceSignal { idleSeconds: number; locked: boolean; appClass?: 'editor' | 'reader' | 'meeting' | 'media' | 'browser' | 'ai' | 'mewlink' | 'unknown'; inputKind?: InputKind }
+export interface PresenceSignal { idleSeconds: number; locked: boolean; foregroundSequence?: number; appClass?: 'editor' | 'reader' | 'meeting' | 'media' | 'browser' | 'ai' | 'mewlink' | 'unknown'; inputKind?: InputKind }
 export interface InputSignal { keyboardSequence: number; pointerSequence: number; pointerClickSequence: number; recentKind: InputKind }
 export interface InputChanges { keyboard: boolean; pointer: boolean }
-export interface InputBurstSample { at: number; keyboard: number; pointer: number }
+export interface InputBurstSample { at: number; keyboard: number; pointerClicks: number }
 export interface ActivityProbe { sample(): Promise<PresenceSignal> }
 export interface InputProbe { sample(): Promise<InputSignal> }
 
@@ -16,7 +16,8 @@ export const POINTER_EVENTS_PER_ANIMATION = 4;
 export const INPUT_STRESS_WINDOW_MS = 1_200;
 export const INPUT_STRESS_HOLD_MS = 1_800;
 export const KEYBOARD_STRESS_THRESHOLD = 18;
-export const POINTER_STRESS_THRESHOLD = 72;
+// A deliberate burst of clicks, not the much denser move/scroll event stream.
+export const POINTER_CLICK_STRESS_THRESHOLD = 10;
 
 export const shouldAnimatePointer = (lastAnimationAt: number, now: number) =>
   now - lastAnimationAt >= POINTER_ANIMATION_INTERVAL_MS;
@@ -36,6 +37,12 @@ export const nextSampleDelay = (signal: PresenceSignal) => {
   if (signal.inputKind && signal.inputKind !== 'none') return 260;
   return 500;
 };
+
+export function nextActivity(previous: ActivityKind, signal: PresenceSignal): ActivityKind {
+  if (!signal.locked && signal.idleSeconds < 120 && signal.appClass === 'unknown'
+    && previous !== 'rest' && previous !== 'idle') return previous;
+  return classify(signal);
+}
 
 export const visualInputForActivity = (activity: ActivityKind, keyboard: boolean, pointer: boolean): InputMotion => {
   if (activity !== 'work') return 'none';
@@ -58,12 +65,12 @@ export const trimInputBurst = (samples: InputBurstSample[], now: number) =>
 
 export const inputBurstReached = (samples: InputBurstSample[]) => {
   let keyboard = 0;
-  let pointer = 0;
+  let pointerClicks = 0;
   for (const sample of samples) {
     keyboard += sample.keyboard;
-    pointer += sample.pointer;
+    pointerClicks += sample.pointerClicks;
   }
-  return keyboard >= KEYBOARD_STRESS_THRESHOLD || pointer >= POINTER_STRESS_THRESHOLD;
+  return keyboard >= KEYBOARD_STRESS_THRESHOLD || pointerClicks >= POINTER_CLICK_STRESS_THRESHOLD;
 };
 
 export const inputChangesForSequence = (previous: InputSignal, current: InputSignal): InputChanges => ({
@@ -85,6 +92,13 @@ export const keyboardEventsForSequence = (previous: InputSignal, current: InputS
   current.keyboardSequence >= previous.keyboardSequence
     ? current.keyboardSequence - previous.keyboardSequence
     : 1;
+
+export function inputBurstSampleForSequence(previous: InputSignal, current: InputSignal, at: number): InputBurstSample | undefined {
+  const keyboard = keyboardEventsForSequence(previous, current);
+  const pointerClicks = pointerClicksForSequence(previous, current);
+  // Motion must neither start the tense face nor extend its release timer.
+  return keyboard > 0 || pointerClicks > 0 ? { at, keyboard, pointerClicks } : undefined;
+}
 
 class TauriProbe implements ActivityProbe { async sample() { return invoke<PresenceSignal>('presence_signal'); } }
 class TauriInputProbe implements InputProbe { async sample() { return invoke<InputSignal>('input_signal'); } }

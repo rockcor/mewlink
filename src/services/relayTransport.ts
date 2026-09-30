@@ -29,6 +29,7 @@ interface SyncResponse {
   inviteExpiresAt?: number;
   devices: string[];
   messages: RelayMessage[];
+  partnerOnline?: boolean;
   pairingRequest?: { deviceId: string; publicKey: string };
 }
 
@@ -176,14 +177,14 @@ export async function syncEncryptedEvents(state: PairingState, fetcher: Fetcher 
     // Drain durable deliveries before fetching another batch. Otherwise a full
     // inbox after a crash could prevent the very acknowledgements that free it.
     const local = await ratchetDeliveries(state, ratchet);
-    if (local.received.length) return local;
+    if (local.received.length) return { ...local, partnerOnline: false, caughtUp: false };
     await flushRatchetOutbox(state, fetcher, ratchet);
   }
   const url = new URL(RELAY_ENDPOINT);
   url.searchParams.set('relationshipId', state.relationshipId);
   url.searchParams.set('deviceId', state.deviceId);
   url.searchParams.set('after', String(state.relayCursor));
-  const response = await checked(await fetcher(url, { headers: headers(state), signal: AbortSignal.timeout(10_000) }));
+  const response = await checked(await fetcher(url, { headers: headers(state), signal: AbortSignal.timeout(15_000) }));
   const payload = await response.json() as Partial<SyncResponse>;
   const pairingRequest = payload.pairingRequest;
   if (!state.partnerDeviceId && state.relationshipKey && pairingRequest && typeof pairingRequest.deviceId === 'string' && typeof pairingRequest.publicKey === 'string') {
@@ -201,6 +202,8 @@ export async function syncEncryptedEvents(state: PairingState, fetcher: Fetcher 
     }));
   }
   const cursor = Number.isSafeInteger(payload.cursor) && (payload.cursor ?? 0) >= state.relayCursor ? payload.cursor as number : state.relayCursor;
+  const partnerOnline = payload.partnerOnline === true;
+  const caughtUp = !Array.isArray(payload.messages) || payload.messages.length < 100;
   if (state.ratchet) {
     for (const message of Array.isArray(payload.messages) ? payload.messages : []) {
       if (!message || !Number.isSafeInteger(message.relayId) || !validEnvelope(message.envelope)) continue;
@@ -209,9 +212,11 @@ export async function syncEncryptedEvents(state: PairingState, fetcher: Fetcher 
       catch (error) { if (!isRejectedMessage(error)) throw error; }
     }
     await flushRatchetOutbox(state, fetcher, ratchet);
-    return ratchetDeliveries({ ...withServerExpiry(state, payload.inviteExpiresAt), relayCursor: cursor }, ratchet);
+    const delivered = await ratchetDeliveries({ ...withServerExpiry(state, payload.inviteExpiresAt), relayCursor: cursor }, ratchet);
+    return { ...delivered, partnerOnline, caughtUp };
   }
   const devices = Array.isArray(payload.devices) ? payload.devices.filter(device => typeof device === 'string' && device !== state.deviceId) : [];
+  const partnerDeviceId = state.partnerDeviceId ?? (devices.length === 1 ? devices[0] : undefined);
   const receivedSequences = { ...state.receivedSequences };
   const received: StoredEvent[] = [];
   const key = await pairingKey(state);
@@ -219,7 +224,7 @@ export async function syncEncryptedEvents(state: PairingState, fetcher: Fetcher 
     if (!message || !Number.isSafeInteger(message.relayId) || !validEnvelope(message.envelope)) continue;
     const envelope = message.envelope;
     if (envelope.relationshipId !== state.relationshipId || envelope.recipientDeviceId !== state.deviceId
-      || envelope.keyId !== state.keyId || envelope.senderDeviceId !== (state.partnerDeviceId ?? devices[0])
+      || envelope.keyId !== state.keyId || envelope.senderDeviceId !== partnerDeviceId
       || envelope.sequence <= (receivedSequences[envelope.senderDeviceId] ?? 0)) continue;
     try {
       const event = await decryptEvent(envelope, key);
@@ -231,14 +236,17 @@ export async function syncEncryptedEvents(state: PairingState, fetcher: Fetcher 
   }
   const next: PairingState = {
     ...withServerExpiry(state, payload.inviteExpiresAt),
-    ...(!state.partnerDeviceId && devices[0] ? { partnerDeviceId: devices[0] } : {}),
+    ...(partnerDeviceId ? { partnerDeviceId } : {}),
     relayCursor: cursor,
     receivedSequences,
   };
-  return { state: next, received };
+  return { state: next, received, partnerOnline, caughtUp };
 }
 
 export async function sendEncryptedEvent(state: PairingState, event: PlainEvent, fetcher: Fetcher = fetch, ratchet: RatchetPort = nativeRatchet) {
+  if (event.senderDeviceId !== state.deviceId || event.relationshipId !== state.relationshipId) {
+    throw new Error('outgoing event identity mismatch');
+  }
   if (state.ratchet) {
     const envelope = await ratchet<EncryptedEnvelope>('send', state.relationshipId, event);
     await flushRatchetOutbox(state, fetcher, ratchet);
@@ -261,11 +269,24 @@ export async function sendEncryptedEvent(state: PairingState, event: PlainEvent,
   return { state: next, stored, envelope };
 }
 
-async function flushRatchetOutbox(state: PairingState, fetcher: Fetcher, ratchet: RatchetPort) {
+// Legacy (protocol 1) outbox only. A ratchet relationship must never send
+// envelopes sealed with the bootstrap key; its native outbox drains instead.
+export async function sendEncryptedBatch(state: PairingState, envelopes: EncryptedEnvelope[], fetcher: Fetcher = fetch) {
+  if (state.ratchet) throw new RatchetError('legacy_batch_in_ratchet_relationship');
+  if (!envelopes.length || envelopes.length > 12 || envelopes.some(envelope =>
+    envelope.relationshipId !== state.relationshipId || envelope.senderDeviceId !== state.deviceId
+    || envelope.recipientDeviceId !== state.partnerDeviceId || envelope.keyId !== state.keyId)) throw new Error('invalid outgoing batch');
+  await checked(await fetcher(RELAY_ENDPOINT, { method: 'POST', headers: headers(state),
+    body: JSON.stringify({ operation: 'send_batch', relationshipId: state.relationshipId, envelopes }),
+    signal: AbortSignal.timeout(15_000),
+  }));
+}
+
+export async function flushRatchetOutbox(state: PairingState, fetcher: Fetcher = fetch, ratchet: RatchetPort = nativeRatchet) {
   const { outgoing } = await ratchet<RatchetPending>('pending', state.relationshipId);
   for (const { receipt, envelope } of outgoing) {
     await checked(await fetcher(RELAY_ENDPOINT, { method: 'POST', headers: headers(state),
-      body: JSON.stringify({ operation: 'send', envelope }), signal: AbortSignal.timeout(10_000) }));
+      body: JSON.stringify({ operation: 'send', envelope }), signal: AbortSignal.timeout(15_000) }));
     await ratchet('ack_outgoing', state.relationshipId, receipt);
   }
 }

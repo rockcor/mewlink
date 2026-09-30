@@ -1,10 +1,11 @@
 import { getVersion } from '@tauri-apps/api/app';
 import type { DownloadEvent, Update } from '@tauri-apps/plugin-updater';
+import { version as appVersion } from '../../package.json';
 
 export const UPDATE_MANIFEST_URL = import.meta.env.DEV
   ? '/updates/latest.json'
   : 'https://mewlink.jshmhsb.chatgpt.site/updates/latest.json';
-export const FALLBACK_APP_VERSION = '0.3.21';
+export const FALLBACK_APP_VERSION = appVersion;
 
 interface UpdatePlatform {
   signature: string;
@@ -60,9 +61,8 @@ async function checkPublishedManifest(
   const platforms = manifest.platforms && typeof manifest.platforms === 'object'
     ? manifest.platforms as Record<string, UpdatePlatform>
     : undefined;
-  const downloadUrl = typeof manifest.downloadUrl === 'string'
-    ? manifest.downloadUrl
-    : platforms ? Object.values(platforms)[0]?.url : undefined;
+  // A native check failure must never offer another platform's first asset.
+  const downloadUrl = 'https://mewlink.jshmhsb.chatgpt.site/#install';
   return {
     currentVersion: current,
     manifest: { ...(manifest as UpdateManifest), platforms, downloadUrl },
@@ -128,7 +128,8 @@ export async function installUpdate(
     }
   };
 
-  await update.downloadAndInstall(report, { timeout: 120_000, restartAfterInstall: false });
+  // Windows exits during installation; its installer must do the restart.
+  await update.downloadAndInstall(report, { timeout: 120_000, restartAfterInstall: true });
   onProgress({ phase: 'installing', percent: 100 });
   const { relaunch } = await import('@tauri-apps/plugin-process');
   await relaunch();

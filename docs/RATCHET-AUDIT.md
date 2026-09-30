@@ -191,6 +191,31 @@ release notes to “independently audited” until an external report supports t
 claim. After fixes, rerun tests against the exact artifact being reviewed; a
 library audit or Apple notarization cannot substitute for this review.
 
+## Merge with desktop releases 0.3.23–0.3.26
+
+Status, 2026-09-30: the ratchet branch was merged with main's releases 0.3.23–0.3.26.
+Those releases added a durable encrypted outbox, operation-history replay
+(`operation.batch`) and cup syncing (`cup.consumed`) on the legacy key. The merge
+keeps every ratchet rule and routes the new features through the ratchet:
+
+- `queueEncryptedEvent` hands events to the native ratchet `send` once a
+  relationship has a ratchet, and refuses to queue before safety-number
+  verification. Only the plaintext UI/replay record goes to IndexedDB. The
+  native store remains the only durable ciphertext outbox; sync drains it.
+- `sendEncryptedBatch` (legacy `send_batch`) now throws inside a ratchet
+  relationship, so no bootstrap-key ciphertext can be sent after the upgrade.
+- The native event allowlist gained `cup.consumed` and `operation.batch`
+  (`engine.rs`), with a test that unknown kinds are still rejected.
+- Operation batches close at 6,000 bytes of points so every event stays under
+  the 8,000-byte native plaintext limit.
+- Sync, send, confirmation and unpairing share one serial queue. Unpairing also
+  discards the old relationship's replay history and legacy outbox.
+
+Operation history widens the existing local-history item above: coarse input
+counts and activity categories are now kept in IndexedDB as plaintext too.
+`ratchet-source.sha256` was refreshed for the merged files; the `website/`
+entries were not re-hashed here.
+
 ## Source references
 
 - [vodozemac source and security information](https://github.com/matrix-org/vodozemac),

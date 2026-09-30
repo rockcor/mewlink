@@ -8,4 +8,7 @@ export const petSkinFilters: Record<PetSkin, string> = {
   lavender: 'hue-rotate(292deg) saturate(1.35) brightness(1.015) contrast(1.045)',
   luka: 'grayscale(.72) sepia(.12) saturate(.42) brightness(1.09) contrast(1.1)',
   sixtySix: 'sepia(.82) saturate(1.32) hue-rotate(342deg) brightness(.91) contrast(1.16)',
+  // Shell: pale cream fur, sandy gold ears/props, dark cocoa outlines.
+  // Apply the same palette to the whole scene, including the bed and desk.
+  shell: 'sepia(.9) saturate(.72) hue-rotate(352deg) brightness(.98) contrast(1.05)',
 };

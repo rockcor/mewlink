@@ -6,6 +6,8 @@ src-tauri/target
 /website
 /work
 /outputs
+/release-assets
+/release-state.json
 *.tsbuildinfo
 /vite.config.js
 /vite.config.d.ts

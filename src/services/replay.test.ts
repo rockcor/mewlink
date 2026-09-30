@@ -7,6 +7,9 @@ function stored(event: PlainEvent): StoredEvent {
 }
 
 describe('time-zone aware replay', () => {
+  it('excludes consumed-cup acknowledgements from replay', () => {
+    expect(buildReplay([stored({ id: 'ack', version: 1, relationshipId: 'pair', senderDeviceId: 'partner', createdAt: '2026-09-21T00:00:00Z', kind: 'cup.consumed', payload: { cupEventId: 'cup' } })])).toEqual([]);
+  });
   it('orders by the shared instant and renders sender and receiver clocks', () => {
     const later: PlainEvent = {
       id: 'later', version: 1, relationshipId: 'pair', senderDeviceId: 'partner',

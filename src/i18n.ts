@@ -2,6 +2,8 @@ import type { ActivityKind, CupStyle } from './domain/types';
 import type { Language } from './settings/preferences';
 
 interface AppCopy {
+  interactionQueued: string;
+  stopReplay: string;
   cups: Record<CupStyle, { label: string; shortLabel: string }>;
   status: Record<ActivityKind, string>;
   updateUnchecked: string;
@@ -47,6 +49,8 @@ interface AppCopy {
   replay: string;
   statistics: string;
   settings: string;
+  panelError: string;
+  historyError: string;
   myPet: (status: string) => string;
   partnerPet: (status: string) => string;
 }
@@ -58,6 +62,9 @@ export const appCopy: Record<Language, AppCopy> = {
     ratchetUpgrade: '请双方更新后解除旧绑定，重新生成配对码。旧连接的收发已暂停。',
     ratchetVerify: '请通过电话或当面核对双方号码，完全一致后再确认。确认前不分享活动与互动。',
     ratchetStorageError: '安全会话暂不可用，收发已暂停。请重新打开应用；若仍有问题，请双方重新绑定。',
+    historyError: '回放记录未完成，请检查剩余空间后重新打开 MewLink',
+    interactionQueued: '已保存，联网后送出', stopReplay: '结束回放',
+    panelError: '窗口未能展开，请重新打开设置',
     cups: { ceramic: { label: '樱粉陶瓷杯', shortLabel: '陶瓷杯' }, tumbler: { label: '天空随行杯', shortLabel: '随行杯' }, bottle: { label: '薄荷运动瓶', shortLabel: '运动瓶' } },
     status: { work: '工作中', meeting: '在开会', leisure: '休闲娱乐', idle: '暂时离开', rest: '休息中' },
     updateUnchecked: '尚未检查更新', updateChecking: '正在检查…', updateAvailable: version => `发现新版本 ${version}`, updateCurrent: version => `已是最新版 ${version}`, updateDownloading: percent => percent === undefined ? '正在下载新版本…' : `正在下载新版本 ${percent}%`, updateInstalling: '正在安装，完成后会自动重启…', updateInstallError: '更新没有完成，请重新检查后再试', updateError: '暂时无法检查，请稍后再试',
@@ -73,6 +80,9 @@ export const appCopy: Record<Language, AppCopy> = {
     ratchetUpgrade: '請雙方更新後解除舊綁定，重新產生配對碼。舊連線的收發已暫停。',
     ratchetVerify: '請透過電話或當面核對雙方號碼，完全一致後再確認。確認前不分享活動與互動。',
     ratchetStorageError: '安全會話暫不可用，收發已暫停。請重新開啟應用程式；若仍有問題，請雙方重新綁定。',
+    historyError: '回放記錄未完成，請檢查剩餘空間後重新開啟 MewLink',
+    interactionQueued: '已儲存，連線後送出', stopReplay: '結束回放',
+    panelError: '視窗未能展開，請重新開啟設定',
     cups: { ceramic: { label: '櫻粉陶瓷杯', shortLabel: '陶瓷杯' }, tumbler: { label: '天空隨行杯', shortLabel: '隨行杯' }, bottle: { label: '薄荷運動瓶', shortLabel: '運動瓶' } },
     status: { work: '工作中', meeting: '在開會', leisure: '休閒娛樂', idle: '暫時離開', rest: '休息中' },
     updateUnchecked: '尚未檢查更新', updateChecking: '正在檢查…', updateAvailable: version => `發現新版本 ${version}`, updateCurrent: version => `已是最新版 ${version}`, updateDownloading: percent => percent === undefined ? '正在下載新版本…' : `正在下載新版本 ${percent}%`, updateInstalling: '正在安裝，完成後會自動重新啟動…', updateInstallError: '更新未完成，請重新檢查後再試', updateError: '暫時無法檢查，請稍後再試',
@@ -88,6 +98,9 @@ export const appCopy: Record<Language, AppCopy> = {
     ratchetUpgrade: 'Both people need to update, unpair and create a new code. The old connection is paused.',
     ratchetVerify: 'Compare both numbers in person or on a call. Confirm only if they match exactly. No activity or interactions are shared before confirmation.',
     ratchetStorageError: 'The secure session is unavailable; communication is paused. Reopen the app. If this persists, both people need to pair again.',
+    historyError: 'Replay could not be saved or loaded. Check free space and reopen MewLink.',
+    interactionQueued: 'Saved — will send when connected', stopReplay: 'End replay',
+    panelError: 'The window could not expand. Please reopen settings.',
     cups: { ceramic: { label: 'Blush ceramic mug', shortLabel: 'Ceramic' }, tumbler: { label: 'Sky tumbler', shortLabel: 'Tumbler' }, bottle: { label: 'Mint sports bottle', shortLabel: 'Bottle' } },
     status: { work: 'Working', meeting: 'In a meeting', leisure: 'Taking a break', idle: 'Away for a moment', rest: 'Resting' },
     updateUnchecked: 'Updates not checked yet', updateChecking: 'Checking…', updateAvailable: version => `Version ${version} is ready`, updateCurrent: version => `Up to date · ${version}`, updateDownloading: percent => percent === undefined ? 'Downloading the update…' : `Downloading the update · ${percent}%`, updateInstalling: 'Installing, then MewLink will restart…', updateInstallError: 'The update did not finish. Check again and retry.', updateError: 'Unable to check right now. Try again later.',

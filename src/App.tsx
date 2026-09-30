@@ -4,30 +4,39 @@ import { getCurrentWindow } from '@tauri-apps/api/window';
 import { v4 as uuid } from 'uuid';
 import { SettingsPanel, type UpdateViewState } from './components/SettingsPanel';
 import { StatisticsPanel } from './components/StatisticsPanel';
+import { PetActions } from './components/PetActions';
+import { consumeCup, restorePendingCups, waterClickAction, type PendingCups, type PetTarget } from './pet/pendingCups';
+import { hugSkins } from './pet/hugOwnership';
 import type { ActivityKind, BlanketStyle, CupStyle, InteractionKind, InteractionPayload, PetSkin, PlainEvent, StatisticsPayload, StatisticsVisibility, StoredEvent, WorkVisual } from './domain/types';
 import { cupStyles } from './domain/types';
 import {
   createPairingState,
   pairingInviteCode,
-  pairingInviteSecondsLeft,
   pairingSafetyCode,
   type PairingState,
 } from './pairing/pairing';
-import { securePairing, SecureStorageError, SerialTasks } from './pairing/secureStore';
+import { securePairing, SecureStorageError } from './pairing/secureStore';
 import { initializeRatchet, nativeRatchet, RatchetError, type RatchetStatus } from './crypto/ratchet';
-import { activityProbe, classify, demoInitialActivity, demoInitialWorkVisual, inputBurstReached, inputChangesForSequence, inputProbe, INPUT_STRESS_HOLD_MS, keyboardEventsForSequence, nextSampleDelay, POINTER_ANIMATION_HOLD_MS, POINTER_EVENTS_PER_ANIMATION, pointerClicksForSequence, pointerEventsForSequence, shouldAnimatePointer, trimInputBurst, visualInputForActivity, workVisualFor, type InputBurstSample, type InputSignal } from './platform/activity';
+import { activityProbe, nextActivity, demoInitialActivity, demoInitialWorkVisual, inputBurstReached, inputBurstSampleForSequence, inputChangesForSequence, INPUT_STRESS_HOLD_MS, keyboardEventsForSequence, nextSampleDelay, POINTER_ANIMATION_HOLD_MS, POINTER_EVENTS_PER_ANIMATION, pointerClicksForSequence, pointerEventsForSequence, shouldAnimatePointer, trimInputBurst, visualInputForActivity, workVisualFor, type InputBurstSample, type InputSignal } from './platform/activity';
 import { ACTIVITY_TRANSITION_MS, gestureFor, waterDrinkDelay, type GestureVariant } from './pet/interaction';
 import { transitionAssetName, useActivityPlayback } from './pet/activityPlayback';
 import { petSkinFilters } from './pet/skins';
+import { SpriteCanvas } from './pet/SpriteCanvas';
+import { preloadSprite } from './pet/spriteAssets';
+import { watchInput } from './platform/inputStream';
+import { useRenderBudget } from './platform/resources';
 import { localUtcOffsetMinutes } from './platform/clock';
 import { languageTags, watchSystemLanguage } from './platform/language';
-import { joinWithPairingCode, registerPairCreator, RelayError, resumePairingRegistration, revokeRelationship, sendEncryptedEvent, syncEncryptedEvents } from './services/relayTransport';
+import { joinWithPairingCode, registerPairCreator, RelayError, resumePairingRegistration, revokeRelationship, syncEncryptedEvents } from './services/relayTransport';
 import { checkForUpdate, installUpdate } from './services/update';
 import { submitFeedback } from './services/feedback';
 import type { Update } from '@tauri-apps/plugin-updater';
-import { pruneEventsOlderThan, putEvent } from './storage/events';
-import { buildReplay } from './services/replay';
-import { latestPartnerSkin } from './services/profile';
+import { discardRelationshipHistory, pruneEventsOlderThan, putEvent } from './storage/events';
+import { queueEncryptedEvent } from './history/outbox';
+import { useOperationHistory } from './history/useOperationHistory';
+import { companionStates, partnerEventsFor, PRESENCE_HEARTBEAT_MS } from './services/companionState';
+import { createSessionQueue } from './pairing/sessionQueue';
+import { copyPairingInvite } from './pairing/copyInvite';
 import { animationDurationScale, effectiveUtcOffsetMinutes, loadPreferences, savePreferences, scalePetWithPinch } from './settings/preferences';
 import { currentStatisticsBundle, flushStatistics, recordActivityStatistics, recordInputStatistics } from './statistics/statistics';
 import { appCopy } from './i18n';
@@ -41,27 +50,37 @@ const pendingCupKey = 'mewlink.pendingCup.v1';
 const feedbackNicknameKey = 'mewlink.feedbackNickname.v1';
 const isTauriWindow = typeof window !== 'undefined' && '__TAURI_INTERNALS__' in window;
 
-function loadPendingCup(): { target: 'self' | 'partner'; style: CupStyle; placedAt: number } | undefined {
+function loadPendingCups(): PendingCups {
   try {
-    const value = JSON.parse(window.localStorage.getItem(pendingCupKey) ?? 'null') as Record<string, unknown> | null;
-    if (!value || (value.target !== 'self' && value.target !== 'partner') || !cupStyles.includes(value.style as CupStyle) || typeof value.placedAt !== 'number') return undefined;
-    return { target: value.target, style: value.style as CupStyle, placedAt: value.placedAt };
+    return restorePendingCups(JSON.parse(window.localStorage.getItem(pendingCupKey) ?? 'null'));
   } catch {
-    return undefined;
+    return {};
   }
 }
 
 export default function App() {
+  const [locked, setLocked] = useState(false);
+  const renderPaused = useRenderBudget(locked);
   const [activity, setActivity] = useState<ActivityKind>(demoInitialActivity ?? 'work');
   const [workVisual, setWorkVisual] = useState<WorkVisual>(demoInitialWorkVisual);
   const [keyboardPressed, setKeyboardPressed] = useState(false);
   const [pointerPressed, setPointerPressed] = useState(false);
   const [inputStressed, setInputStressed] = useState(false);
   const [events, setEvents] = useState<StoredEvent[]>([]);
-  const [playing, setPlaying] = useState(false);
-  const [frame, setFrame] = useState(0);
-  const [gesture, setGesture] = useState<{ variant: GestureVariant; target: 'self' | 'partner'; cupStyle?: CupStyle; blanketStyle?: BlanketStyle }>();
-  const [pendingCup, setPendingCup] = useState(loadPendingCup);
+  const [historyRevision, setHistoryRevision] = useState(0);
+  const historyInput = useRef<(previous: InputSignal, current: InputSignal) => void>(() => undefined);
+  const historyScreenChange = useRef<() => void>(() => undefined);
+  const historyStart = useRef<(unseenOnly?: boolean) => Promise<void>>(async () => undefined);
+  const historyStop = useRef<() => void>(() => undefined);
+  const replayingRef = useRef(false);
+  const syncStartedAt = useRef(Date.now());
+  const autoReplayPending = useRef(true);
+  const autoReplayRunning = useRef(false);
+  const [gesture, setGesture] = useState<{ id: string; variant: GestureVariant; target: PetTarget; cupStyle?: CupStyle; blanketStyle?: BlanketStyle }>();
+  const [pendingCups, setPendingCups] = useState(loadPendingCups);
+  const pendingCupsRef = useRef(pendingCups);
+  const drinkInProgress = useRef(false);
+  const drinkLockTimer = useRef<number | undefined>(undefined);
   const [petMenuOpen, setPetMenuOpen] = useState(false);
   const [petMenuPinned, setPetMenuPinned] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
@@ -97,30 +116,37 @@ export default function App() {
   const petDragStart = useRef<{ pointerId: number; x: number; y: number } | undefined>(undefined);
   const suppressPetClick = useRef(false);
   const pendingUpdateRef = useRef<Update | undefined>(undefined);
+  const updateBusyRef = useRef(false);
   const statisticsActivityRef = useRef<ActivityKind>('work');
   const statisticsWorkVisualRef = useRef<WorkVisual>('web');
   const pairingRef = useRef<PairingState | undefined>(pairing);
-  const pairingTasks = useRef(new SerialTasks());
-  const incomingInteractionRef = useRef<(action: InteractionKind, cup?: CupStyle, blanket?: BlanketStyle) => void>(() => undefined);
+  // Sync, send, confirm and unpair share one queue, so a request from an old
+  // session can never commit after unpairing or a newly created relationship.
+  const sessionQueue = useRef(createSessionQueue()).current;
+  const panelBusy = useRef(false);
+  const [presenceNow, setPresenceNow] = useState(Date.now);
+  const incomingInteractionRef = useRef<(action: InteractionKind, cup?: CupStyle, blanket?: BlanketStyle, cupId?: string) => void>(() => undefined);
   const receiverUtcOffsetMinutes = effectiveUtcOffsetMinutes(preferences);
-  const partnerUtcOffsetMinutes = useMemo(() => [...events].reverse().find(({ direction, event }) => direction === 'in' && event.senderUtcOffsetMinutes !== undefined)?.event.senderUtcOffsetMinutes, [events]);
+  const partnerEvents = useMemo(() => partnerEventsFor(events, pairing), [events, pairing]);
+  const partnerUtcOffsetMinutes = useMemo(() => [...partnerEvents].reverse().find(({ event }) => event.senderUtcOffsetMinutes !== undefined)?.event.senderUtcOffsetMinutes, [partnerEvents]);
   const inviteCode = pairing && !pairing.partnerDeviceId ? pairingInviteCode(pairing) : '';
   const durationScale = demoInitialActivity ? 0.2 : animationDurationScale(preferences.animationSpeed);
-  const replay = useMemo(
-    () => preferences.replayEnabled ? buildReplay(events, receiverUtcOffsetMinutes, preferences.timezoneMode !== 'off', preferences.language) : [],
-    [events, preferences.language, preferences.replayEnabled, preferences.timezoneMode, receiverUtcOffsetMinutes]
-  );
   const partnerStatisticsSnapshots = useMemo(() => {
-    const latest = [...events].reverse().find(({ direction, event }) => direction === 'in' && event.kind === 'statistics.snapshot');
+    const latest = [...partnerEvents].reverse().find(({ event }) => event.kind === 'statistics.snapshot');
     if (!latest) return undefined;
     const payload = latest.event.payload as StatisticsPayload;
     return payload.visibility === 'partner' ? payload.snapshots : undefined;
-  }, [events]);
-  const partnerSkin = useMemo(() => latestPartnerSkin(events, pairing?.relationshipId), [events, pairing?.relationshipId]);
-  const current = playing ? replay[frame] : undefined;
-  const partnerActivity = current?.activity ?? 'rest';
+  }, [partnerEvents]);
+  const companions = useMemo(() => companionStates(
+    { activity, workVisual, skin: preferences.selfPetSkin }, partnerEvents, pairing,
+    undefined, presenceNow,
+  ), [activity, workVisual, preferences.selfPetSkin, partnerEvents, pairing, presenceNow]);
+  const partnerSkin = companions.partner.skin;
+  const [historyDisplay, setHistoryDisplay] = useState<{ activity: ActivityKind; workVisual: WorkVisual }>();
+  const partnerActivity = historyDisplay?.activity ?? companions.partner.activity;
   const visualInputKind = visualInputForActivity(activity, keyboardPressed, pointerPressed);
   const selfPlayback = useActivityPlayback({
+    paused: renderPaused,
     desiredActivity: activity,
     desiredWorkVisual: workVisual,
     initialActivity: demoInitialActivity ?? 'work',
@@ -129,19 +155,17 @@ export default function App() {
     transitionDurationMs: Math.round(ACTIVITY_TRANSITION_MS * durationScale),
   });
   const partnerPlayback = useActivityPlayback({
-    desiredActivity: partnerActivity,
-    desiredWorkVisual: 'web',
-    initialActivity: 'rest',
+    paused: renderPaused || !connected,
+    desiredActivity: historyDisplay?.activity ?? (companions.partnerLive ? partnerActivity : 'work'),
+    desiredWorkVisual: historyDisplay?.workVisual ?? companions.partner.workVisual,
+    initialActivity: 'work',
     initialWorkVisual: 'web',
     workHandsSettled: true,
     transitionDurationMs: Math.round(ACTIVITY_TRANSITION_MS * durationScale),
   });
   useEffect(() => {
-    const image = new Image();
-    image.decoding = 'async';
-    image.src = `/pets/animations/work-${workVisual}-stress.png`;
-    return () => { image.src = ''; };
-  }, [workVisual]);
+    if (!renderPaused) void preloadSprite(`work-${workVisual}-stress`).catch(() => undefined);
+  }, [renderPaused, workVisual]);
   const motionStyle = useMemo(() => ({
     '--self-pet-scale': String(preferences.selfPetScalePercent / 100),
     '--partner-pet-scale': String(preferences.partnerPetScalePercent / 100),
@@ -158,36 +182,58 @@ export default function App() {
     '--activity-transition-duration': `${Math.round(ACTIVITY_TRANSITION_MS * durationScale)}ms`
   }) as CSSProperties, [durationScale, partnerSkin, preferences.partnerPetScalePercent, preferences.selfPetScalePercent, preferences.selfPetSkin]);
 
-  const runUpdateCheck = useCallback(async () => {
+  const installAvailableUpdate = useCallback(async (update: Update) => {
+    setUpdateState({ kind: 'downloading', message: text.updateDownloading(), canInstall: true });
+    await installUpdate(update, progress => {
+      setUpdateState(progress.phase === 'installing'
+        ? { kind: 'installing', message: text.updateInstalling, canInstall: true }
+        : { kind: 'downloading', message: text.updateDownloading(progress.percent), canInstall: true });
+    });
+  }, [text]);
+
+  const runUpdateCheck = useCallback(async (installWhenAvailable = false) => {
+    if (updateBusyRef.current) return;
+    updateBusyRef.current = true;
+    let installing = false;
     setUpdateState({ kind: 'checking', message: text.updateChecking });
     try {
+      await pendingUpdateRef.current?.close();
+      pendingUpdateRef.current = undefined;
       const result = await checkForUpdate();
       pendingUpdateRef.current = result.installable;
+      if (result.available && result.installable && installWhenAvailable) {
+        installing = true;
+        await installAvailableUpdate(result.installable);
+        return;
+      }
       setUpdateState(result.available
         ? { kind: 'available', message: text.updateAvailable(result.manifest.version), downloadUrl: result.manifest.downloadUrl, canInstall: Boolean(result.installable) }
         : { kind: 'current', message: text.updateCurrent(result.currentVersion) });
     } catch {
-      setUpdateState({ kind: 'error', message: text.updateError });
+      setUpdateState({ kind: 'error', message: installing ? text.updateInstallError : text.updateError });
+    } finally {
+      updateBusyRef.current = false;
     }
-  }, [text]);
+  }, [installAvailableUpdate, text]);
 
   const installPendingUpdate = useCallback(async () => {
+    if (updateBusyRef.current) return;
     const update = pendingUpdateRef.current;
     if (!update) {
-      await runUpdateCheck();
+      await runUpdateCheck(true);
       return;
     }
+    updateBusyRef.current = true;
     try {
-      await installUpdate(update, progress => {
-        setUpdateState(progress.phase === 'installing'
-          ? { kind: 'installing', message: text.updateInstalling, canInstall: true }
-          : { kind: 'downloading', message: text.updateDownloading(progress.percent), canInstall: true });
-      });
+      await installAvailableUpdate(update);
     } catch {
+      await update.close().catch(() => undefined);
       pendingUpdateRef.current = undefined;
       setUpdateState({ kind: 'error', message: text.updateInstallError });
+    } finally {
+      updateBusyRef.current = false;
     }
-  }, [runUpdateCheck, text]);
+  }, [installAvailableUpdate, runUpdateCheck, text]);
 
   const persistPairing = useCallback(async (next: PairingState) => {
     try {
@@ -234,7 +280,7 @@ export default function App() {
 
   useEffect(() => {
     let stopped = false;
-    void pairingTasks.current.run(async () => {
+    void sessionQueue(async () => {
       const restored = await securePairing.load();
       if (stopped) return;
       pairingRef.current = restored;
@@ -246,26 +292,26 @@ export default function App() {
       else if (restored && !restored.ratchet) setPairingStatus(textRef.current.ratchetUpgrade);
     }).catch(() => { if (!stopped) setPairingStatus(textRef.current.secureStorageError); });
     return () => { stopped = true; };
-  }, []);
+  }, [sessionQueue]);
 
   useEffect(() => {
     if (!pairingReady || !revocationPending) return;
     let stopped = false;
     const retry = () => {
-      void pairingTasks.current.run(async () => { if (!stopped) await finishRevocation(); })
+      void sessionQueue(async () => { if (!stopped) await finishRevocation(); })
         .catch(() => { if (!stopped) setPairingStatus(textRef.current.revocationPending); });
     };
     retry();
     const timer = window.setInterval(retry, 15_000);
     window.addEventListener('online', retry);
     return () => { stopped = true; window.clearInterval(timer); window.removeEventListener('online', retry); };
-  }, [finishRevocation, pairingReady, revocationPending]);
+  }, [finishRevocation, pairingReady, revocationPending, sessionQueue]);
 
   const enqueueEncryptedEvent = useCallback((createEvent: (active: PairingState) => PlainEvent) => {
-    const expectedRelationship = pairingRef.current?.relationshipId;
-    return pairingTasks.current.run(async () => {
+    const relationshipId = pairingRef.current?.relationshipId;
+    return sessionQueue(async () => {
       let active = pairingRef.current;
-      if (pairingBlockedRef.current || !active?.partnerDeviceId || !active.ratchet?.verified || active.relationshipId !== expectedRelationship) throw new Error('pairing_required');
+      if (pairingBlockedRef.current || !active?.partnerDeviceId || !active.ratchet?.verified || active.relationshipId !== relationshipId) throw new Error('pairing_required');
       if (active.registration) {
         active = await resumePairingRegistration(active).catch(async error => {
           if (error instanceof RelayError && error.code === 'relationship_revoked') await forgetRevokedPair(active!);
@@ -273,19 +319,34 @@ export default function App() {
         });
         await persistPairing(active);
       }
-      const result = await sendEncryptedEvent(active, createEvent(active)).catch(async error => {
-        if (error instanceof RelayError && error.code === 'relationship_revoked') await forgetRevokedPair(active);
-        throw error;
-      });
-      if (pairingBlockedRef.current) throw new Error('pairing_changed');
-      await persistPairing(result.state);
-      await putEvent(result.stored);
-      setEvents(currentEvents => currentEvents.some(item => item.event.id === result.stored.event.id)
-        ? currentEvents
-        : [...currentEvents, result.stored]);
+      const result = await queueEncryptedEvent(active, createEvent(active));
+      if (pairingBlockedRef.current || pairingRef.current?.relationshipId !== relationshipId) throw new Error('pairing_changed');
+      if (result.state !== active) await persistPairing(result.state);
+      if (result.stored.event.kind !== 'operation.batch') {
+        setEvents(currentEvents => currentEvents.some(item => item.event.id === result.stored.event.id)
+          ? currentEvents : [...currentEvents, result.stored]);
+      }
       return result.stored;
     });
-  }, [forgetRevokedPair, persistPairing]);
+  }, [forgetRevokedPair, persistPairing, sessionQueue]);
+
+  const history = useOperationHistory({
+    pairing, enabled: preferences.replayEnabled, activity, workVisual, paused: renderPaused,
+    retentionHours: preferences.replayRetentionHours, receiverOffset: receiverUtcOffsetMinutes,
+    showTimezone: preferences.timezoneMode !== 'off', language: preferences.language,
+    revision: historyRevision, onRecord: enqueueEncryptedEvent, durationScale,
+    displayReady: (target, visual) => !partnerPlayback.transition && partnerPlayback.displayedActivity === target
+      && (target !== 'work' || partnerPlayback.displayedWorkVisual === visual),
+  });
+  historyInput.current = history.recordInput;
+  historyScreenChange.current = history.recordScreenChange;
+  historyStart.current = history.start;
+  historyStop.current = history.stop;
+  replayingRef.current = history.playing;
+  const playing = history.playing;
+  const current = history.current;
+  const partnerLabel = current?.label ?? (companions.partnerLive ? text.status[partnerActivity] : text.partnerWaiting);
+  useEffect(() => { setHistoryDisplay(history.playing ? history.display : undefined); }, [history.playing, history.display]);
 
   const publishStatistics = useCallback((visibility: StatisticsVisibility) => enqueueEncryptedEvent(active => {
     const generatedAt = new Date().toISOString();
@@ -304,6 +365,27 @@ export default function App() {
     };
   }), [enqueueEncryptedEvent]);
 
+  const drinkCup = useCallback((target: PetTarget, cupId: string, confirmedByPartner = false) => {
+    const cup = pendingCupsRef.current[target];
+    if (!cup || cup.id !== cupId || (drinkInProgress.current && !confirmedByPartner)) return false;
+    pendingCupsRef.current = consumeCup(pendingCupsRef.current, target, cupId);
+    setPendingCups(pendingCupsRef.current);
+    if (drinkInProgress.current) return true;
+    window.clearTimeout(gestureTimer.current);
+    setGesture({ id: uuid(), variant: 'water-drink', target, cupStyle: cup.style });
+    drinkInProgress.current = true;
+    const duration = Math.round(3_200 * durationScale);
+    drinkLockTimer.current = window.setTimeout(() => { drinkInProgress.current = false; }, duration);
+    gestureTimer.current = window.setTimeout(() => setGesture(undefined), duration);
+    if (target === 'self' && pairingRef.current?.partnerDeviceId) {
+      void enqueueEncryptedEvent(active => ({ id: uuid(), version: 1,
+        relationshipId: active.relationshipId, senderDeviceId: active.deviceId,
+        createdAt: new Date().toISOString(), kind: 'cup.consumed', payload: { cupEventId: cupId },
+      })).catch(() => undefined);
+    }
+    return true;
+  }, [durationScale, enqueueEncryptedEvent]);
+
   const publishPetSkin = useCallback((skin: PetSkin) => enqueueEncryptedEvent(active => {
     const createdAt = new Date().toISOString();
     return {
@@ -318,12 +400,49 @@ export default function App() {
   }), [enqueueEncryptedEvent]);
 
   useEffect(() => {
-    let current = true;
-    void pruneEventsOlderThan(preferences.replayRetentionHours).then(items => {
-      if (current) setEvents(items.filter(item => item.event.relationshipId === pairing?.relationshipId));
-    });
-    return () => { current = false; };
+    const prune = () => { void pruneEventsOlderThan(preferences.replayRetentionHours).then(saved => {
+      const cutoff = Date.now() - preferences.replayRetentionHours * 3_600_000;
+      // Only the current relationship's events stay visible after re-pairing.
+      const relationshipId = pairingRef.current?.relationshipId;
+      setEvents(currentEvents => [...new Map([...saved, ...currentEvents]
+        .filter(item => item.event.relationshipId === relationshipId && Date.parse(item.event.createdAt) >= cutoff)
+        .map(item => [item.event.id, item])).values()]);
+      setHistoryRevision(revision => revision + 1);
+    }).catch(() => undefined); };
+    prune();
+    const timer = window.setInterval(prune, 60_000);
+    return () => window.clearInterval(timer);
   }, [preferences.replayRetentionHours, pairing?.relationshipId]);
+  useEffect(() => {
+    if (!connected) return;
+    const timer = window.setInterval(() => setPresenceNow(Date.now()), 5_000);
+    return () => window.clearInterval(timer);
+  }, [connected]);
+  useEffect(() => {
+    if (!connected) return;
+    let stopped = false;
+    let pending = false;
+    let startedAt = new Date().toISOString();
+    const publish = async () => {
+      if (stopped || pending) return;
+      pending = true;
+      try {
+        await enqueueEncryptedEvent(active => {
+          const endedAt = new Date().toISOString();
+          return { id: uuid(), version: 1, relationshipId: active.relationshipId,
+            senderDeviceId: active.deviceId, createdAt: endedAt,
+            senderUtcOffsetMinutes: receiverUtcOffsetMinutes, kind: 'activity.segment',
+            payload: { category: activity, workVisual, startedAt, endedAt } };
+        });
+        startedAt = new Date().toISOString();
+      } catch {
+        // The next heartbeat retries; only coarse activity leaves the device.
+      } finally { pending = false; }
+    };
+    void publish();
+    const timer = window.setInterval(() => { void publish(); }, PRESENCE_HEARTBEAT_MS);
+    return () => { stopped = true; window.clearInterval(timer); };
+  }, [activity, workVisual, connected, pairing?.relationshipId, receiverUtcOffsetMinutes, enqueueEncryptedEvent]);
   useEffect(() => {
     if (!connected) return;
     let delivered = false;
@@ -398,39 +517,63 @@ export default function App() {
       if (running || stopped) return;
       running = true;
       try {
-        await pairingTasks.current.run(async () => {
-        let active = pairingRef.current;
-        if (stopped || pairingBlockedRef.current || !active) return;
-        if (active.registration) {
-          active = await resumePairingRegistration(active).catch(async error => {
-            if (error instanceof RelayError && error.code === 'relationship_revoked') await forgetRevokedPair(active!);
+        await sessionQueue(async () => {
+          let active = pairingRef.current;
+          if (stopped || pairingBlockedRef.current || !active) return;
+          if (active.registration) {
+            active = await resumePairingRegistration(active).catch(async error => {
+              if (error instanceof RelayError && error.code === 'relationship_revoked') await forgetRevokedPair(active!);
+              throw error;
+            });
+            await persistPairing(active);
+          }
+          // Sync also drains the native ratchet outbox, where queued events wait.
+          const result = await syncEncryptedEvents(active).catch(async error => {
+            if (error instanceof RelayError && error.code === 'relationship_revoked') await forgetRevokedPair(active);
             throw error;
           });
-          await persistPairing(active);
-        }
-        const result = await syncEncryptedEvents(active).catch(async error => {
-          if (error instanceof RelayError && error.code === 'relationship_revoked') await forgetRevokedPair(active);
-          throw error;
-        });
-        if (stopped || pairingBlockedRef.current || pairingRef.current?.relationshipId !== active.relationshipId) return;
-        if (result.state.partnerDeviceId !== active.partnerDeviceId || result.state.relayCursor !== active.relayCursor
-          || result.state.inviteExpiresAt !== active.inviteExpiresAt || result.received.length
-          || JSON.stringify(result.state.ratchet) !== JSON.stringify(active.ratchet)
-          || result.state.relationshipKey !== active.relationshipKey) {
-          await persistPairing(result.state);
-        }
-        setPairingStatus(result.state.ratchet?.verified ? text.connected
-          : result.state.ratchet?.established ? text.ratchetVerify : text.waitingForInvite);
-        for (const stored of result.received) {
-          if (stopped || pairingBlockedRef.current) break;
-          await putEvent(stored);
-          if (stored.ratchetReceipt) await nativeRatchet('ack_incoming', active.relationshipId, stored.ratchetReceipt);
-          setEvents(currentEvents => currentEvents.some(item => item.event.id === stored.event.id) ? currentEvents : [...currentEvents, stored]);
-          if (stored.event.kind === 'interaction') {
-            const payload = stored.event.payload as InteractionPayload;
-            incomingInteractionRef.current(payload.action, payload.cupStyle, payload.blanketStyle);
+          if (stopped || pairingBlockedRef.current || pairingRef.current?.relationshipId !== active.relationshipId) return;
+          if (result.state.partnerDeviceId !== active.partnerDeviceId || result.state.relayCursor !== active.relayCursor
+            || result.state.inviteExpiresAt !== active.inviteExpiresAt || result.received.length
+            || JSON.stringify(result.state.ratchet) !== JSON.stringify(active.ratchet)
+            || result.state.relationshipKey !== active.relationshipKey) {
+            await persistPairing(result.state);
           }
-        }
+          setPairingStatus(result.state.ratchet?.verified ? text.connected
+            : result.state.ratchet?.established ? text.ratchetVerify : text.waitingForInvite);
+          for (const stored of result.received) {
+            if (stopped || pairingBlockedRef.current) break;
+            await putEvent(stored);
+            // Acknowledge only after the plaintext is durable; unacknowledged
+            // deliveries are handed back by the native ratchet on the next sync.
+            if (stored.ratchetReceipt) await nativeRatchet('ack_incoming', active.relationshipId, stored.ratchetReceipt);
+            if (stopped || pairingRef.current?.relationshipId !== active.relationshipId) return;
+            if (stored.event.kind === 'operation.batch') {
+              setHistoryRevision(revision => revision + 1);
+            } else {
+              setEvents(currentEvents => currentEvents.some(item => item.event.id === stored.event.id) ? currentEvents : [...currentEvents, stored]);
+            }
+            // Historical interactions belong in replay, never fire a pile of
+            // old animations immediately after reconnecting.
+            if (stored.event.kind === 'interaction' && !replayingRef.current
+              && Date.now() - Date.parse(stored.event.createdAt) < 15_000
+              && Date.parse(stored.event.createdAt) >= syncStartedAt.current) {
+              const payload = stored.event.payload as InteractionPayload;
+              incomingInteractionRef.current(payload.action, payload.cupStyle, payload.blanketStyle, stored.event.id);
+            } else if (stored.event.kind === 'cup.consumed') {
+              const payload = stored.event.payload as { cupEventId: string };
+              drinkCup('partner', payload.cupEventId, true);
+            }
+          }
+          setPresenceNow(Date.now());
+          if (result.partnerOnline && autoReplayRunning.current) historyStop.current();
+          if (autoReplayPending.current && result.caughtUp) {
+            autoReplayPending.current = false;
+            if (!result.partnerOnline) {
+              autoReplayRunning.current = true;
+              void historyStart.current(true).finally(() => { autoReplayRunning.current = false; });
+            }
+          }
         });
       } catch (error) {
         if (!stopped && !pairingBlockedRef.current) setPairingStatus(error instanceof RatchetError ? text.ratchetStorageError : text.connectionRetry);
@@ -439,28 +582,38 @@ export default function App() {
       }
     };
     void sync();
+    const reconnect = () => { autoReplayPending.current = true; syncStartedAt.current = Date.now(); void sync(); };
+    window.addEventListener('online', reconnect);
     const timer = window.setInterval(() => { void sync(); }, 2_500);
-    return () => { stopped = true; window.clearInterval(timer); };
-  }, [pairing?.relationshipId, pairing?.deviceId, persistPairing, forgetRevokedPair, text]);
+    return () => { stopped = true; window.clearInterval(timer); window.removeEventListener('online', reconnect); };
+  }, [pairing?.relationshipId, pairing?.deviceId, persistPairing, forgetRevokedPair, sessionQueue, text, drinkCup]);
   useEffect(() => {
     let timer: number | undefined;
     let stopped = false;
+    let foregroundSequence: number | undefined;
     const sample = async () => {
-      const signal = await activityProbe.sample();
-      if (stopped) return;
-      if (!signal.locked && signal.idleSeconds < 120) setWorkVisual(workVisualFor(signal));
-      setActivity(currentActivity => {
-        if (!signal.locked && signal.idleSeconds < 120 && signal.appClass === 'unknown') return currentActivity;
-        const next = classify(signal);
-        return currentActivity === next ? currentActivity : next;
-      });
-      timer = window.setTimeout(() => { void sample(); }, nextSampleDelay(signal));
+      let delay = 1_000;
+      try {
+        const signal = await activityProbe.sample();
+        if (stopped) return;
+        if (signal.foregroundSequence !== undefined && foregroundSequence !== undefined && signal.foregroundSequence !== foregroundSequence) {
+          historyScreenChange.current();
+        }
+        foregroundSequence = signal.foregroundSequence;
+        setLocked(current => current === signal.locked ? current : signal.locked);
+        if (!signal.locked && signal.idleSeconds < 120 && signal.appClass !== 'unknown') setWorkVisual(workVisualFor(signal));
+        setActivity(currentActivity => nextActivity(currentActivity, signal));
+        delay = nextSampleDelay(signal);
+      } catch {
+        // A transient native sampling error must not leave the pet asleep forever.
+      } finally {
+        if (!stopped) timer = window.setTimeout(() => { void sample(); }, delay);
+      }
     };
     void sample();
     return () => { stopped = true; window.clearTimeout(timer); };
   }, []);
   useEffect(() => {
-    let timer: number | undefined;
     let keyboardReleaseTimer: number | undefined;
     let pointerReleaseTimer: number | undefined;
     let stressReleaseTimer: number | undefined;
@@ -470,10 +623,10 @@ export default function App() {
     let stopped = false;
     let previous: InputSignal | undefined;
     let burstSamples: InputBurstSample[] = [];
-    const sample = async () => {
-      const signal = await inputProbe.sample();
+    const sample = (signal: InputSignal) => {
       if (stopped) return;
       if (previous) {
+        historyInput.current(previous, signal);
         const changes = inputChangesForSequence(previous, signal);
         const keyboardEvents = keyboardEventsForSequence(previous, signal);
         const pointerEvents = pointerEventsForSequence(previous, signal);
@@ -488,8 +641,9 @@ export default function App() {
         }
         const now = performance.now();
         burstSamples = trimInputBurst(burstSamples, now);
-        if (keyboardEvents > 0 || pointerEvents > 0) {
-          burstSamples.push({ at: now, keyboard: keyboardEvents, pointer: pointerEvents });
+        const burstSample = inputBurstSampleForSequence(previous, signal, now);
+        if (burstSample) {
+          burstSamples.push(burstSample);
           if (inputBurstReached(burstSamples)) {
             setInputStressed(true);
             window.clearTimeout(stressReleaseTimer);
@@ -510,12 +664,11 @@ export default function App() {
         }
       }
       previous = signal;
-      timer = window.setTimeout(() => { void sample(); }, 16);
     };
-    void sample();
+    const unwatch = watchInput(sample);
     return () => {
       stopped = true;
-      window.clearTimeout(timer);
+      unwatch();
       window.clearTimeout(keyboardReleaseTimer);
       window.clearTimeout(pointerReleaseTimer);
       window.clearTimeout(stressReleaseTimer);
@@ -542,9 +695,9 @@ export default function App() {
   }, []);
   useEffect(() => { window.localStorage.setItem('mewlink.cupStyle', cupStyle); }, [cupStyle]);
   useEffect(() => {
-    if (pendingCup) window.localStorage.setItem(pendingCupKey, JSON.stringify(pendingCup));
+    if (pendingCups.self || pendingCups.partner) window.localStorage.setItem(pendingCupKey, JSON.stringify(pendingCups));
     else window.localStorage.removeItem(pendingCupKey);
-  }, [pendingCup]);
+  }, [pendingCups]);
   useEffect(() => { savePreferences(preferences); }, [preferences]);
   useEffect(() => {
     if (preferences.languageMode !== 'system') return;
@@ -558,56 +711,53 @@ export default function App() {
   }, [text]);
   useEffect(() => {
     if (connected) return;
-    setPlaying(false);
-    setFrame(0);
+    historyStop.current();
     setGesture(undefined);
-    setPendingCup(undefined);
+    pendingCupsRef.current = {};
+    setPendingCups({});
   }, [connected]);
   useEffect(() => { if (preferences.autoUpdate) void runUpdateCheck(); }, [preferences.autoUpdate, runUpdateCheck]);
-  useEffect(() => { if (!preferences.replayEnabled) { setPlaying(false); setFrame(0); } }, [preferences.replayEnabled]);
   useEffect(() => {
-    if (!playing || !replay.length) return;
-    const timer = window.setInterval(() => {
-      setFrame(current => current + 1 >= replay.length ? (setPlaying(false), 0) : current + 1);
-    }, Math.round(1_700 * durationScale));
-    return () => clearInterval(timer);
-  }, [durationScale, playing, replay.length]);
-  useEffect(() => {
-    if (!pendingCup) return;
-    const timer = window.setTimeout(() => {
-      setGesture({ variant: 'water-drink', target: pendingCup.target, cupStyle: pendingCup.style });
-      setPendingCup(undefined);
-      gestureTimer.current = window.setTimeout(() => setGesture(undefined), Math.round(3_200 * durationScale));
-    }, waterDrinkDelay(pendingCup.placedAt));
-    return () => window.clearTimeout(timer);
-  }, [durationScale, pendingCup]);
+    if (renderPaused || gesture) return;
+    const timers = (['self', 'partner'] as const).flatMap(target => {
+      const cup = pendingCups[target];
+      return cup ? [window.setTimeout(() => drinkCup(target, cup.id), waterDrinkDelay(cup.placedAt))] : [];
+    });
+    return () => timers.forEach(timer => window.clearTimeout(timer));
+  }, [drinkCup, gesture, pendingCups, renderPaused]);
   useEffect(() => () => {
     window.clearTimeout(gestureTimer.current);
     window.clearTimeout(noticeTimer.current);
     window.clearTimeout(menuCloseTimer.current);
+    window.clearTimeout(drinkLockTimer.current);
   }, []);
 
-  function showGesture(action: InteractionKind, message: string, target: 'self' | 'partner', options?: { cupStyle?: CupStyle; blanketStyle?: BlanketStyle; receiverActivity?: ActivityKind; replaying?: boolean }) {
+  function showGesture(action: InteractionKind, message: string, target: PetTarget, options?: { cupStyle?: CupStyle; blanketStyle?: BlanketStyle; receiverActivity?: ActivityKind; replaying?: boolean; cupId?: string }) {
     window.clearTimeout(gestureTimer.current);
     window.clearTimeout(noticeTimer.current);
     const receiverActivity = options?.receiverActivity ?? (target === 'self' ? activity : partnerActivity);
     setGesture({
+      id: uuid(),
       variant: gestureFor(action, receiverActivity, options?.replaying),
       target,
       cupStyle: options?.cupStyle,
       blanketStyle: options?.blanketStyle
     });
-    if (action === 'water') setPendingCup({ target, style: options?.cupStyle ?? 'ceramic', placedAt: Date.now() });
+    if (action === 'water') {
+      pendingCupsRef.current = { ...pendingCupsRef.current, [target]: { id: options?.cupId ?? uuid(), style: options?.cupStyle ?? 'ceramic', placedAt: Date.now() } };
+      setPendingCups(pendingCupsRef.current);
+    }
     setNotice(message);
     gestureTimer.current = window.setTimeout(() => setGesture(undefined), Math.round(3_200 * durationScale));
     noticeTimer.current = window.setTimeout(() => setNotice(''), Math.round(2_800 * durationScale));
   }
 
-  incomingInteractionRef.current = (action, incomingCup, incomingBlanket) => {
+  incomingInteractionRef.current = (action, incomingCup, incomingBlanket, cupId) => {
     showGesture(action, action === 'hug' ? text.incomingHug : text.incomingWater, 'self', {
       cupStyle: incomingCup,
       blanketStyle: incomingBlanket,
-      receiverActivity: activity
+      receiverActivity: activity,
+      cupId
     });
   };
 
@@ -618,7 +768,7 @@ export default function App() {
     setPairingStatus(text.creatingInvite);
     pairingBlockedRef.current = true;
     try {
-      await pairingTasks.current.run(async () => {
+      await sessionQueue(async () => {
         const previous = pairingRef.current;
         if (previous) {
           await securePairing.beginRevocation(previous);
@@ -653,7 +803,7 @@ export default function App() {
     setPairingBusy(true);
     setPairingStatus(text.connecting);
     try {
-      await pairingTasks.current.run(async () => {
+      await sessionQueue(async () => {
         const next = await joinWithPairingCode(joinCode, fetch, persistPairing);
         await persistPairing(next);
         pairingBlockedRef.current = false;
@@ -671,13 +821,7 @@ export default function App() {
   }
 
   async function copyInvite() {
-    if (!pairingRef.current || pairingInviteSecondsLeft(pairingRef.current) === 0) return;
-    try {
-      await navigator.clipboard.writeText(inviteCode);
-      setPairingStatus(text.inviteCopied);
-    } catch {
-      setPairingStatus(text.inviteCopyError);
-    }
+    await copyPairingInvite(pairingRef.current);
   }
 
   async function confirmPairing() {
@@ -687,7 +831,7 @@ export default function App() {
     pairingBusyRef.current = true;
     setPairingBusy(true);
     try {
-      await pairingTasks.current.run(async () => {
+      await sessionQueue(async () => {
         const active = pairingRef.current;
         if (pairingBlockedRef.current || active?.relationshipId !== expected.relationshipId || !active.ratchet) return;
         await nativeRatchet('confirm', active.relationshipId, { safetyNumber: safetyCode });
@@ -706,10 +850,12 @@ export default function App() {
     pairingBlockedRef.current = true;
     setPairingBusy(true);
     try {
-      await pairingTasks.current.run(async () => {
+      await sessionQueue(async () => {
         const active = pairingRef.current;
         if (!active) return;
         await securePairing.beginRevocation(active);
+        // Replay history and any legacy outbox belong to the old relationship.
+        await discardRelationshipHistory(active.relationshipId).catch(() => undefined);
         pairingRef.current = undefined;
         setPairing(undefined);
         setEvents([]);
@@ -729,18 +875,24 @@ export default function App() {
   }
 
   async function send(action: InteractionKind) {
+    if (action === 'water') {
+      if (drinkInProgress.current) return;
+      if (waterClickAction(pendingCupsRef.current) === 'drink-self') {
+        dismissPetMenu();
+        drinkCup('self', pendingCupsRef.current.self!.id);
+        return;
+      }
+    }
     const active = pairingRef.current;
     if (!active?.partnerDeviceId || !active.ratchet?.verified) {
-      dismissPetMenu();
-      setStatisticsOpen(false);
-      setSettingsOpen(true);
+      await openPanel('settings');
       setPairingStatus(active?.ratchet?.established ? text.ratchetVerify : active && !active.ratchet ? text.ratchetUpgrade : text.pairFirst);
       return;
     }
     setPetMenuOpen(false);
     setPetMenuPinned(false);
     try {
-      await enqueueEncryptedEvent(currentPairing => ({
+      const sent = await enqueueEncryptedEvent(currentPairing => ({
         id: uuid(),
         version: 1,
         relationshipId: currentPairing.relationshipId,
@@ -750,10 +902,11 @@ export default function App() {
         kind: 'interaction',
         payload: { action, ...(action === 'water' ? { cupStyle } : { blanketStyle: preferences.blanketStyle }) }
       }));
-      showGesture(action, action === 'hug' ? text.hugSent : text.cupSent(text.cups[cupStyle].label), 'partner', {
+      showGesture(action, sent.status === 'queued' ? text.interactionQueued : action === 'hug' ? text.hugSent : text.cupSent(text.cups[cupStyle].label), 'partner', {
         cupStyle,
         blanketStyle: preferences.blanketStyle,
-        receiverActivity: partnerActivity
+        receiverActivity: partnerActivity,
+        cupId: sent.event.id
       });
     } catch {
       setNotice(text.sendError);
@@ -784,12 +937,18 @@ export default function App() {
     setPetMenuPinned(false);
   }
 
-  function cycleCup() {
-    const next = cupStyles[(cupStyles.indexOf(cupStyle) + 1) % cupStyles.length];
-    setCupStyle(next);
-    window.clearTimeout(noticeTimer.current);
-    setNotice(text.cupChanged(text.cups[next].label));
-    noticeTimer.current = window.setTimeout(() => setNotice(''), Math.round(2_800 * durationScale));
+  async function openPanel(panel: 'settings' | 'statistics') {
+    if (panelBusy.current) return;
+    panelBusy.current = true;
+    dismissPetMenu();
+    try {
+      // Expand and clamp the native window before painting the panel.
+      if (isTauriWindow) await setDesktopPanel(true);
+      setSettingsOpen(panel === 'settings');
+      setStatisticsOpen(panel === 'statistics');
+    } catch {
+      setNotice(text.panelError);
+    } finally { panelBusy.current = false; }
   }
 
   function beginPetDrag(event: ReactPointerEvent<HTMLButtonElement>) {
@@ -848,15 +1007,17 @@ export default function App() {
   }
 
   const replayGesture = current?.interaction ? {
+    id: current.id,
     variant: gestureFor(current.interaction, partnerActivity, true),
     target: 'self' as const,
     cupStyle: current.cupStyle,
     blanketStyle: current.blanketStyle
   } : undefined;
   const displayedGesture = connected ? (gesture ?? replayGesture) : undefined;
+  const gestureSkins = hugSkins(displayedGesture?.target ?? 'self', preferences.selfPetSkin, partnerSkin);
 
   return (
-    <main className="desktop-pet" style={motionStyle}>
+    <main className="desktop-pet" style={motionStyle} data-render-paused={renderPaused}>
       <section className={`pet-zone ${settingsOpen || statisticsOpen ? 'settings-open' : ''}`} aria-label={connected ? text.petZone : text.soloPetZone} lang={languageTags[preferences.language]}>
         <div
           id="pet-menu"
@@ -872,32 +1033,18 @@ export default function App() {
             {connected && <div className="status-pill partner-status">
               <span>{current?.icon ?? '○'}</span>
               <span className="status-copy">
-                <b>{current?.label ?? text.partnerWaiting}</b>
+                <b>{partnerLabel}</b>
                 {current?.clockLabel && <small>{current.clockLabel}</small>}
               </span>
             </div>}
           </div>
-          <div className="quick-actions" aria-label={text.actionsAria}>
-            {connected && <>
-              <button type="button" onClick={() => { void send('hug'); }}><span aria-hidden="true">🫂</span>{text.hug}</button>
-              <button type="button" onClick={() => { void send('water'); }}><span className={`cup-symbol ${cupStyle}`} aria-hidden="true" />{text.water}</button>
-              <button className="cup-switch" type="button" onClick={cycleCup} title={text.cups[cupStyle].label}><span className={`cup-symbol ${cupStyle}`} aria-hidden="true" />{text.changeCup}<small>{text.cups[cupStyle].shortLabel}</small></button>
-            </>}
-            {connected && replay.length > 0 && (
-              <button className="replay-action" type="button" onClick={() => { dismissPetMenu(); setFrame(0); setPlaying(true); }}>
-                <span aria-hidden="true">▶</span>
-                {text.replay}
-              </button>
-            )}
-            <button className="statistics-action" type="button" onClick={() => { dismissPetMenu(); setSettingsOpen(false); setStatisticsOpen(true); }}>
-              <span aria-hidden="true">▥</span>
-              {text.statistics}
-            </button>
-            <button className="settings-action" type="button" onClick={() => { dismissPetMenu(); setStatisticsOpen(false); setSettingsOpen(true); }}>
-              <span aria-hidden="true">⚙</span>
-              {text.settings}
-            </button>
-          </div>
+          <PetActions language={preferences.language} connected={connected} canReplay={history.available} replaying={playing}
+            cupStyle={pendingCups.self?.style ?? cupStyle}
+            onSettings={() => { void openPanel('settings'); }}
+            onStatistics={() => { void openPanel('statistics'); }}
+            onHug={() => { void send('hug'); }}
+            onWater={() => { void send('water'); }}
+            onReplay={() => { dismissPetMenu(); void history.start(); }} />
         </div>
 
         <div className={`pet-pair ${connected ? 'paired' : 'solo'} ${displayedGesture ? `interacting target-${displayedGesture.target} interaction-${displayedGesture.variant.startsWith('hug') ? 'hug' : 'water'}` : ''}`}>
@@ -918,22 +1065,22 @@ export default function App() {
             onBlur={hidePetMenuSoon}
             onWheel={event => handlePetPinch(event, 'self')}
           >
-            <span
+            <SpriteCanvas skin={companions.self.skin} paused={renderPaused}
               className={`pet-sprite ${selfPlayback.displayedActivity} ${selfPlayback.displayedActivity === 'work' ? `work-${selfPlayback.displayedWorkVisual}` : ''} input-${selfPlayback.transition ? 'none' : visualInputKind} ${inputStressed && !selfPlayback.transition ? 'input-stressed' : ''} ${selfPlayback.transition ? 'transition-source-frame' : ''}`}
               aria-hidden="true"
-              onAnimationIteration={selfPlayback.handleLoopBoundary}
+              onLoopBoundary={selfPlayback.handleLoopBoundary}
             />
-            {selfPlayback.transition && <span
+            {selfPlayback.transition && <SpriteCanvas skin={companions.self.skin} paused={renderPaused}
               key={selfPlayback.transition.key}
               className={`pet-sprite activity-transition ${transitionAssetName(selfPlayback.transition)}`}
               aria-hidden="true"
-              onAnimationEnd={() => selfPlayback.completeTransition(selfPlayback.transition!.key)}
+              onPlaybackEnd={() => selfPlayback.completeTransition(selfPlayback.transition!.key)}
             />}
           </button>
           {connected && <button
             className="pet-avatar partner-pet"
             type="button"
-            aria-label={text.partnerPet(current?.label ?? text.partnerWaiting)}
+            aria-label={text.partnerPet(partnerLabel)}
             aria-expanded={petMenuOpen}
             aria-controls="pet-menu"
             onPointerEnter={revealPetMenu}
@@ -943,22 +1090,22 @@ export default function App() {
             onBlur={hidePetMenuSoon}
             onWheel={event => handlePetPinch(event, 'partner')}
           >
-            <span
-              className={`pet-sprite partner-sprite ${partnerPlayback.displayedActivity} ${partnerPlayback.displayedActivity === 'work' ? `work-${partnerPlayback.displayedWorkVisual}` : ''} input-none ${playing ? 'replaying' : ''} ${partnerPlayback.transition ? 'transition-source-frame' : ''}`}
+            <SpriteCanvas skin={partnerSkin} paused={renderPaused}
+              className={`pet-sprite partner-sprite ${partnerPlayback.displayedActivity} ${partnerPlayback.displayedActivity === 'work' ? `work-${partnerPlayback.displayedWorkVisual}` : ''} input-${playing && !partnerPlayback.transition ? visualInputForActivity(partnerActivity, history.hands.keyboard, history.hands.pointer) : 'none'} ${history.hands.stressed && !partnerPlayback.transition ? 'input-stressed' : ''} ${playing ? 'replaying' : ''} ${partnerPlayback.transition ? 'transition-source-frame' : ''}`}
               aria-hidden="true"
-              onAnimationIteration={partnerPlayback.handleLoopBoundary}
+              onLoopBoundary={partnerPlayback.handleLoopBoundary}
             />
-            {partnerPlayback.transition && <span
+            {partnerPlayback.transition && <SpriteCanvas skin={partnerSkin} paused={renderPaused}
               key={partnerPlayback.transition.key}
               className={`pet-sprite partner-sprite activity-transition ${transitionAssetName(partnerPlayback.transition)}`}
               aria-hidden="true"
-              onAnimationEnd={() => partnerPlayback.completeTransition(partnerPlayback.transition!.key)}
+              onPlaybackEnd={() => partnerPlayback.completeTransition(partnerPlayback.transition!.key)}
             />}
           </button>}
-          {displayedGesture && <span className={`interaction-sprite ${displayedGesture.variant} target-${displayedGesture.target} cup-${displayedGesture.cupStyle ?? 'ceramic'} blanket-${displayedGesture.blanketStyle ?? preferences.blanketStyle}`} aria-hidden="true" />}
-          {pendingCup && <span className={`waiting-cup target-${pendingCup.target} ${pendingCup.style}`} aria-label={text.water}><i /><i /></span>}
+          {displayedGesture && <SpriteCanvas key={displayedGesture.id} skin={gestureSkins.receiver} senderSkin={displayedGesture.variant.startsWith('hug') ? gestureSkins.sender : undefined} paused={renderPaused} className={`interaction-sprite ${displayedGesture.variant} target-${displayedGesture.target} cup-${displayedGesture.cupStyle ?? 'ceramic'} blanket-${displayedGesture.blanketStyle ?? preferences.blanketStyle}`} aria-hidden="true" />}
+          {(['self', 'partner'] as const).map(target => pendingCups[target] && !(displayedGesture?.target === target && displayedGesture.variant.startsWith('water')) && <span key={target} className={`waiting-cup target-${target} ${pendingCups[target]!.style}`} aria-label={text.water}><i /><i /></span>)}
         </div>
-        {notice && <div className="pet-toast" aria-live="polite">{notice}</div>}
+        {(notice || history.error) && <div className="pet-toast" aria-live="polite">{notice || text.historyError}</div>}
         {settingsOpen && <SettingsPanel
           preferences={preferences}
           localUtcOffsetMinutes={receiverUtcOffsetMinutes}
@@ -977,16 +1124,16 @@ export default function App() {
           onConfirmPairing={() => { void confirmPairing(); }}
           cupStyle={cupStyle}
           onChange={setPreferences}
-          onCheckUpdate={() => { void runUpdateCheck(); }}
+          onCheckUpdate={() => { void runUpdateCheck(true); }}
           onInstallUpdate={() => { void installPendingUpdate(); }}
           onFeedbackChange={value => { setFeedback(value); setFeedbackStatus(''); }}
           onFeedbackNicknameChange={value => { setFeedbackNickname(value); setFeedbackStatus(''); }}
           onShareFeedback={() => { void shareFeedback(); }}
           onCreatePairing={() => { void createPairing(); }}
-          onCopyInvite={() => { void copyInvite(); }}
+          onCopyInvite={copyInvite}
           onJoinCodeChange={setJoinCode}
           onJoinPairing={() => { void joinPairing(); }}
-          onDisconnect={disconnectPairing}
+          onDisconnect={() => { void disconnectPairing(); }}
           onCupStyleChange={setCupStyle}
           onClose={() => setSettingsOpen(false)}
         />}

@@ -1,4 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
+import { petSkins } from '../domain/types';
 import { animationDurationScale, effectiveUtcOffsetMinutes, formatUtcOffset, loadPreferences, normalizePetScalePercent, normalizeReplayRetentionHours, savePreferences, scalePetWithPinch } from './preferences';
 
 function memoryStorage(initial?: string) {
@@ -11,6 +12,11 @@ function memoryStorage(initial?: string) {
 
 describe('desktop preferences', () => {
   afterEach(() => vi.unstubAllGlobals());
+  it.each(petSkins)('retains the %s skin after reopening the app', skin => {
+    const storage = memoryStorage();
+    savePreferences({ ...loadPreferences(storage), selfPetSkin: skin }, storage);
+    expect(loadPreferences(storage).selfPetSkin).toBe(skin);
+  });
   it('follows the system for new installations and re-resolves persisted system mode', () => {
     vi.stubGlobal('navigator', { language: 'zh-TW' });
     expect(loadPreferences(memoryStorage())).toMatchObject({ languageMode: 'system', language: 'zh-Hant' });
