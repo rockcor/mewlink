@@ -3,8 +3,8 @@
 
 import assert from 'node:assert/strict';
 import { execFileSync, spawn } from 'node:child_process';
-import { generateKeyPairSync, randomBytes, sign } from 'node:crypto';
-import { writeFileSync } from 'node:fs';
+import { createPrivateKey, createPublicKey, generateKeyPairSync, randomBytes, sign } from 'node:crypto';
+import { readFileSync, writeFileSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { simulate, WINDOW_MS } from './playout.mjs';
@@ -12,7 +12,12 @@ import { simulate, WINDOW_MS } from './playout.mjs';
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 import { createServer } from 'node:net';
 const PORT = await new Promise(done => { const server = createServer(); server.listen(0, '127.0.0.1', () => { const { port } = server.address(); server.close(() => done(port)); }); });
-const BASE = `127.0.0.1:${PORT}`;
+// LIVE_URL=https://mewlink-live.<subdomain>.workers.dev runs the suite against a
+// deployed Worker, signing tickets with SIGNING_KEY_FILE (its public key must be
+// the Worker's TICKET_PUBLIC_KEY). Otherwise a local wrangler dev is started.
+const REMOTE = process.env.LIVE_URL ? new URL(process.env.LIVE_URL) : undefined;
+const BASE = REMOTE ? REMOTE.host : `127.0.0.1:${PORT}`;
+const WS = REMOTE ? 'wss' : 'ws', HTTP = REMOTE ? 'https' : 'http';
 const results = [];
 const check = async (name, fn) => {
   try { await fn(); results.push(['pass', name]); }
@@ -20,10 +25,12 @@ const check = async (name, fn) => {
 };
 
 // --- ticket signing (stands in for the relay's live_ticket endpoint) --------
-const { publicKey, privateKey } = generateKeyPairSync('ed25519');
+const { publicKey, privateKey } = REMOTE
+  ? (() => { const key = createPrivateKey(readFileSync(process.env.SIGNING_KEY_FILE)); return { privateKey: key, publicKey: createPublicKey(key) }; })()
+  : generateKeyPairSync('ed25519');
 const rawPublic = publicKey.export({ format: 'der', type: 'spki' }).subarray(-32);
 const b64 = bytes => Buffer.from(bytes).toString('base64url');
-writeFileSync(resolve(root, '.dev.vars'), `TICKET_PUBLIC_KEY=${b64(rawPublic)}\n`);
+if (!REMOTE) writeFileSync(resolve(root, '.dev.vars'), `TICKET_PUBLIC_KEY=${b64(rawPublic)}\n`);
 const signed = (payload, key = privateKey) => {
   const body = b64(Buffer.from(JSON.stringify(payload)));
   return `${body}.${b64(sign(null, Buffer.from(body), key))}`;
@@ -51,7 +58,7 @@ function sealPulse(key, { relationshipId, deviceId, epoch, seq, window, keyboard
 // --- websocket client ---------------------------------------------------------
 function connect(relationshipId, deviceId, token, { epoch = 1, ready = true } = {}) {
   const protocols = token === undefined ? ['mewlink.v1'] : ['mewlink.v1', `ticket.${token}`];
-  const ws = new WebSocket(`ws://${BASE}/live?relationshipId=${relationshipId}&deviceId=${deviceId}`, protocols);
+  const ws = new WebSocket(`${WS}://${BASE}/live?relationshipId=${relationshipId}&deviceId=${deviceId}`, protocols);
   if (ready) ws.addEventListener('open', () => ws.send(JSON.stringify({ t: 'ready', e: epoch })));
   const client = { ws, messages: [], waiters: [] };
   client.closed = new Promise(done => ws.addEventListener('close', event => done({ code: event.code, reason: event.reason })));
@@ -90,6 +97,8 @@ async function pair() {
 const refused = async client => assert.equal(await client.outcome, 'refused');
 
 // --- start the worker -----------------------------------------------------------
+let stopWorker = () => undefined;
+if (!REMOTE) {
 const wranglerPath = process.env.WRANGLER ?? resolve(root, 'node_modules/wrangler/bin/wrangler.js');
 const worker = spawn(process.execPath, [wranglerPath, 'dev', '--port', String(PORT), '--ip', '127.0.0.1', '--log-level', 'warn'], { cwd: root, stdio: ['ignore', 'pipe', 'pipe'], detached: true });
 // wrangler starts workerd outside its own process group, so walk the process
@@ -102,7 +111,7 @@ const descendants = pid => {
   return found;
 };
 let stopped = false;
-const stopWorker = () => {
+stopWorker = () => {
   if (stopped) return;
   stopped = true;
   for (const pid of [...descendants(worker.pid), worker.pid]) { try { process.kill(pid, 'SIGKILL'); } catch { /* already gone */ } }
@@ -116,6 +125,8 @@ for (let attempt = 0; ; attempt++) {
   try { const response = await fetch(`http://${BASE}/`); if (response.status === 404) break; } catch { /* starting */ }
   if (attempt > 120) { console.error(workerLog); throw new Error('wrangler dev did not start'); }
   await new Promise(done => setTimeout(done, 500));
+}
+
 }
 
 try {
@@ -196,9 +207,9 @@ try {
   });
   await check('a signed revocation closes both sockets and refuses new connections', async () => {
     const { relationshipId, a, A, B } = await pair();
-    const forged = await fetch(`http://${BASE}/revoke`, { method: 'POST', body: signed({ r: relationshipId, revoked: true }, generateKeyPairSync('ed25519').privateKey) });
+    const forged = await fetch(`${HTTP}://${BASE}/revoke`, { method: 'POST', body: signed({ r: relationshipId, revoked: true }, generateKeyPairSync('ed25519').privateKey) });
     assert.equal(forged.status, 403);
-    const response = await fetch(`http://${BASE}/revoke`, { method: 'POST', body: signed({ r: relationshipId, revoked: true }) });
+    const response = await fetch(`${HTTP}://${BASE}/revoke`, { method: 'POST', body: signed({ r: relationshipId, revoked: true }) });
     assert.equal(response.status, 204);
     assert.equal((await closedWithin(A)).reason, 'revoked');
     assert.equal((await closedWithin(B)).reason, 'revoked');
@@ -243,7 +254,7 @@ try {
   console.log('\nWorker tests');
   for (const [status, name, detail] of results) console.log(`  ${status}  ${name}${detail ? ` — ${detail}` : ''}`);
   if (frameBytes) console.log(`\nEncrypted pulse frame: ${frameBytes} bytes (JSON over WebSocket, fixed size)`);
-  if (local) console.log(`Local one-way forward through wrangler dev: p50 ${local.p50} ms, p95 ${local.p95} ms`);
+  if (local) console.log(`${REMOTE ? `This machine -> ${REMOTE.host} -> this machine` : 'Local one-way forward through wrangler dev'}: p50 ${local.p50} ms, p95 ${local.p95} ms`);
 
   console.log('\nPlayout simulation (10 minutes of bursty typing each, keystroke to animation)');
   console.log('  network                         one-way          loss     on time   p50     p95');
