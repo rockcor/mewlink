@@ -1,0 +1,14 @@
+{
+  // Deployed to your own Cloudflare account (works on the Workers Free plan:
+  // SQLite-backed Durable Objects only). TICKET_PUBLIC_KEY is the relay
+  // signer's raw Ed25519 public key, base64url; set it with
+  // `wrangler secret put TICKET_PUBLIC_KEY` or in .dev.vars for local runs.
+  "name": "mewlink-live",
+  "main": "src/index.ts",
+  "compatibility_date": "2026-05-15",
+  "durable_objects": {
+    "bindings": [{ "name": "LIVE", "class_name": "LiveRoom" }]
+  },
+  "migrations": [{ "tag": "v1", "new_sqlite_classes": ["LiveRoom"] }],
+  "observability": { "enabled": false }
+}
