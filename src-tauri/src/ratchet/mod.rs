@@ -1,11 +1,16 @@
 mod engine;
 mod store;
 
+pub use engine::valid_id;
+
 use engine::{Context, Envelope, Machine, Offer};
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
+use std::time::{Instant, SystemTime, UNIX_EPOCH};
 use tauri::Manager;
 use zeroize::Zeroizing;
+
+use crate::live::{rooms::LiveRooms, LiveState};
 
 #[derive(Default, Serialize, Deserialize)]
 struct State {
@@ -17,6 +22,7 @@ struct State {
 #[tauri::command]
 pub async fn ratchet_command(
     app: tauri::AppHandle,
+    live: tauri::State<'_, LiveState>,
     operation: String,
     relationship_id: String,
     mut input: Value,
@@ -29,7 +35,9 @@ pub async fn ratchet_command(
         .app_data_dir()
         .map_err(|_| "ratchet_storage_error")?
         .join("secure-session");
+    let live = live.inner().clone();
     tauri::async_runtime::spawn_blocking(move || {
+        let unix_ms = SystemTime::now().duration_since(UNIX_EPOCH).map_err(|_| "clock_error")?.as_millis() as u64;
         let bootstrap = input.get_mut("bootstrap").map(Value::take).and_then(|value| match value {
             Value::String(value) => Some(Zeroizing::new(value)), _ => None,
         });
@@ -60,6 +68,7 @@ pub async fn ratchet_command(
                 json!({"offer": state.machine.as_ref().ok_or("session_missing")?.offer})
             }
             "forget" => {
+                live.0.lock().map_err(|_| "live_state_error")?.forget(&relationship_id);
                 if state.machine.as_ref().is_some_and(|m| m.context.relationship_id == relationship_id) {
                     state.machine = None; dirty = true;
                 }
@@ -74,10 +83,30 @@ pub async fn ratchet_command(
                 match operation.as_str() {
                     "status" => serde_json::to_value(machine.status()).map_err(|_| "ratchet_state_error")?,
                     "pending" => {
+                        // Live keys go to native memory and are acknowledged here,
+                        // so key material is never handed to JavaScript.
+                        let deliveries = machine.deliveries();
+                        let consumed = live.0.lock().map_err(|_| "live_state_error")?.absorb(
+                            &relationship_id, deliveries.iter().map(|d| (d.receipt.as_str(), &d.event)), Instant::now());
+                        for receipt in &consumed { machine.ack_incoming(receipt); dirty = true; }
+                        let incoming: Vec<_> = deliveries.into_iter().filter(|d| !consumed.contains(&d.receipt)).collect();
                         let outgoing: Result<Vec<_>, String> = machine.outbox.iter().map(|envelope| {
                             Ok(json!({"receipt": engine::fingerprint(envelope)?, "envelope": envelope}))
                         }).collect();
-                        json!({"outgoing":outgoing?, "incoming":machine.deliveries()})
+                        json!({"outgoing":outgoing?, "incoming":incoming})
+                    }
+                    "send_live_key" => {
+                        let mut rooms = live.0.lock().map_err(|_| "live_state_error")?;
+                        let prepared = rooms.prepare_own_key(&relationship_id, &machine.context.device_id, Instant::now(), unix_ms);
+                        machine.send(prepared.event.clone())?;
+                        dirty = true;
+                        json!({"epoch": rooms.install_own_key(&relationship_id, prepared)})
+                    }
+                    "send_live_off" => {
+                        machine.send(LiveRooms::off_event(&relationship_id, &machine.context.device_id, unix_ms))?;
+                        live.0.lock().map_err(|_| "live_state_error")?.clear_own_key(&relationship_id);
+                        dirty = true;
+                        json!(null)
                     }
                     "confirm" => { machine.confirm(input.get("safetyNumber").and_then(Value::as_str).ok_or("verification_required")?)?; dirty = true; json!(null) }
                     "send" => { let result = machine.send(input)?; dirty = true; serde_json::to_value(result).map_err(|_| "ratchet_state_error")? }

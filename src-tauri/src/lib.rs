@@ -2,6 +2,7 @@ use serde::Serialize;
 use tauri::Manager;
 mod autostart;
 mod language;
+mod live;
 mod ratchet;
 mod resources;
 mod secure_storage;
@@ -792,6 +793,7 @@ pub fn run() {
         .plugin(tauri_plugin_updater::Builder::new().build())
         .manage(window_layout::DesktopLayout::default())
         .manage(resources::ResourceState::default())
+        .manage(live::LiveState::default())
         .invoke_handler(tauri::generate_handler![
             autostart::enable_autostart,
             presence_signal,
@@ -801,6 +803,7 @@ pub fn run() {
             secure_storage::read_pairing_secure,
             secure_storage::write_pairing_secure,
             ratchet::ratchet_command,
+            live::live_command,
             window_layout::set_panel_open,
             window_layout::pet_window_position,
             window_layout::restore_pet_position
