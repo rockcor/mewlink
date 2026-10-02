@@ -157,10 +157,11 @@ try {
     assert.equal((await closedWithin(C, 12000)).reason, 'ticket_expired');
   });
   await check('renewing the ticket keeps the socket open', async () => {
-    const r = id(), d = id(), C = connect(r, d, ticket(r, d, 3)); await C.open;
-    await new Promise(done => setTimeout(done, 1500));
+    // Expiry is in whole seconds, so a 5 s ticket lasts 4-5 s; renew well inside that.
+    const r = id(), d = id(), C = connect(r, d, ticket(r, d, 5)); await C.open;
+    await new Promise(done => setTimeout(done, 1000));
     C.send({ t: 'renew', ticket: ticket(r, d, 300) });
-    const outcome = await Promise.race([C.closed.then(() => 'closed'), new Promise(done => setTimeout(() => done('open'), 5000))]);
+    const outcome = await Promise.race([C.closed.then(() => 'closed'), new Promise(done => setTimeout(() => done('open'), 7000))]);
     assert.equal(outcome, 'open');
     C.ws.close();
   });
