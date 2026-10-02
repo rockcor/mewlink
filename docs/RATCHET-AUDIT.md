@@ -216,6 +216,38 @@ counts and activity categories are now kept in IndexedDB as plaintext too.
 `ratchet-source.sha256` was refreshed for the merged files; the `website/`
 entries were not re-hashed here.
 
+## Live typing (review item, 2026-10-01)
+
+Live typing adds a second, real-time channel beside the ratchet mailbox. It is
+off by default and needs both people to opt in. Not independently reviewed.
+
+- Keys: each side makes a random 32-byte XChaCha20-Poly1305 key in Rust and
+  sends it as a `live.key` event over the verified ratchet (epoch = creation time
+  in ms, never decreasing). `pending` takes these events out natively and
+  acknowledges them, so live keys never reach JavaScript; `{key: null}` turns
+  the peer's side off. Keys live in process memory only and are rotated after
+  24 h, 100,000 pulses, on restart, or when the peer asks (`rekey` with `need`).
+  Unpairing (`forget`) wipes them.
+- Pulses: fixed 32-byte plaintext (window, key/pointer/click counts, coarse
+  activity and visual, nudge bit), random 24-byte nonce, associated data
+  `mewlink-live-v1|relationship|sender|epoch|sequence`; the receiver rejects
+  non-increasing sequences and retires old epochs after 60 s. On macOS, sealing
+  fails while Secure Event Input is on (password fields, `sudo`).
+- Transport: the relay signs 5-minute Ed25519 tickets `{r, d, exp}` for
+  registered devices of protocol-2 relationships only (`live_ticket`). The
+  `mewlink-live` Worker holds just the public key, checks the ticket in the
+  WebSocket handshake (subprotocol, not URL), requires a `ready` frame, forwards
+  frames between the two devices of the room without storing them, rate-limits
+  them, and closes the room on a signed revocation notice from the relay.
+- Metadata the Worker sees: relationship and device IDs, IP addresses,
+  connection times and the timing of pulses (which reveals when someone types,
+  not what). The signing key deployed today is a test key; production needs a
+  relay-held key and the matching `TICKET_PUBLIC_KEY`.
+- Tests: Rust unit tests in `src-tauri/src/live/rooms.rs`; `src/live/*.test.ts`;
+  `pnpm test:live` runs two real ratchet peers through the relay route and a
+  local `wrangler dev` (pairing, key exchange, pulses both ways, nudge,
+  revocation closing the room); `live-worker/test/run.mjs` covers the Worker.
+
 ## Source references
 
 - [vodozemac source and security information](https://github.com/matrix-org/vodozemac),

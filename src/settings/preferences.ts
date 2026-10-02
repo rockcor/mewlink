@@ -12,6 +12,8 @@ export type ReplayRetentionHours = (typeof replayRetentionOptions)[number];
 export interface Preferences {
   autoUpdate: boolean;
   replayEnabled: boolean;
+  /** Off by default; both partners must turn it on. */
+  liveTyping: boolean;
   replaySaveDirectory: string;
   replayRetentionHours: ReplayRetentionHours;
   statisticsVisibility: StatisticsVisibility;
@@ -33,6 +35,7 @@ export function defaultPreferences(): Preferences {
   return {
     autoUpdate: true,
     replayEnabled: true,
+    liveTyping: false,
     replaySaveDirectory: '',
     replayRetentionHours: 24,
     statisticsVisibility: 'private',
@@ -81,6 +84,7 @@ export function loadPreferences(storage?: StorageLike): Preferences {
     return {
       autoUpdate: typeof value.autoUpdate === 'boolean' ? value.autoUpdate : defaults.autoUpdate,
       replayEnabled: typeof value.replayEnabled === 'boolean' ? value.replayEnabled : defaults.replayEnabled,
+      liveTyping: typeof value.liveTyping === 'boolean' ? value.liveTyping : defaults.liveTyping,
       replaySaveDirectory: typeof value.replaySaveDirectory === 'string' ? value.replaySaveDirectory : defaults.replaySaveDirectory,
       replayRetentionHours: typeof value.replayRetentionHours === 'number'
         ? normalizeReplayRetentionHours(value.replayRetentionHours)
