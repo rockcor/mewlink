@@ -2,7 +2,9 @@ use serde::Serialize;
 use tauri::Manager;
 mod autostart;
 mod language;
+mod ratchet;
 mod resources;
+mod secure_storage;
 mod window_layout;
 #[cfg(target_os = "windows")]
 mod windows_input;
@@ -796,6 +798,9 @@ pub fn run() {
             input_signal,
             resources::set_low_memory_mode,
             language::system_languages,
+            secure_storage::read_pairing_secure,
+            secure_storage::write_pairing_secure,
+            ratchet::ratchet_command,
             window_layout::set_panel_open,
             window_layout::pet_window_position,
             window_layout::restore_pet_position

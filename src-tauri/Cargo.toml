@@ -4,6 +4,7 @@ version = "0.3.26"
 description = "Privacy-first ambient couple companion"
 authors = ["MewLink contributors"]
 edition = "2021"
+rust-version = "1.89"
 
 [lib]
 name = "mewlink_lib"
@@ -21,13 +22,22 @@ tauri-plugin-clipboard-manager = "2"
 tauri-plugin-dialog = "2"
 tauri-plugin-process = "2"
 tauri-plugin-updater = "2"
+vodozemac = { version = "=0.10.0", default-features = false, features = ["experimental-session-config"] }
+chacha20poly1305 = "0.10.1"
+base64 = "0.22"
+sha2 = "0.10"
+hmac = "0.12"
+rand = "0.8"
+zeroize = "1.8"
 
 [target.'cfg(target_os = "macos")'.dependencies]
+keyring = { version = "=3.6.3", default-features = false, features = ["apple-native"] }
 objc2 = "0.6"
 objc2-foundation = { version = "0.3", default-features = false, features = ["std", "NSLocale", "NSArray", "NSString"] }
 objc2-app-kit = { version = "0.3", default-features = false, features = ["std", "NSWorkspace", "NSRunningApplication"] }
 
 [target.'cfg(target_os = "windows")'.dependencies]
+keyring = { version = "=3.6.3", default-features = false, features = ["windows-native"] }
 winreg = "0.55"
 webview2-com = "=0.38.2"
 windows-core = "=0.61.2"

@@ -10,14 +10,13 @@ import { hugSkins } from './pet/hugOwnership';
 import type { ActivityKind, BlanketStyle, CupStyle, InteractionKind, InteractionPayload, PetSkin, PlainEvent, StatisticsPayload, StatisticsVisibility, StoredEvent, WorkVisual } from './domain/types';
 import { cupStyles } from './domain/types';
 import {
-  clearPairing,
   createPairingState,
-  loadPairing,
   pairingInviteCode,
   pairingSafetyCode,
-  savePairing,
   type PairingState,
 } from './pairing/pairing';
+import { securePairing, SecureStorageError } from './pairing/secureStore';
+import { initializeRatchet, nativeRatchet, RatchetError, type RatchetStatus } from './crypto/ratchet';
 import { activityProbe, nextActivity, demoInitialActivity, demoInitialWorkVisual, inputBurstReached, inputBurstSampleForSequence, inputChangesForSequence, INPUT_STRESS_HOLD_MS, keyboardEventsForSequence, nextSampleDelay, POINTER_ANIMATION_HOLD_MS, POINTER_EVENTS_PER_ANIMATION, pointerClicksForSequence, pointerEventsForSequence, shouldAnimatePointer, trimInputBurst, visualInputForActivity, workVisualFor, type InputBurstSample, type InputSignal } from './platform/activity';
 import { ACTIVITY_TRANSITION_MS, gestureFor, waterDrinkDelay, type GestureVariant } from './pet/interaction';
 import { transitionAssetName, useActivityPlayback } from './pet/activityPlayback';
@@ -28,12 +27,12 @@ import { watchInput } from './platform/inputStream';
 import { useRenderBudget } from './platform/resources';
 import { localUtcOffsetMinutes } from './platform/clock';
 import { languageTags, watchSystemLanguage } from './platform/language';
-import { joinWithPairingCode, registerPairCreator, syncEncryptedEvents } from './services/relayTransport';
+import { joinWithPairingCode, registerPairCreator, RelayError, resumePairingRegistration, revokeRelationship, syncEncryptedEvents } from './services/relayTransport';
 import { checkForUpdate, installUpdate } from './services/update';
 import { submitFeedback } from './services/feedback';
 import type { Update } from '@tauri-apps/plugin-updater';
 import { discardRelationshipHistory, pruneEventsOlderThan, putEvent } from './storage/events';
-import { queueEncryptedEvent, flushEncryptedOutbox } from './history/outbox';
+import { queueEncryptedEvent } from './history/outbox';
 import { useOperationHistory } from './history/useOperationHistory';
 import { companionStates, partnerEventsFor, PRESENCE_HEARTBEAT_MS } from './services/companionState';
 import { createSessionQueue } from './pairing/sessionQueue';
@@ -75,7 +74,6 @@ export default function App() {
   const historyStop = useRef<() => void>(() => undefined);
   const replayingRef = useRef(false);
   const syncStartedAt = useRef(Date.now());
-  const outboxFlushAt = useRef(0);
   const autoReplayPending = useRef(true);
   const autoReplayRunning = useRef(false);
   const [gesture, setGesture] = useState<{ id: string; variant: GestureVariant; target: PetTarget; cupStyle?: CupStyle; blanketStyle?: BlanketStyle }>();
@@ -89,13 +87,18 @@ export default function App() {
   const [statisticsOpen, setStatisticsOpen] = useState(false);
   const [preferences, setPreferences] = useState(loadPreferences);
   const text = appCopy[preferences.language];
+  const textRef = useRef(text);
+  textRef.current = text;
   const [updateState, setUpdateState] = useState<UpdateViewState>({ kind: 'idle', message: text.updateUnchecked });
   const [feedback, setFeedback] = useState('');
   const [feedbackNickname, setFeedbackNickname] = useState(() => window.localStorage.getItem(feedbackNicknameKey) ?? '');
   const [feedbackSending, setFeedbackSending] = useState(false);
   const [feedbackStatus, setFeedbackStatus] = useState('');
-  const [pairing, setPairing] = useState<PairingState | undefined>(() => loadPairing());
-  const connected = Boolean(pairing?.partnerDeviceId);
+  const [pairing, setPairing] = useState<PairingState>();
+  const [pairingReady, setPairingReady] = useState(false);
+  const [revocationPending, setRevocationPending] = useState(false);
+  const pairingBlockedRef = useRef(true);
+  const connected = Boolean(pairing?.partnerDeviceId && pairing.ratchet?.verified);
   const [pairingStatus, setPairingStatus] = useState('');
   const [pairingBusy, setPairingBusy] = useState(false);
   const pairingBusyRef = useRef(false);
@@ -117,6 +120,8 @@ export default function App() {
   const statisticsActivityRef = useRef<ActivityKind>('work');
   const statisticsWorkVisualRef = useRef<WorkVisual>('web');
   const pairingRef = useRef<PairingState | undefined>(pairing);
+  // Sync, send, confirm and unpair share one queue, so a request from an old
+  // session can never commit after unpairing or a newly created relationship.
   const sessionQueue = useRef(createSessionQueue()).current;
   const panelBusy = useRef(false);
   const [presenceNow, setPresenceNow] = useState(Date.now);
@@ -230,27 +235,100 @@ export default function App() {
     }
   }, [installAvailableUpdate, runUpdateCheck, text]);
 
-  const persistPairing = useCallback((next: PairingState) => {
+  const persistPairing = useCallback(async (next: PairingState) => {
+    try {
+      await securePairing.save(next);
+    } catch {
+      pairingBlockedRef.current = true;
+      setPairingReady(false);
+      setPairingStatus(textRef.current.secureStorageError);
+      throw new SecureStorageError();
+    }
     pairingRef.current = next;
-    savePairing(next);
     setPairing(next);
   }, []);
+
+  const finishRevocation = useCallback(async () => {
+    const pending = securePairing.pending();
+    if (!pending) return;
+    let erasureError: unknown;
+    try { await nativeRatchet('forget', pending.relationshipId); } catch (error) { erasureError = error; }
+    await revokeRelationship(pending);
+    if (erasureError) throw erasureError; // Server cancellation still runs if local storage is damaged.
+    await securePairing.completeRevocation(pending.relationshipId);
+    setRevocationPending(false);
+    setPairingStatus(textRef.current.disconnected);
+  }, []);
+
+  // Call inside the shared session queue when the relay confirms a revoked pair.
+  const forgetRevokedPair = useCallback(async (active: PairingState) => {
+    pairingBlockedRef.current = true;
+    try { await securePairing.beginRevocation(active); } catch {
+      setPairingReady(false);
+      setPairingStatus(textRef.current.secureStorageError);
+      throw new SecureStorageError();
+    }
+    pairingRef.current = undefined;
+    setPairing(undefined);
+    setEvents([]);
+    setRevocationPending(true);
+    await nativeRatchet('forget', active.relationshipId);
+    await securePairing.completeRevocation(active.relationshipId);
+    setRevocationPending(false);
+    setPairingStatus(textRef.current.disconnected);
+  }, []);
+
+  useEffect(() => {
+    let stopped = false;
+    void sessionQueue(async () => {
+      const restored = await securePairing.load();
+      if (stopped) return;
+      pairingRef.current = restored;
+      pairingBlockedRef.current = !restored?.ratchet;
+      setPairing(restored);
+      setRevocationPending(Boolean(securePairing.pending()));
+      setPairingReady(true);
+      if (securePairing.pending()) setPairingStatus(textRef.current.revocationPending);
+      else if (restored && !restored.ratchet) setPairingStatus(textRef.current.ratchetUpgrade);
+    }).catch(() => { if (!stopped) setPairingStatus(textRef.current.secureStorageError); });
+    return () => { stopped = true; };
+  }, [sessionQueue]);
+
+  useEffect(() => {
+    if (!pairingReady || !revocationPending) return;
+    let stopped = false;
+    const retry = () => {
+      void sessionQueue(async () => { if (!stopped) await finishRevocation(); })
+        .catch(() => { if (!stopped) setPairingStatus(textRef.current.revocationPending); });
+    };
+    retry();
+    const timer = window.setInterval(retry, 15_000);
+    window.addEventListener('online', retry);
+    return () => { stopped = true; window.clearInterval(timer); window.removeEventListener('online', retry); };
+  }, [finishRevocation, pairingReady, revocationPending, sessionQueue]);
 
   const enqueueEncryptedEvent = useCallback((createEvent: (active: PairingState) => PlainEvent) => {
     const relationshipId = pairingRef.current?.relationshipId;
     return sessionQueue(async () => {
-      const active = pairingRef.current;
-      if (!active?.partnerDeviceId || active.relationshipId !== relationshipId) throw new Error('pairing_required');
+      let active = pairingRef.current;
+      if (pairingBlockedRef.current || !active?.partnerDeviceId || !active.ratchet?.verified || active.relationshipId !== relationshipId) throw new Error('pairing_required');
+      if (active.registration) {
+        active = await resumePairingRegistration(active).catch(async error => {
+          if (error instanceof RelayError && error.code === 'relationship_revoked') await forgetRevokedPair(active!);
+          throw error;
+        });
+        await persistPairing(active);
+      }
       const result = await queueEncryptedEvent(active, createEvent(active));
-      if (pairingRef.current?.relationshipId !== relationshipId) throw new Error('pairing_changed');
-      persistPairing(result.state);
+      if (pairingBlockedRef.current || pairingRef.current?.relationshipId !== relationshipId) throw new Error('pairing_changed');
+      if (result.state !== active) await persistPairing(result.state);
       if (result.stored.event.kind !== 'operation.batch') {
         setEvents(currentEvents => currentEvents.some(item => item.event.id === result.stored.event.id)
           ? currentEvents : [...currentEvents, result.stored]);
       }
       return result.stored;
     });
-  }, [persistPairing, sessionQueue]);
+  }, [forgetRevokedPair, persistPairing, sessionQueue]);
 
   const history = useOperationHistory({
     pairing, enabled: preferences.replayEnabled, activity, workVisual, paused: renderPaused,
@@ -324,22 +402,24 @@ export default function App() {
   useEffect(() => {
     const prune = () => { void pruneEventsOlderThan(preferences.replayRetentionHours).then(saved => {
       const cutoff = Date.now() - preferences.replayRetentionHours * 3_600_000;
+      // Only the current relationship's events stay visible after re-pairing.
+      const relationshipId = pairingRef.current?.relationshipId;
       setEvents(currentEvents => [...new Map([...saved, ...currentEvents]
-        .filter(item => Date.parse(item.event.createdAt) >= cutoff)
+        .filter(item => item.event.relationshipId === relationshipId && Date.parse(item.event.createdAt) >= cutoff)
         .map(item => [item.event.id, item])).values()]);
       setHistoryRevision(revision => revision + 1);
     }).catch(() => undefined); };
     prune();
     const timer = window.setInterval(prune, 60_000);
     return () => window.clearInterval(timer);
-  }, [preferences.replayRetentionHours]);
+  }, [preferences.replayRetentionHours, pairing?.relationshipId]);
   useEffect(() => {
     if (!connected) return;
     const timer = window.setInterval(() => setPresenceNow(Date.now()), 5_000);
     return () => window.clearInterval(timer);
   }, [connected]);
   useEffect(() => {
-    if (!pairing?.partnerDeviceId) return;
+    if (!connected) return;
     let stopped = false;
     let pending = false;
     let startedAt = new Date().toISOString();
@@ -362,9 +442,9 @@ export default function App() {
     void publish();
     const timer = window.setInterval(() => { void publish(); }, PRESENCE_HEARTBEAT_MS);
     return () => { stopped = true; window.clearInterval(timer); };
-  }, [activity, workVisual, pairing?.partnerDeviceId, pairing?.relationshipId, receiverUtcOffsetMinutes, enqueueEncryptedEvent]);
+  }, [activity, workVisual, connected, pairing?.relationshipId, receiverUtcOffsetMinutes, enqueueEncryptedEvent]);
   useEffect(() => {
-    if (!pairing?.partnerDeviceId) return;
+    if (!connected) return;
     let delivered = false;
     const publish = () => {
       void publishStatistics(preferences.statisticsVisibility).then(() => { delivered = true; }, () => undefined);
@@ -378,9 +458,9 @@ export default function App() {
       void publishStatistics('partner').catch(() => undefined);
     }, 5 * 60_000);
     return () => window.clearInterval(timer);
-  }, [pairing?.partnerDeviceId, pairing?.relationshipId, preferences.statisticsVisibility, publishStatistics]);
+  }, [connected, pairing?.relationshipId, preferences.statisticsVisibility, publishStatistics]);
   useEffect(() => {
-    if (!pairing?.partnerDeviceId) return;
+    if (!connected) return;
     let delivered = false;
     const publish = () => {
       void publishPetSkin(preferences.selfPetSkin).then(() => { delivered = true; }, () => undefined);
@@ -388,7 +468,7 @@ export default function App() {
     publish();
     const retryTimer = window.setInterval(() => { if (!delivered) publish(); }, 30_000);
     return () => window.clearInterval(retryTimer);
-  }, [pairing?.partnerDeviceId, pairing?.relationshipId, preferences.selfPetSkin, publishPetSkin]);
+  }, [connected, pairing?.relationshipId, preferences.selfPetSkin, publishPetSkin]);
   useEffect(() => {
     if (!isTauriWindow) return;
     const appWindow = getCurrentWindow();
@@ -438,17 +518,35 @@ export default function App() {
       running = true;
       try {
         await sessionQueue(async () => {
-          const active = pairingRef.current;
-          if (stopped || !active) return;
-          if (active.partnerDeviceId && Date.now() - outboxFlushAt.current >= 3000) {
-            outboxFlushAt.current = Date.now();
-            try { await flushEncryptedOutbox(active); } catch { /* Persisted ciphertext retries on the next sync. */ }
+          let active = pairingRef.current;
+          if (stopped || pairingBlockedRef.current || !active) return;
+          if (active.registration) {
+            active = await resumePairingRegistration(active).catch(async error => {
+              if (error instanceof RelayError && error.code === 'relationship_revoked') await forgetRevokedPair(active!);
+              throw error;
+            });
+            await persistPairing(active);
           }
-          const result = await syncEncryptedEvents(active);
-          if (stopped || pairingRef.current?.relationshipId !== active.relationshipId) return;
-          setPairingStatus(result.state.partnerDeviceId ? text.connected : text.waitingForInvite);
+          // Sync also drains the native ratchet outbox, where queued events wait.
+          const result = await syncEncryptedEvents(active).catch(async error => {
+            if (error instanceof RelayError && error.code === 'relationship_revoked') await forgetRevokedPair(active);
+            throw error;
+          });
+          if (stopped || pairingBlockedRef.current || pairingRef.current?.relationshipId !== active.relationshipId) return;
+          if (result.state.partnerDeviceId !== active.partnerDeviceId || result.state.relayCursor !== active.relayCursor
+            || result.state.inviteExpiresAt !== active.inviteExpiresAt || result.received.length
+            || JSON.stringify(result.state.ratchet) !== JSON.stringify(active.ratchet)
+            || result.state.relationshipKey !== active.relationshipKey) {
+            await persistPairing(result.state);
+          }
+          setPairingStatus(result.state.ratchet?.verified ? text.connected
+            : result.state.ratchet?.established ? text.ratchetVerify : text.waitingForInvite);
           for (const stored of result.received) {
+            if (stopped || pairingBlockedRef.current) break;
             await putEvent(stored);
+            // Acknowledge only after the plaintext is durable; unacknowledged
+            // deliveries are handed back by the native ratchet on the next sync.
+            if (stored.ratchetReceipt) await nativeRatchet('ack_incoming', active.relationshipId, stored.ratchetReceipt);
             if (stopped || pairingRef.current?.relationshipId !== active.relationshipId) return;
             if (stored.event.kind === 'operation.batch') {
               setHistoryRevision(revision => revision + 1);
@@ -467,10 +565,6 @@ export default function App() {
               drinkCup('partner', payload.cupEventId, true);
             }
           }
-          if (result.state.partnerDeviceId !== active.partnerDeviceId || result.state.relayCursor !== active.relayCursor
-            || result.state.inviteExpiresAt !== active.inviteExpiresAt || result.received.length) {
-            persistPairing(result.state);
-          }
           setPresenceNow(Date.now());
           if (result.partnerOnline && autoReplayRunning.current) historyStop.current();
           if (autoReplayPending.current && result.caughtUp) {
@@ -481,8 +575,8 @@ export default function App() {
             }
           }
         });
-      } catch {
-        if (!stopped) setPairingStatus(text.connectionRetry);
+      } catch (error) {
+        if (!stopped && !pairingBlockedRef.current) setPairingStatus(error instanceof RatchetError ? text.ratchetStorageError : text.connectionRetry);
       } finally {
         running = false;
       }
@@ -492,7 +586,7 @@ export default function App() {
     window.addEventListener('online', reconnect);
     const timer = window.setInterval(() => { void sync(); }, 2_500);
     return () => { stopped = true; window.clearInterval(timer); window.removeEventListener('online', reconnect); };
-  }, [pairing?.relationshipId, pairing?.deviceId, persistPairing, sessionQueue, text, drinkCup]);
+  }, [pairing?.relationshipId, pairing?.deviceId, persistPairing, forgetRevokedPair, sessionQueue, text, drinkCup]);
   useEffect(() => {
     let timer: number | undefined;
     let stopped = false;
@@ -614,7 +708,6 @@ export default function App() {
   useEffect(() => { document.documentElement.lang = languageTags[preferences.language]; }, [preferences.language]);
   useEffect(() => {
     setUpdateState(currentState => currentState.kind === 'idle' ? { ...currentState, message: text.updateUnchecked } : currentState);
-    setPairingStatus(currentStatus => currentStatus ? (pairingRef.current?.partnerDeviceId ? text.connected : pairingRef.current ? text.waitingForInvite : '') : currentStatus);
   }, [text]);
   useEffect(() => {
     if (connected) return;
@@ -669,16 +762,35 @@ export default function App() {
   };
 
   async function createPairing() {
-    if (pairingBusyRef.current || pairingRef.current?.partnerDeviceId) return;
+    if (!pairingReady || revocationPending || pairingBusyRef.current || pairingRef.current?.partnerDeviceId) return;
     pairingBusyRef.current = true;
     setPairingBusy(true);
     setPairingStatus(text.creatingInvite);
+    pairingBlockedRef.current = true;
     try {
-      const next = await registerPairCreator(await createPairingState());
-      persistPairing(next);
+      await sessionQueue(async () => {
+        const previous = pairingRef.current;
+        if (previous) {
+          await securePairing.beginRevocation(previous);
+          pairingRef.current = undefined;
+          setPairing(undefined);
+          setRevocationPending(true);
+          await finishRevocation();
+        }
+        // Save before registration so failures/restarts still have credentials
+        // to cancel the invite. No plaintext fallback on storage failure.
+        let next = await createPairingState();
+        await persistPairing(next);
+        next = await initializeRatchet(next);
+        await persistPairing(next);
+        await persistPairing(await registerPairCreator(next));
+        pairingBlockedRef.current = false;
+      });
       setPairingStatus(text.waitingForInvite);
-    } catch {
-      setPairingStatus(text.createInviteError);
+    } catch (error) {
+      if (!(error instanceof SecureStorageError)) pairingBlockedRef.current = !pairingRef.current;
+      setPairingStatus(error instanceof SecureStorageError ? text.secureStorageError
+        : securePairing.pending() ? text.revocationPending : text.createInviteError);
     } finally {
       pairingBusyRef.current = false;
       setPairingBusy(false);
@@ -686,17 +798,22 @@ export default function App() {
   }
 
   async function joinPairing() {
-    if (pairingBusyRef.current) return;
+    if (!pairingReady || revocationPending || pairingBusyRef.current || pairingRef.current) return;
     pairingBusyRef.current = true;
     setPairingBusy(true);
     setPairingStatus(text.connecting);
     try {
-      const next = await joinWithPairingCode(joinCode);
-      persistPairing(next);
+      await sessionQueue(async () => {
+        const next = await joinWithPairingCode(joinCode, fetch, persistPairing);
+        await persistPairing(next);
+        pairingBlockedRef.current = false;
+      });
       setJoinCode('');
-      setPairingStatus(text.connected);
-    } catch {
-      setPairingStatus(text.connectError);
+      setPairingStatus(text.ratchetVerify);
+    } catch (error) {
+      if (!(error instanceof SecureStorageError)) pairingBlockedRef.current = !pairingRef.current;
+      setPairingStatus(error instanceof RatchetError && error.code === 'upgrade_required' ? text.ratchetUpgrade
+        : error instanceof SecureStorageError ? text.secureStorageError : text.connectError);
     } finally {
       pairingBusyRef.current = false;
       setPairingBusy(false);
@@ -707,15 +824,54 @@ export default function App() {
     await copyPairingInvite(pairingRef.current);
   }
 
-  function disconnectPairing() {
-    const oldRelationship = pairingRef.current?.relationshipId;
-    if (oldRelationship) void sessionQueue(() => discardRelationshipHistory(oldRelationship));
-    clearPairing();
-    pairingRef.current = undefined;
-    setPairing(undefined);
-    setPairingStatus(text.disconnected);
-    setJoinCode('');
-    setNotice('');
+  async function confirmPairing() {
+    if (pairingBusyRef.current) return;
+    const expected = pairingRef.current;
+    if (!expected?.ratchet?.established || !safetyCode) return;
+    pairingBusyRef.current = true;
+    setPairingBusy(true);
+    try {
+      await sessionQueue(async () => {
+        const active = pairingRef.current;
+        if (pairingBlockedRef.current || active?.relationshipId !== expected.relationshipId || !active.ratchet) return;
+        await nativeRatchet('confirm', active.relationshipId, { safetyNumber: safetyCode });
+        const status = await nativeRatchet<RatchetStatus>('status', active.relationshipId);
+        await persistPairing({ ...active, ratchet: { ...active.ratchet, established: status.established,
+          verified: status.verified, safetyNumber: status.safetyNumber } });
+        setPairingStatus(text.connected);
+      });
+    } catch { setPairingStatus(text.ratchetStorageError); }
+    finally { pairingBusyRef.current = false; setPairingBusy(false); }
+  }
+
+  async function disconnectPairing() {
+    if (pairingBusyRef.current || !pairingReady) return;
+    pairingBusyRef.current = true;
+    pairingBlockedRef.current = true;
+    setPairingBusy(true);
+    try {
+      await sessionQueue(async () => {
+        const active = pairingRef.current;
+        if (!active) return;
+        await securePairing.beginRevocation(active);
+        // Replay history and any legacy outbox belong to the old relationship.
+        await discardRelationshipHistory(active.relationshipId).catch(() => undefined);
+        pairingRef.current = undefined;
+        setPairing(undefined);
+        setEvents([]);
+        setJoinCode('');
+        setNotice('');
+        setRevocationPending(true);
+        setPairingStatus(text.revocationPending);
+        try { await finishRevocation(); } catch { /* Durable retry on reconnect. */ }
+      });
+    } catch {
+      setPairingReady(false);
+      setPairingStatus(text.secureStorageError);
+    } finally {
+      pairingBusyRef.current = false;
+      setPairingBusy(false);
+    }
   }
 
   async function send(action: InteractionKind) {
@@ -728,9 +884,9 @@ export default function App() {
       }
     }
     const active = pairingRef.current;
-    if (!active?.partnerDeviceId) {
+    if (!active?.partnerDeviceId || !active.ratchet?.verified) {
       await openPanel('settings');
-      setPairingStatus(text.pairFirst);
+      setPairingStatus(active?.ratchet?.established ? text.ratchetVerify : active && !active.ratchet ? text.ratchetUpgrade : text.pairFirst);
       return;
     }
     setPetMenuOpen(false);
@@ -961,10 +1117,11 @@ export default function App() {
           feedbackStatus={feedbackStatus}
           pairing={pairing}
           pairingStatus={pairingStatus}
-          pairingBusy={pairingBusy}
+          pairingBusy={pairingBusy || !pairingReady || revocationPending}
           inviteCode={inviteCode}
           joinCode={joinCode}
           safetyCode={safetyCode}
+          onConfirmPairing={() => { void confirmPairing(); }}
           cupStyle={cupStyle}
           onChange={setPreferences}
           onCheckUpdate={() => { void runUpdateCheck(true); }}
@@ -976,7 +1133,7 @@ export default function App() {
           onCopyInvite={copyInvite}
           onJoinCodeChange={setJoinCode}
           onJoinPairing={() => { void joinPairing(); }}
-          onDisconnect={disconnectPairing}
+          onDisconnect={() => { void disconnectPairing(); }}
           onCupStyleChange={setCupStyle}
           onClose={() => setSettingsOpen(false)}
         />}

@@ -29,24 +29,32 @@ const rest: readonly Contour[] = [
   [[186, 0], [192, 110], [208, 144], [239, 175], [230, 184], [235, 203], [281, 211], [311, 256]],
 ];
 
+// Frames each authored pose is held for in the 24-frame hug strips, matching
+// art/aseprite/rig/original.py. Pose changes are cuts (a squash, no cross-fade).
+const HUG_POSE_FRAMES = [4, 4, 10, 6] as const;
+const HUG_REST_POSE_FRAMES = [4, 5, 9, 6] as const;
+
+export function hugPoseForFrame(asset: string, frame: number): number {
+  const counts = asset.startsWith('hug-rest') ? HUG_REST_POSE_FRAMES : HUG_POSE_FRAMES;
+  let remaining = Math.max(0, Math.floor(frame));
+  for (let pose = 0; pose < counts.length; pose++) {
+    if (remaining < counts[pose]) return pose;
+    remaining -= counts[pose];
+  }
+  return counts.length - 1;
+}
+
 export function hugSenderContour(asset: string, frame: number): Point[] {
   const contours = asset.startsWith('hug-rest') ? rest : asset === 'hug-idle' ? idle : asset === 'hug-leisure' ? leisure : work;
-  const progress = Math.max(0, Math.min(3, frame / 2));
-  const from = Math.floor(progress), to = Math.min(3, from + 1), amount = progress - from;
-  return contours[from].map(([x, y], index) => [
-    x + (contours[to][index][0] - x) * amount,
-    y + (contours[to][index][1] - y) * amount,
-  ]);
+  return contours[hugPoseForFrame(asset, frame)].map(([x, y]) => [x, y]);
 }
 
 export function hugSkins(target: 'self' | 'partner', self: PetSkin, partner: PetSkin) {
   return target === 'self' ? { receiver: self, sender: partner } : { receiver: partner, sender: self };
 }
 
-// Color each key pose before blending. A moving contour over a pre-blended
-// frame would briefly paint the arriving dog's face in the receiver's color.
+// Every strip frame is a single authored pose, so each frame is colored on its
+// own. There are no blended in-betweens whose ownership boundary could move.
 export function hugFrameSamples(frame: number): Array<{ frame: number; weight: number }> {
-  const bounded = Math.max(0, Math.min(6, Math.floor(frame)));
-  return bounded % 2 === 0 ? [{ frame: bounded, weight: 1 }]
-    : [{ frame: bounded - 1, weight: .5 }, { frame: bounded + 1, weight: .5 }];
+  return [{ frame: Math.max(0, Math.floor(frame)), weight: 1 }];
 }

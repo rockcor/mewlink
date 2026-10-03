@@ -146,7 +146,7 @@ jobs:
           if gh release view "$tag" --json isDraft > release-state.json 2>/dev/null; then
             node -e "if (!require('./release-state.json').isDraft) throw Error('Refusing to replace a published version')"
           else
-            gh release create "$tag" --target "$GITHUB_SHA" --draft --prerelease --title "MewLink $tag" --notes "Public beta for macOS (Apple Silicon and Intel) and Windows x64. Update packages are signature-verified. macOS may be unnotarized; Windows is not Authenticode-signed. OS warnings may appear. Not independently audited; do not use for sensitive communication."
+            gh release create "$tag" --target "$GITHUB_SHA" --draft --prerelease --title "MewLink $tag" --notes "Public beta for macOS (Apple Silicon and Intel) and Windows x64. New connections use a native Olm ratchet: both people need to update, pair again and compare safety numbers. Update packages are signature-verified. macOS may be unnotarized; Windows is not Authenticode-signed. OS warnings may appear. Not independently audited; do not use for sensitive communication."
           fi
           gh release upload "$tag" release-assets/MewLink_* release-assets/latest.json release-assets/SHA256SUMS --clobber
           gh release edit "$tag" --draft=false --prerelease --latest=false

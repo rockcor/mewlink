@@ -1,285 +1,99 @@
-local root = app.params.root
-if not root or root == "" then error("Pass --script-param root=/absolute/project/path") end
+-- Builds the layered MewLink pet master and exports the app's PNG strips.
+--
+--   python3 art/aseprite/rig/build.py --out /tmp/mewlink-rig
+--   aseprite -b --script-param root=$PWD --script-param build=/tmp/mewlink-rig \
+--     --script art/aseprite/build-animation-master.lua
+--
+-- The rig animates the approved artwork split into layers. This script
+-- imports every animation as a tag on one layered sprite, converts it to the
+-- shared indexed palette, saves mewlink-pet-animation-master.aseprite, then
+-- flattens each tag into the app's 384x256 PNG strips.
 
-local frameWidth, frameHeight = 384, 256
-local sourceDir = root .. "/art/aseprite/frames/"
+local root = app.params.root
+local build = app.params.build
+if not root or root == "" then error("Pass --script-param root=/absolute/project/path") end
+if not build or build == "" then error("Pass --script-param build=/absolute/rig/output") end
+
 local exportDir = root .. "/public/pets/animations/"
 local projectPath = root .. "/art/aseprite/mewlink-pet-animation-master.aseprite"
-local tweenDir = app.params.tweenDir
-local python = app.params.python
-if not tweenDir or tweenDir == "" then error("Pass --script-param tweenDir=/absolute/temp/path") end
-if not python or python == "" then error("Pass --script-param python=/absolute/python/path") end
-local sourceCache = {}
-local blendCache = {}
+local exportWidth, exportHeight = 384, 256
 
-local function source(name)
-  if sourceCache[name] then return sourceCache[name] end
-  local image = Image { fromFile = sourceDir .. name .. ".png" }
-  if image.width ~= frameWidth or image.height ~= frameHeight then error(name .. " must be 384x256") end
-  sourceCache[name] = image
-  return image
+local file = assert(io.open(build .. "/manifest.json", "r"))
+local manifest = json.decode(file:read("a"))
+file:close()
+local width, height = manifest.width, manifest.height
+local scale = manifest.scale or 1
+
+local sprite = Sprite(width, height, ColorMode.RGB)
+sprite.filename = projectPath
+local layers = {}
+sprite.layers[1].name = manifest.layers[1]
+layers[manifest.layers[1]] = sprite.layers[1]
+for index = 2, #manifest.layers do
+  local layer = sprite:newLayer()
+  layer.name = manifest.layers[index]
+  layers[layer.name] = layer
 end
 
-local function tweenPath(fromName, toName) return tweenDir .. "/" .. fromName .. "--" .. toName .. ".png" end
-
-local function blended(fromName, toName)
-  if fromName == toName then return source(fromName) end
-  local key = fromName .. "->" .. toName
-  if blendCache[key] then return blendCache[key] end
-  local result = Image { fromFile = tweenPath(fromName, toName) }
-  if result.width ~= frameWidth or result.height ~= frameHeight then error("Invalid motion tween: " .. key) end
-  blendCache[key] = result
-  return result
-end
-
-local animations = {}
-local function add(name, loop, frames, smooth)
-  local animation = { name = name, loop = loop, frames = frames, smooth = smooth ~= false }
-  table.insert(animations, animation)
-  return animation
-end
-local function four(prefix, durations)
-  local result = {}
-  for index = 1, 4 do table.insert(result, { prefix .. "_" .. index, durations[index] }) end
-  return result
-end
-
-add("work-code", false, {
-  { "code_input_none", 100 }, { "code_input_keyboard", 100 }, { "code_input_pointer", 100 }, { "code_input_both", 100 },
-}, false)
-add("work-document", false, {
-  { "document_input_none", 100 }, { "document_input_keyboard", 100 }, { "document_input_pointer", 100 }, { "document_input_both", 100 },
-}, false)
-add("work-web", false, {
-  { "web_input_none", 100 }, { "web_input_keyboard", 100 }, { "web_input_pointer", 100 }, { "web_input_both", 100 },
-}, false)
-add("work-ai", false, {
-  { "ai_input_none", 100 }, { "ai_input_keyboard", 100 }, { "ai_input_pointer", 100 }, { "ai_input_both", 100 },
-}, false)
-add("work-mewlink", false, {
-  { "mewlink_input_none", 100 }, { "mewlink_input_keyboard", 100 }, { "mewlink_input_pointer", 100 }, { "mewlink_input_both", 100 },
-}, false)
-for _, visual in ipairs({ "code", "document", "web", "ai", "mewlink" }) do
-  add("work-" .. visual .. "-stress", false, {
-    { visual .. "_input_none_stress", 100 }, { visual .. "_input_keyboard_stress", 100 },
-    { visual .. "_input_pointer_stress", 100 }, { visual .. "_input_both_stress", 100 },
-  }, false)
-end
-add("meeting", true, {
-  { "base_meeting", 760 }, { "peak_meeting", 180 }, { "base_meeting", 620 }, { "peak_meeting", 160 },
-})
-add("leisure", true, {
-  { "base_video", 760 }, { "peak_video", 190 }, { "base_video", 620 }, { "peak_video", 180 },
-})
-add("idle", true, {
-  { "base_idle", 1100 }, { "base_idle", 1050 }, { "peak_idle", 180 }, { "base_idle", 1250 },
-})
-add("rest", true, {
-  { "base_rest", 1050 }, { "peak_rest", 360 }, { "base_rest", 950 }, { "peak_rest", 340 },
-})
-
-for _, state in ipairs({ "work", "meeting", "leisure", "idle", "rest" }) do
-  for _, style in ipairs({ "ceramic", "tumbler", "bottle" }) do
-    add("water-" .. state .. "-" .. style, false, four("water_" .. state .. "_" .. style, { 600, 800, 900, 900 }))
+local frameCount = 0
+local ranges = {}
+for _, animation in ipairs(manifest.animations) do
+  local first = frameCount + 1
+  for index = 1, animation.frames do
+    local frame = frameCount == 0 and sprite.frames[1] or sprite:newEmptyFrame()
+    frameCount = frameCount + 1
+    frame.duration = animation.duration / 1000
   end
-end
-for _, style in ipairs({ "ceramic", "tumbler", "bottle" }) do
-  add("water-drink-" .. style, false, four("water_drink_" .. style, { 650, 700, 1050, 800 }))
-end
-
-add("hug-work", false, four("hug_work", { 550, 500, 1400, 750 }))
-add("hug-meeting", false, four("hug_meeting", { 550, 500, 1400, 750 }))
-add("hug-leisure", false, four("hug_leisure", { 550, 500, 1400, 750 }))
-add("hug-idle", false, four("hug_idle", { 550, 500, 1400, 750 }))
-for _, blanket in ipairs({ "blush", "night", "mint" }) do
-  add("hug-rest-" .. blanket, false, four("hug_rest_" .. blanket, { 550, 600, 1250, 800 }))
-end
-
-local stateBase = {
-  work = "code_input_none",
-  meeting = "base_meeting",
-  leisure = "base_video",
-  idle = "base_idle",
-  rest = "base_rest",
-}
-local statePeak = {
-  work = "code_input_both",
-  meeting = "peak_meeting",
-  leisure = "peak_video",
-  idle = "peak_idle",
-  rest = "peak_rest",
-}
-local stateLoopLast = {
-  meeting = "peak_meeting",
-  leisure = "peak_video",
-  idle = "base_idle",
-  rest = "peak_rest",
-}
-local workVisualBase = {
-  code = "code_input_none",
-  document = "document_input_none",
-  web = "web_input_none",
-  ai = "ai_input_none",
-  mewlink = "mewlink_input_none",
-}
-local workVisualPeak = {
-  code = "code_input_both",
-  document = "document_input_both",
-  web = "web_input_both",
-  ai = "ai_input_both",
-  mewlink = "mewlink_input_both",
-}
-local bridgeOut = {
-  work = "bridge_active_to_idle",
-  meeting = "bridge_active_to_idle",
-  leisure = "bridge_active_to_idle",
-  idle = "base_idle",
-  rest = "bridge_rest_to_coding",
-}
-local bridgeIn = {
-  work = "bridge_idle_to_active",
-  meeting = "bridge_reading_to_meeting",
-  leisure = "bridge_meeting_to_video",
-  idle = "base_idle",
-  rest = "bridge_browsing_to_rest",
-}
-local states = { "work", "meeting", "leisure", "idle", "rest" }
-local function frameFor(stateFrames, workFrames, state, workVisual)
-  if state == "work" then return workFrames[workVisual or "code"] end
-  return stateFrames[state]
-end
-
-local function addTransition(name, from, to, fromWorkVisual, toWorkVisual)
-  local animation = add(name, false, {
-    { frameFor(stateBase, workVisualBase, from, fromWorkVisual), 800 },
-    { frameFor(statePeak, workVisualPeak, from, fromWorkVisual), 800 },
-    { bridgeOut[from], 800 },
-    { bridgeIn[to], 800 },
-    { frameFor(statePeak, workVisualPeak, to, toWorkVisual), 800 },
-    { frameFor(stateBase, workVisualBase, to, toWorkVisual), 800 },
-  })
-  animation.transitionFrom = from
-  animation.transitionFromWorkVisual = fromWorkVisual
-end
-
-for _, from in ipairs(states) do
-  for _, to in ipairs(states) do
-    if from ~= to then
-      addTransition("transition-" .. from .. "-" .. to, from, to)
-    end
-  end
-end
-
-
--- Work keeps the currently classified monitor content while its hands settle.
--- The generic transition uses the code screen; document and web get exact
--- variants so changing activity never swaps the monitor before motion begins.
-for _, state in ipairs({ "meeting", "leisure", "idle", "rest" }) do
-  for _, visual in ipairs({ "document", "web", "ai", "mewlink" }) do
-    addTransition("transition-work-" .. visual .. "-" .. state, "work", state, visual, nil)
-    addTransition("transition-" .. state .. "-work-" .. visual, state, "work", nil, visual)
-  end
-end
-
-add("website-replay", true, {
-  { "code_input_none", 667 }, { "code_input_both", 667 }, { "web_input_none", 667 },
-  { "web_input_pointer", 667 }, { "base_meeting", 667 }, { "peak_meeting", 667 },
-  { "bridge_meeting_to_video", 667 }, { "base_video", 667 }, { "peak_video", 667 },
-  { "bridge_active_to_idle", 667 }, { "base_rest", 667 }, { "peak_rest", 661 },
-})
-
-local function prepareMotionTweens()
-  local manifestPath = tweenDir .. "/manifest.tsv"
-  local manifest = assert(io.open(manifestPath, "w"))
-  local seen = {}
-  for _, animation in ipairs(animations) do
-    if animation.smooth then
-      for index, frameSpec in ipairs(animation.frames) do
-        local nextSpec = animation.frames[index + 1]
-        if not nextSpec then nextSpec = animation.loop and animation.frames[1] or frameSpec end
-        local fromName, toName = frameSpec[1], nextSpec[1]
-        local key = fromName .. "->" .. toName
-        if fromName ~= toName and not seen[key] then
-          seen[key] = true
-          manifest:write(sourceDir .. fromName .. ".png\t" .. sourceDir .. toName .. ".png\t" .. tweenPath(fromName, toName) .. "\n")
-        end
+  for _, layerName in ipairs(animation.layers) do
+    local strip = Image { fromFile = build .. "/" .. animation.name .. "/" .. layerName .. ".png" }
+    if strip.width ~= width * animation.frames then error(animation.name .. "/" .. layerName .. ": bad strip width") end
+    for index = 1, animation.frames do
+      local cel = Image(width, height, ColorMode.RGB)
+      cel:drawImage(strip, Point(-(index - 1) * width, 0))
+      if not cel:isEmpty() then
+        sprite:newCel(layers[layerName], sprite.frames[first + index - 1], cel, Point(0, 0))
       end
     end
   end
-  manifest:close()
-  local helper = root .. "/art/aseprite/motion-tween.py"
-  local command = string.format("%q %q --manifest %q", python, helper, manifestPath)
-  local ok, reason, code = os.execute(command)
-  if ok ~= true and ok ~= 0 then error("Motion tween generation failed: " .. tostring(reason) .. " " .. tostring(code)) end
-end
-
-prepareMotionTweens()
-
--- Insert one motion-compensated in-between after every authored frame. Loops blend
--- their last frame back into the first; one-shot animations ease into and
--- hold their final pose. Total playback time stays exactly the same.
-local function expandedFrames(animation)
-  if not animation.smooth then return animation.frames end
-  local result = {}
-  for index, frameSpec in ipairs(animation.frames) do
-    local nextSpec = animation.frames[index + 1]
-    if not nextSpec then nextSpec = animation.loop and animation.frames[1] or frameSpec end
-    local halfDuration = frameSpec[2] / 2
-    table.insert(result, { image = source(frameSpec[1]), duration = halfDuration })
-    table.insert(result, { image = blended(frameSpec[1], nextSpec[1]), duration = halfDuration })
-  end
-  if animation.transitionFrom then
-    local from = animation.transitionFrom
-    local exitImage
-    if from == "work" then
-      exitImage = source(workVisualBase[animation.transitionFromWorkVisual or "code"])
-    else
-      -- Activity loops finish on the generated peak-to-base in-between. Use
-      -- that exact bitmap as the transition's first frame.
-      exitImage = blended(stateLoopLast[from], stateBase[from])
-    end
-    table.insert(result, 1, { image = exitImage, duration = 0 })
-    local duration = 4800 / #result
-    for _, frameSpec in ipairs(result) do frameSpec.duration = duration end
-  end
-  return result
-end
-
-for _, animation in ipairs(animations) do animation.renderFrames = expandedFrames(animation) end
-
-local sprite = Sprite(frameWidth, frameHeight, ColorMode.RGB)
-sprite.filename = projectPath
-local layer = sprite.layers[1]
-layer.name = "Smoothed animation frames"
-local frameCount = 0
-
-local function appendFrame(frameSpec)
-  local frame = frameCount == 0 and sprite.frames[1] or sprite:newFrame()
-  frameCount = frameCount + 1
-  local image = frameSpec.image or source(frameSpec[1])
-  local duration = frameSpec.duration or frameSpec[2]
-  sprite:newCel(layer, frame, image, Point(0, 0))
-  frame.duration = duration / 1000
-end
-
-local function exportStrip(animation)
-  local strip = Image(frameWidth * #animation.renderFrames, frameHeight, ColorMode.RGB)
-  for index, frameSpec in ipairs(animation.renderFrames) do
-    local image = frameSpec.image or source(frameSpec[1])
-    strip:drawImage(image, Point((index - 1) * frameWidth, 0))
-  end
-  strip:saveAs(exportDir .. animation.name .. ".png")
-end
-
-for _, animation in ipairs(animations) do
-  local first = frameCount + 1
-  for _, frameSpec in ipairs(animation.renderFrames) do appendFrame(frameSpec) end
   local tag = sprite:newTag(first, frameCount)
   tag.name = animation.name
   tag.aniDir = AniDir.FORWARD
-  exportStrip(animation)
+  table.insert(ranges, { animation = animation, first = first })
 end
 
+-- Every layer was snapped to the shared rig palette, so converting to indexed
+-- is lossless and keeps both the master and the exported strips compact.
+local palette = Palette(#manifest.palette + 1)
+palette:setColor(0, Color { r = 0, g = 0, b = 0, a = 0 })
+for index, rgb in ipairs(manifest.palette) do
+  palette:setColor(index, Color { r = rgb[1], g = rgb[2], b = rgb[3], a = 255 })
+end
 app.activeSprite = sprite
+sprite:setPalette(palette)
+app.command.ChangePixelFormat { format = "indexed", dithering = "none" }
+sprite.transparentColor = 0
 sprite:saveAs(projectPath)
-print("MewLink Aseprite master: " .. frameCount .. " frames, " .. #animations .. " tags")
+
+local function flatten(frameNumber)
+  local image = Image(width, height, ColorMode.INDEXED)
+  image:clear(0)
+  for _, layerName in ipairs(manifest.layers) do
+    local cel = layers[layerName]:cel(frameNumber)
+    if cel then image:drawImage(cel.image, cel.position) end
+  end
+  return image
+end
+
+for _, range in ipairs(ranges) do
+  local animation = range.animation
+  local strip = Image(exportWidth * animation.frames, exportHeight, ColorMode.INDEXED)
+  strip:clear(0)
+  for index = 1, animation.frames do
+    local frame = flatten(range.first + index - 1)
+    if scale ~= 1 then frame:resize(width * scale, height * scale) end
+    strip:drawImage(frame, Point((index - 1) * exportWidth, exportHeight - height * scale))
+  end
+  strip:saveAs { filename = exportDir .. animation.name .. ".png", palette = sprite.palettes[1] }
+end
+
+print("MewLink Aseprite master: " .. frameCount .. " frames, " .. #ranges .. " tags, " .. #manifest.layers .. " layers")

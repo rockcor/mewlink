@@ -26,6 +26,11 @@ interface AppCopy {
   inviteCopied: string;
   inviteCopyError: string;
   disconnected: string;
+  secureStorageError: string;
+  revocationPending: string;
+  ratchetUpgrade: string;
+  ratchetVerify: string;
+  ratchetStorageError: string;
   pairFirst: string;
   hugSent: string;
   cupSent: (name: string) => string;
@@ -52,6 +57,11 @@ interface AppCopy {
 
 export const appCopy: Record<Language, AppCopy> = {
   zh: {
+    secureStorageError: '无法访问安全存储，连接已暂停。请允许访问系统钥匙串后重新打开应用。',
+    revocationPending: '已停止本机收发，等待联网完成解绑。完成前暂不能建立新连接。',
+    ratchetUpgrade: '请双方更新后解除旧绑定，重新生成配对码。旧连接的收发已暂停。',
+    ratchetVerify: '请通过电话或当面核对双方号码，完全一致后再确认。确认前不分享活动与互动。',
+    ratchetStorageError: '安全会话暂不可用，收发已暂停。请重新打开应用；若仍有问题，请双方重新绑定。',
     historyError: '回放记录未完成，请检查剩余空间后重新打开 MewLink',
     interactionQueued: '已保存，联网后送出', stopReplay: '结束回放',
     panelError: '窗口未能展开，请重新打开设置',
@@ -65,6 +75,11 @@ export const appCopy: Record<Language, AppCopy> = {
     petZone: 'MewLink 双人桌面宠物', soloPetZone: 'MewLink 桌面宠物', partnerWaiting: '等待同步', actionsAria: '给 TA 一个小动作', hug: '拥抱', water: '喝水', changeCup: '换杯', replay: '回放', statistics: '统计', settings: '设置', myPet: status => `我的宠物：${status}`, partnerPet: status => `TA 的宠物：${status}`,
   },
   'zh-Hant': {
+    secureStorageError: '無法存取安全儲存，連線已暫停。請允許存取系統鑰匙圈後重新開啟應用程式。',
+    revocationPending: '已停止本機收發，等待連網完成解除綁定。完成前暫不能建立新連線。',
+    ratchetUpgrade: '請雙方更新後解除舊綁定，重新產生配對碼。舊連線的收發已暫停。',
+    ratchetVerify: '請透過電話或當面核對雙方號碼，完全一致後再確認。確認前不分享活動與互動。',
+    ratchetStorageError: '安全會話暫不可用，收發已暫停。請重新開啟應用程式；若仍有問題，請雙方重新綁定。',
     historyError: '回放記錄未完成，請檢查剩餘空間後重新開啟 MewLink',
     interactionQueued: '已儲存，連線後送出', stopReplay: '結束回放',
     panelError: '視窗未能展開，請重新開啟設定',
@@ -78,6 +93,11 @@ export const appCopy: Record<Language, AppCopy> = {
     petZone: 'MewLink 雙人桌面寵物', soloPetZone: 'MewLink 桌面寵物', partnerWaiting: '等待同步', actionsAria: '給 TA 一個小動作', hug: '擁抱', water: '喝水', changeCup: '換杯', replay: '回放', statistics: '統計', settings: '設定', myPet: status => `我的寵物：${status}`, partnerPet: status => `TA 的寵物：${status}`,
   },
   en: {
+    secureStorageError: 'Secure storage is unavailable. Connections are paused. Allow system credential access and reopen the app.',
+    revocationPending: 'Sending and receiving stopped here. Unpairing will finish when online; new connections are paused until then.',
+    ratchetUpgrade: 'Both people need to update, unpair and create a new code. The old connection is paused.',
+    ratchetVerify: 'Compare both numbers in person or on a call. Confirm only if they match exactly. No activity or interactions are shared before confirmation.',
+    ratchetStorageError: 'The secure session is unavailable; communication is paused. Reopen the app. If this persists, both people need to pair again.',
     historyError: 'Replay could not be saved or loaded. Check free space and reopen MewLink.',
     interactionQueued: 'Saved — will send when connected', stopReplay: 'End replay',
     panelError: 'The window could not expand. Please reopen settings.',

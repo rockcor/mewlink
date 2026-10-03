@@ -440,9 +440,9 @@ button { font: inherit; }
 .pairing-connected b { font-size: 9px; }
 .pairing-connected small { color: #9b7887; font-size: 8px; }
 .pairing-heart { display: grid; place-items: center; width: 30px; height: 30px; border-radius: 50%; background: #fff; color: #d986a5; }
-.safety-code { display: flex; align-items: center; justify-content: space-between; margin-top: 8px; padding: 8px 10px; border-radius: 10px; background: #f2e8ec; }
-.safety-code small { color: #987987; font-size: 8px; }
-.safety-code b { color: #694a59; font: 800 11px/1 ui-monospace, SFMono-Regular, Menlo, monospace; letter-spacing: .09em; }
+.safety-code { display: flex; flex-direction: column; align-items: flex-start; gap: 8px; margin-top: 8px; padding: 8px 10px; border-radius: 10px; background: #f2e8ec; }
+.safety-code small { color: #694a59; font-size: 14px; }
+.safety-code b { color: #694a59; font: 800 14px/1.6 ui-monospace, SFMono-Regular, Menlo, monospace; letter-spacing: .05em; white-space: normal; }
 .pairing-status { margin: 7px 2px 0; color: #a06079; font-size: 8px; line-height: 1.4; }
 
 .switch {

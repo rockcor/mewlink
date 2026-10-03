@@ -7,7 +7,7 @@ const readySodium = () => sodiumPromise ??= import('libsodium-wrappers-sumo').th
   return module.default;
 });
 
-const STORAGE_KEY = 'mewlink.pairing.v1';
+export const LEGACY_PAIRING_STORAGE_KEY = 'mewlink.pairing.v1';
 export const INVITE_LIFETIME_MS = 15 * 60 * 1000;
 const PAIRING_CODE_ALPHABET = '23456789ABCDEFGHJKLMNPQRSTUVWXYZ';
 const pairingCodePattern = /^[2-9A-HJ-NP-Z]{4}-?[2-9A-HJ-NP-Z]{4}$/u;
@@ -25,6 +25,15 @@ export interface PairingState {
   relayCursor: number;
   receivedSequences: Record<string, number>;
   inviteCode?: string;
+  registration?: 'create' | 'join';
+  ratchet?: { protocol: 2; offer: RatchetOffer; established: boolean; verified: boolean; safetyNumber: string };
+}
+
+export interface RatchetOffer { identity: string; oneTimeKey: string }
+function validOffer(value: unknown): value is RatchetOffer {
+  if (!value || typeof value !== 'object') return false;
+  const offer = value as Partial<RatchetOffer>;
+  return /^[A-Za-z0-9+/]{43}$/.test(offer.identity ?? '') && /^[A-Za-z0-9+/]{43}$/.test(offer.oneTimeKey ?? '');
 }
 
 interface PairingInvite {
@@ -35,9 +44,10 @@ interface PairingInvite {
   d: string;
   e: number;
   i: string;
+  p?: 2;
+  o?: RatchetOffer;
 }
 
-type StorageLike = Pick<Storage, 'getItem' | 'setItem' | 'removeItem'>;
 const idPattern = /^[A-Za-z0-9_-]{16,64}$/;
 
 export interface PairingJoinRequest {
@@ -82,6 +92,7 @@ export async function pairingCodeHash(code: string) {
 }
 
 export async function pairingSafetyCode(state: PairingState) {
+  if (state.ratchet) return state.ratchet.safetyNumber;
   const digest = await sha256(`${state.relationshipId}.${state.relationshipKey}`);
   const number = ((digest[0] << 16) | (digest[1] << 8) | digest[2]) % 1_000_000;
   return String(number).padStart(6, '0').replace(/(\d{3})(\d{3})/u, '$1 $2');
@@ -102,6 +113,7 @@ export async function createPairingState(now = Date.now()): Promise<PairingState
     relayCursor: 0,
     receivedSequences: {},
     inviteCode: randomPairingCode(),
+    registration: 'create',
   };
 }
 
@@ -122,11 +134,13 @@ function pairingInvite(state: PairingState): PairingInvite {
     d: state.deviceId,
     e: state.inviteExpiresAt,
     i: state.keyId,
+    ...(state.ratchet ? { p: 2, o: state.ratchet.offer } as const : {}),
   };
 }
 
 function pairingStateFromInvite(invite: Partial<PairingInvite>, deviceId: string, now = Date.now()): PairingState {
   const { r, k, t, d, e, i } = invite;
+  if (invite.p !== undefined && (invite.p !== 2 || !validOffer(invite.o))) throw new Error('invalid ratchet offer');
   if (invite.v !== 1 || typeof r !== 'string' || !idPattern.test(r) || typeof d !== 'string' || !idPattern.test(d)
     || typeof i !== 'string' || !idPattern.test(i) || typeof k !== 'string' || !idPattern.test(k)
     || typeof t !== 'string' || !idPattern.test(t)
@@ -143,6 +157,8 @@ function pairingStateFromInvite(invite: Partial<PairingInvite>, deviceId: string
     nextSequence: 0,
     relayCursor: 0,
     receivedSequences: {},
+    registration: 'join',
+    ...(invite.p === 2 ? { ratchet: { protocol: 2 as const, offer: invite.o!, established: false, verified: false, safetyNumber: '' } } : {}),
   };
 }
 
@@ -178,35 +194,21 @@ export async function openPairingInvite(request: PairingJoinRequest, sealedInvit
   }
 }
 
-function isPairingState(value: unknown): value is PairingState {
+export function isPairingState(value: unknown): value is PairingState {
   if (!value || typeof value !== 'object') return false;
   const state = value as Partial<PairingState>;
   return state.version === 1 && idPattern.test(state.relationshipId ?? '') && idPattern.test(state.deviceId ?? '')
-    && idPattern.test(state.keyId ?? '') && idPattern.test(state.relationshipKey ?? '') && idPattern.test(state.relayToken ?? '')
-    && typeof state.inviteExpiresAt === 'number' && Number.isSafeInteger(state.nextSequence)
-    && Number.isSafeInteger(state.relayCursor) && Boolean(state.receivedSequences && typeof state.receivedSequences === 'object')
+    && (state.registration === undefined || state.registration === 'create' || state.registration === 'join')
+    && idPattern.test(state.keyId ?? '') && (idPattern.test(state.relationshipKey ?? '') || (state.ratchet?.established === true && state.relationshipKey === '')) && idPattern.test(state.relayToken ?? '')
+    && (state.ratchet === undefined || (state.ratchet?.protocol === 2 && validOffer(state.ratchet.offer)
+      && typeof state.ratchet.established === 'boolean' && typeof state.ratchet.verified === 'boolean'
+      && typeof state.ratchet.safetyNumber === 'string' && state.ratchet.safetyNumber.length <= 48))
+    && Number.isSafeInteger(state.inviteExpiresAt) && Number.isSafeInteger(state.nextSequence) && state.nextSequence! >= 0
+    && Number.isSafeInteger(state.relayCursor) && state.relayCursor! >= 0
+    && Boolean(state.receivedSequences && typeof state.receivedSequences === 'object' && !Array.isArray(state.receivedSequences)
+      && Object.entries(state.receivedSequences).length <= 2
+      && Object.entries(state.receivedSequences).every(([device, sequence]) => idPattern.test(device) && Number.isSafeInteger(sequence) && sequence >= 0))
     && (idPattern.test(state.partnerDeviceId ?? '') || (typeof state.inviteCode === 'string' && pairingCodePattern.test(state.inviteCode)));
-}
-
-export function loadPairing(storage?: StorageLike): PairingState | undefined {
-  const source = storage ?? (typeof localStorage === 'undefined' ? undefined : localStorage);
-  if (!source) return undefined;
-  try {
-    const value: unknown = JSON.parse(source.getItem(STORAGE_KEY) ?? 'null');
-    return isPairingState(value) ? value : undefined;
-  } catch {
-    return undefined;
-  }
-}
-
-export function savePairing(state: PairingState, storage?: StorageLike) {
-  const destination = storage ?? (typeof localStorage === 'undefined' ? undefined : localStorage);
-  destination?.setItem(STORAGE_KEY, JSON.stringify(state));
-}
-
-export function clearPairing(storage?: StorageLike) {
-  const destination = storage ?? (typeof localStorage === 'undefined' ? undefined : localStorage);
-  destination?.removeItem(STORAGE_KEY);
 }
 
 export async function pairingKey(state: PairingState) {

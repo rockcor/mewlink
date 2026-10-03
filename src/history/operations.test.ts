@@ -32,6 +32,21 @@ describe('operation recording', () => {
     expect(batches.map(value => value.points.length)).toEqual([MAX_OPERATION_POINTS, 1, 1, 1]);
     expect(batches.every(validOperationBatch)).toBe(true);
   });
+  it('keeps every batch under the native ratchet plaintext limit, even with huge counts', () => {
+    const batches: OperationBatch[] = [];
+    const recorder = new OperationRecorder(value => batches.push(value));
+    const counts = { keyboard: 999_999, pointer: 999_999, clicks: 999_999 };
+    for (let i = 0; i < MAX_OPERATION_POINTS; i++) recorder.push(at + i * 30, 'meeting', 'mewlink', counts);
+    recorder.flush();
+    expect(batches.length).toBeGreaterThan(1);
+    expect(batches.reduce((sum, value) => sum + value.points.length, 0)).toBe(MAX_OPERATION_POINTS);
+    for (const value of batches) {
+      expect(validOperationBatch(value)).toBe(true);
+      const event: PlainEvent = { id: '00000000-0000-4000-8000-000000000000', version: 1, relationshipId: 'r'.repeat(64),
+        senderDeviceId: 'd'.repeat(64), createdAt: value.startedAt, senderUtcOffsetMinutes: -720, kind: 'operation.batch', payload: value };
+      expect(JSON.stringify(event).length).toBeLessThan(7_400);
+    }
+  });
   it('snapshots are independent and reset counters do not create enormous deltas', () => {
     const recorder = new OperationRecorder(() => undefined);
     const before = { keyboardSequence: 100, pointerSequence: 100, pointerClickSequence: 20, recentKind: 'none' as const };

@@ -7,7 +7,10 @@ const frameHeight = 256;
 const workVisuals = ['code', 'document', 'web', 'ai', 'mewlink'];
 const inputFrame = workVisuals.map(visual => `work-${visual}`);
 const stressedInputFrame = workVisuals.map(visual => `work-${visual}-stress`);
-const eightFrame = [
+// Approved artwork animated by art/aseprite/rig and exported by Aseprite.
+const loopFrames = 24;
+const transitionFrames = 32;
+const twentyFourFrame = [
   'meeting', 'leisure', 'idle', 'rest',
   ...['work', 'meeting', 'leisure', 'idle', 'rest'].flatMap(state =>
     ['ceramic', 'tumbler', 'bottle'].map(style => `water-${state}-${style}`)),
@@ -32,9 +35,9 @@ for (const state of states.filter(state => state !== 'work')) {
 const expected = new Map([
   ...inputFrame.map(name => [name, 4]),
   ...stressedInputFrame.map(name => [name, 4]),
-  ...eightFrame.map(name => [name, 8]),
-  ...transitionSpecs.map(({ name }) => [name, 13]),
-  ['website-replay', 24],
+  ...twentyFourFrame.map(name => [name, loopFrames]),
+  ...transitionSpecs.map(({ name }) => [name, transitionFrames]),
+  ['website-replay', 48],
 ]);
 
 const animationDir = path.resolve('public/pets/animations');
@@ -126,7 +129,7 @@ for (const spec of transitionSpecs) {
   if (!framePixels(transition, 0).equals(framePixels(source, sourceFrame))) {
     throw new Error(`${spec.name}: first frame does not equal ${sourceName} exit frame`);
   }
-  if (!framePixels(transition, 12).equals(framePixels(destination, 0))) {
+  if (!framePixels(transition, transitionFrames - 1).equals(framePixels(destination, 0))) {
     throw new Error(`${spec.name}: final frame does not equal ${destinationName} entry frame`);
   }
 }

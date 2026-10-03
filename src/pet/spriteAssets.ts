@@ -4,7 +4,11 @@ export const SOURCE_FRAME_WIDTH = 384;
 export const SOURCE_FRAME_HEIGHT = 256;
 export interface SpriteSheet extends CachedBitmap { image: CanvasImageSource; frames: number }
 
-export const spriteSheets = new BitmapCache<SpriteSheet>(24 * 1024 * 1024, async name => {
+// Decoded bytes, not PNG size. The 24- and 32-frame Aseprite strips decode to
+// 9 MB (loops, interactions) and 12 MB (transitions); both pets mid-transition
+// plus an interaction need about 53 MB. Low-memory mode still drops unused sheets.
+export const SPRITE_CACHE_BUDGET_BYTES = 64 * 1024 * 1024;
+export const spriteSheets = new BitmapCache<SpriteSheet>(SPRITE_CACHE_BUDGET_BYTES, async name => {
   if (!/^[a-z0-9-]+$/.test(name)) throw new Error('Invalid sprite name');
   const response = await fetch(`/pets/animations/${name}.png`);
   if (!response.ok) throw new Error('Sprite unavailable');

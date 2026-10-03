@@ -3,6 +3,9 @@ import type { InputSignal } from '../platform/activity';
 
 export const MAX_OPERATION_POINTS = 256;
 export const OPERATION_BATCH_MS = 10_000;
+// The native ratchet refuses plaintext over 8,000 bytes. Points plus the event
+// envelope must fit, so a batch also closes once its points reach this size.
+export const MAX_OPERATION_POINT_BYTES = 6_000;
 
 export function validOperationBatch(value: unknown): value is OperationBatch {
   if (!value || typeof value !== 'object') return false;
@@ -22,14 +25,22 @@ export function validOperationBatch(value: unknown): value is OperationBatch {
 
 export class OperationRecorder {
   private points: OperationPoint[] = [];
+  private pointBytes = 0;
   private startedAt = 0;
   constructor(private readonly emit: (batch: OperationBatch) => void) {}
   push(at: number, activity: ActivityKind, visual: WorkVisual, counts = { keyboard: 0, pointer: 0, clicks: 0 }) {
     if (this.points.length && (at - this.startedAt >= OPERATION_BATCH_MS || at < this.startedAt
       || this.points.length >= MAX_OPERATION_POINTS)) this.flush();
     if (!this.points.length) this.startedAt = at;
-    this.points.push([Math.max(0, Math.round(at - this.startedAt)), counts.keyboard, counts.pointer, counts.clicks,
-      activityKinds.indexOf(activity), workVisuals.indexOf(visual)]);
+    let point: OperationPoint = [Math.max(0, Math.round(at - this.startedAt)), counts.keyboard, counts.pointer, counts.clicks,
+      activityKinds.indexOf(activity), workVisuals.indexOf(visual)];
+    if (this.points.length && this.pointBytes + JSON.stringify(point).length + 1 > MAX_OPERATION_POINT_BYTES) {
+      this.flush();
+      this.startedAt = at;
+      point = [0, ...point.slice(1)] as OperationPoint;
+    }
+    this.points.push(point);
+    this.pointBytes += JSON.stringify(point).length + 1;
   }
   input(previous: InputSignal, current: InputSignal, at: number, activity: ActivityKind, visual: WorkVisual) {
     const keyboard = Math.max(0, current.keyboardSequence - previous.keyboardSequence);
@@ -43,6 +54,7 @@ export class OperationRecorder {
   flush() {
     const batch = this.snapshot();
     this.points = [];
+    this.pointBytes = 0;
     if (batch) this.emit(batch);
   }
 }

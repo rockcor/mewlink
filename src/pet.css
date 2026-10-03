@@ -40,48 +40,43 @@
 
 .pet-sprite.meeting {
   background-image: url('/pets/animations/meeting.png');
-  background-size: 800% 100%;
-  animation: sprite-loop-8 var(--pet-meeting-duration, 2500ms) linear infinite;
+  background-size: 2400% 100%;
+  animation: sprite-strip var(--pet-meeting-duration, 2500ms) steps(24, jump-none) infinite;
 }
 .pet-sprite.leisure {
   background-image: url('/pets/animations/leisure.png');
-  background-size: 800% 100%;
-  animation: sprite-loop-8 var(--pet-video-duration, 2900ms) linear infinite;
+  background-size: 2400% 100%;
+  animation: sprite-strip var(--pet-video-duration, 2900ms) steps(24, jump-none) infinite;
 }
 .pet-sprite.idle {
   background-image: url('/pets/animations/idle.png');
-  background-size: 800% 100%;
-  animation: sprite-loop-8 var(--pet-idle-duration, 3800ms) linear infinite;
+  background-size: 2400% 100%;
+  animation: sprite-strip var(--pet-idle-duration, 3800ms) steps(24, jump-none) infinite;
 }
 .pet-sprite.rest {
   background-image: url('/pets/animations/rest.png');
-  background-size: 800% 100%;
-  animation: sprite-loop-8 var(--pet-rest-duration, 4300ms) linear infinite;
+  background-size: 2400% 100%;
+  animation: sprite-strip var(--pet-rest-duration, 4300ms) steps(24, jump-none) infinite;
 }
 .pet-sprite.replaying { filter: drop-shadow(0 13px 10px rgba(86, 45, 67, .16)) saturate(1.08); }
 .self-pet .pet-sprite { filter: var(--self-pet-skin-filter, brightness(1)) drop-shadow(0 13px 10px rgba(86, 45, 67, .16)); }
 .partner-pet .pet-sprite { filter: var(--partner-pet-skin-filter, brightness(1)) drop-shadow(0 13px 10px rgba(86, 45, 67, .16)); }
 
-@keyframes sprite-loop-8 {
-  0%, 12.499% { background-position: 0 0; }
-  12.5%, 24.999% { background-position: 14.285714% 0; }
-  25%, 37.499% { background-position: 28.571429% 0; }
-  37.5%, 49.999% { background-position: 42.857143% 0; }
-  50%, 62.499% { background-position: 57.142857% 0; }
-  62.5%, 74.999% { background-position: 71.428571% 0; }
-  75%, 87.499% { background-position: 85.714286% 0; }
-  87.5%, 100% { background-position: 100% 0; }
+/* Every strip frame gets an equal slice of the duration, first and last included. */
+@keyframes sprite-strip {
+  from { background-position: 0 0; }
+  to { background-position: 100% 0; }
 }
 
 /* Freeze the outgoing loop on the exact bitmap copied into transition frame 1. */
 .pet-sprite.transition-source-frame { animation: none; background-position: 100% 0; }
 .pet-sprite.work.transition-source-frame { background-position: 0 0; }
 
-/* Every ordered pair is its own 4.8 second Aseprite transition strip. */
+/* Every ordered pair is its own 32-frame, 4.8 second Aseprite transition strip. */
 .pet-sprite.activity-transition {
   z-index: 3;
-  background-size: 1300% 100%;
-  animation: sprite-transition-13 var(--activity-transition-duration, 4800ms) linear both;
+  background-size: 3200% 100%;
+  animation: sprite-strip var(--activity-transition-duration, 4800ms) steps(32, jump-none) both;
 }
 .transition-work-meeting { background-image: url('/pets/animations/transition-work-meeting.png'); }
 .transition-work-leisure { background-image: url('/pets/animations/transition-work-leisure.png'); }
@@ -136,22 +131,6 @@
 .transition-rest-work-ai { background-image: url('/pets/animations/transition-rest-work-ai.png'); }
 .transition-rest-work-mewlink { background-image: url('/pets/animations/transition-rest-work-mewlink.png'); }
 
-@keyframes sprite-transition-13 {
-  0%, 7.691% { background-position: 0 0; }
-  7.692%, 15.383% { background-position: 8.333333% 0; }
-  15.384%, 23.075% { background-position: 16.666667% 0; }
-  23.076%, 30.767% { background-position: 25% 0; }
-  30.768%, 38.459% { background-position: 33.333333% 0; }
-  38.46%, 46.151% { background-position: 41.666667% 0; }
-  46.152%, 53.843% { background-position: 50% 0; }
-  53.844%, 61.535% { background-position: 58.333333% 0; }
-  61.536%, 69.227% { background-position: 66.666667% 0; }
-  69.228%, 76.919% { background-position: 75% 0; }
-  76.92%, 84.611% { background-position: 83.333333% 0; }
-  84.612%, 92.307% { background-position: 91.666667% 0; }
-  92.308%, 100% { background-position: 100% 0; }
-}
-
 .interaction-sprite {
   position: absolute;
   z-index: 5;
@@ -161,11 +140,13 @@
   width: 384px;
   height: 256px;
   background-repeat: no-repeat;
-  background-size: 800% 100%;
+  background-size: 2400% 100%;
   filter: drop-shadow(0 14px 12px rgba(86, 45, 67, .18));
   pointer-events: none;
   transform: translateX(-50%);
-  animation: interaction-sprite-8 var(--interaction-duration, 3200ms) linear both;
+  animation:
+    sprite-strip var(--interaction-duration, 3200ms) steps(24, jump-none) both,
+    interaction-fade var(--interaction-duration, 3200ms) linear both;
 }
 .pet-pair.target-self .interaction-sprite {
   filter: var(--self-pet-skin-filter, brightness(1)) drop-shadow(0 14px 12px rgba(86, 45, 67, .18));
@@ -204,16 +185,9 @@
 .pet-pair.interaction-water .interaction-sprite { left: 0; bottom: 6px; width: 230px; height: 153px; transform: none; }
 .pet-pair.interaction-water.target-partner .interaction-sprite { left: auto; right: 0; }
 
-@keyframes interaction-sprite-8 {
-  0%, 12.499% { opacity: 1; background-position: 0 0; }
-  12.5%, 24.999% { opacity: 1; background-position: 14.285714% 0; }
-  25%, 37.499% { opacity: 1; background-position: 28.571429% 0; }
-  37.5%, 49.999% { opacity: 1; background-position: 42.857143% 0; }
-  50%, 62.499% { opacity: 1; background-position: 57.142857% 0; }
-  62.5%, 74.999% { opacity: 1; background-position: 71.428571% 0; }
-  75%, 87.499% { opacity: 1; background-position: 85.714286% 0; }
-  87.5%, 98% { opacity: 1; background-position: 100% 0; }
-  100% { opacity: 0; background-position: 100% 0; }
+@keyframes interaction-fade {
+  0%, 98% { opacity: 1; }
+  100% { opacity: 0; }
 }
 
 .waiting-cup {
@@ -242,6 +216,6 @@
 @media (prefers-reduced-motion: reduce) {
   .pet-sprite { animation: none; background-position: 0 0; }
   .pet-sprite.activity-transition { animation: none; background-position: 100% 0; }
-  .interaction-sprite { animation: none; background-position: 57.142857% 0; }
+  .interaction-sprite { animation: none; background-position: 52.173913% 0; }
   .waiting-cup i { animation: none; }
 }
