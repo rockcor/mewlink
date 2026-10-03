@@ -12,6 +12,7 @@
     "test:peer": "node scripts/test-peer.mjs",
     "test:relay-server": "cargo build --manifest-path src-tauri/Cargo.toml --example ratchet_peer && vitest run --config tests/relay.config.ts",
     "test:release": "node --test tests/release-pipeline.test.mjs",
+    "test:live:production": "cargo build --manifest-path src-tauri/Cargo.toml --example ratchet_peer && VITE_RELAY_ENDPOINT=https://mewlink.jshmhsb.chatgpt.site/api/relay vitest run --config tests/live-production.config.ts",
     "test:live": "cargo build --manifest-path src-tauri/Cargo.toml --example ratchet_peer && vitest run --config tests/live.config.ts",
     "tauri": "tauri"
   },
