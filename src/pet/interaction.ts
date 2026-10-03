@@ -17,9 +17,11 @@ export type GestureVariant =
   | 'water-drink';
 
 export function gestureFor(action: InteractionKind, receiverActivity: ActivityKind, replaying = false): GestureVariant {
-  if (action === 'water') return `water-${receiverActivity}` as GestureVariant;
-  if (receiverActivity === 'rest' && replaying) return 'hug-idle';
-  return `hug-${receiverActivity}` as GestureVariant;
+  // Away from the computer the pup sleeps, so idle gets the sleeping interactions.
+  const receiver = receiverActivity === 'idle' ? 'rest' : receiverActivity;
+  if (action === 'water') return `water-${receiver}` as GestureVariant;
+  if (receiver === 'rest' && replaying) return 'hug-idle';
+  return `hug-${receiver}` as GestureVariant;
 }
 
 export function waterDrinkDelay(placedAt: number, now = Date.now()): number {

@@ -148,6 +148,13 @@
     sprite-strip var(--interaction-duration, 3200ms) steps(24, jump-none) both,
     interaction-fade var(--interaction-duration, 3200ms) linear both;
 }
+/* Hugs are 40 frames: the visitor hops in, hugs, and hops away again. */
+.interaction-sprite[class*=" hug-"] {
+  background-size: 4000% 100%;
+  animation:
+    sprite-strip var(--interaction-duration, 3200ms) steps(40, jump-none) both,
+    interaction-fade var(--interaction-duration, 3200ms) linear both;
+}
 .pet-pair.target-self .interaction-sprite {
   filter: var(--self-pet-skin-filter, brightness(1)) drop-shadow(0 14px 12px rgba(86, 45, 67, .18));
 }

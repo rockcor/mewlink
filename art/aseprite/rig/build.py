@@ -44,10 +44,11 @@ def animations():
             yield f"water-{state}-{cup}", False, (lambda st=state, c=cup: og.water(f"water_{st}_{c}")), step
     for cup in CUPS:
         yield f"water-drink-{cup}", False, (lambda c=cup: og.water_drink(f"water_drink_{c}")), step
+    hug_step = 3200 / og.N_HUG
     for state in ("work", "meeting", "leisure", "idle"):
-        yield f"hug-{state}", False, (lambda st=state: og.hug(f"hug_{st}")), step
+        yield f"hug-{state}", False, (lambda st=state: og.hug(f"hug_{st}")), hug_step
     for blanket in BLANKETS:
-        yield f"hug-rest-{blanket}", False, (lambda b=blanket: og.hug(f"hug_rest_{b}", counts=(4, 5, 9, 6))), step
+        yield f"hug-rest-{blanket}", False, (lambda b=blanket: og.hug(f"hug_rest_{b}", counts=(4, 5, 9, 6))), hug_step
     step = 4800 / og.N_TRANSITION
     for a in og.STATES:
         for b in og.STATES:
@@ -91,6 +92,12 @@ def main():
     (args.out / "manifest.json").write_text(json.dumps(
         {"width": W, "height": H, "scale": 1, "layers": og.LAYERS,
          "palette": palette().tolist(), "animations": manifest}, indent=1))
+    if og.HUG_TIMELINES:
+        # Who owns which pixels in each hug frame, for skinning the visitor in the app.
+        target = Path(__file__).resolve().parents[3] / "src" / "pet" / "hugTimeline.json"
+        timelines = json.loads(target.read_text()) if target.exists() else {}
+        timelines.update({prefix.replace("_", "-"): frames for prefix, frames in og.HUG_TIMELINES.items()})
+        target.write_text(json.dumps(dict(sorted(timelines.items())), separators=(",", ":")) + "\n")
     print(f"Rendered {len(manifest)} animations, {total} frames")
 
 

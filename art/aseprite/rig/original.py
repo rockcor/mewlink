@@ -22,6 +22,9 @@ from cutout import H, W, bbox, load, over, scale_about, split, warp
 from pixel import Canvas
 
 N_LOOP, N_TRANSITION, N_INTERACTION = 24, 32, 24
+# A hug: the visitor hops in, the four authored poses, then it hops away.
+HUG_APPROACH, HUG_EXIT = 8, 8
+N_HUG = HUG_APPROACH + N_INTERACTION + HUG_EXIT
 STATES = ["work", "meeting", "leisure", "idle", "rest"]
 WORK_VISUALS = ["code", "document", "web", "ai", "mewlink"]
 LAYERS = ["back", "pet", "front", "fx"]
@@ -31,7 +34,9 @@ LAYERS = ["back", "pet", "front", "fx"]
 ALIGN = {"peak_meeting": (-11, 0), "peak_video": (7, 1), "peak_rest": (1, 0)}
 # Rows below this stay pinned when the pup nods (top edge of the laptop / TV).
 NOD_BELOW = {"meeting": 150, "leisure": 172, "rest": 256, "idle": 256}
-BACK_PROPS = {"rest"}
+BACK_PROPS = {"rest", "idle"}
+# Away from the computer the pup simply sleeps: idle shows the rest scene.
+SLEEPS = {"idle": "rest"}
 
 
 def shifted(layer, name):
@@ -99,27 +104,10 @@ def _pose_warp(layer, sy=1.0, lean=0.0, hop=0.0, nod=0.0, nod_below=None):
     return warp(layer, sy=sy, sx=1 / math.sqrt(sy), lean=lean, dy=-hop, nod=nod, nod_below=nod_below)
 
 
-IDLE_TABLE = [  # pose, sy, lean, hop
-    ("base_idle", 1.0, 0, 0), ("base_idle", 1.006, 2, 0), ("base_idle", 1.01, 4, 0), ("base_idle", 1.006, 5, 0),
-    ("base_idle", 1.0, 4, 0), ("base_idle", 0.996, 2, 0), ("base_idle", 1.0, 0, 0), ("base_idle", 1.006, -2, 0),
-    ("base_idle", 1.01, -4, 0), ("base_idle", 1.006, -5, 0), ("base_idle", 1.0, -4, 0), ("base_idle", 0.996, -2, 0),
-    ("base_idle", 1.0, 0, 0), ("base_idle", 0.94, 0, 0), ("peak_idle", 0.98, 0, 5), ("peak_idle", 1.0, 0, 8),
-    ("peak_idle", 1.0, 0, 7), ("peak_idle", 1.0, 0, 3), ("peak_idle", 0.92, 0, 0), ("peak_idle", 1.02, 0, 0),
-    ("peak_idle", 1.0, 0, 0), ("base_idle", 0.96, 0, 0), ("base_idle", 1.01, 0, 0), ("base_idle", 1.0, 0, 0),
-]
-
-
 def loop_frame(state, i, n=N_LOOP):
     i %= n
     t = i / n
-    if state == "idle":
-        pose, sy, lean, hop = IDLE_TABLE[i]
-        fx = []
-        if i in (14, 15, 16):
-            fx += [{"k": "sparkle", "x": 92, "y": 40 - (i - 14) * 6}, {"k": "sparkle_s", "x": 300, "y": 30 - (i - 14) * 4}]
-        if i == 18:
-            fx += dust(192, 248)
-        return frame(pet=_pose_warp(dog_of(pose), sy=sy, lean=lean, hop=hop), fx=fx_layer(fx))
+    state = SLEEPS.get(state, state)
     if state == "meeting":
         pose = "peak_meeting" if i in (8, 9, 10, 18, 19) else "base_meeting"
         nod = (0, -2, -3, -2, 0, 1)[i % 6]
@@ -168,10 +156,9 @@ def loop_start(state, visual="code"):
 
 def scene_parts(state, visual):
     """Dog layer, props layer and props anchor for a state's resting frame."""
+    state = SLEEPS.get(state, state)
     if state == "work":
         dog, props = split(f"{visual}_input_none")
-    elif state == "idle":
-        dog, props = dog_of("base_idle"), np.zeros((H, W, 4), np.uint8)
     else:
         name = {"meeting": "base_meeting", "leisure": "base_video", "rest": "base_rest"}[state]
         dog, props = dog_of(name), props_of(name)
@@ -184,7 +171,15 @@ def _neutral(x, pose="base_idle", sy=1.0, lean=0.0, hop=0.0):
     return warp(dog, dx=x - head_cx(dog), dy=-hop, sy=sy, sx=1 / math.sqrt(sy), lean=lean)
 
 
+def same_scene(a, b):
+    """Idle and rest look the same (asleep): keep breathing through the change."""
+    return [loop_frame("rest", round(N_LOOP - 1 + k * (N_LOOP + 1) / (N_TRANSITION - 1))) for k in range(N_TRANSITION)]
+
+
 def transition(a, b, visual_a="code", visual_b="code"):
+    if SLEEPS.get(a, a) == SLEEPS.get(b, b):
+        return same_scene(a, b)
+    a, b = SLEEPS.get(a, a), SLEEPS.get(b, b)
     frames = []
     dog_a, props_a, anchor_a = scene_parts(a, visual_a)
     dog_b, props_b, anchor_b = scene_parts(b, visual_b)
@@ -279,44 +274,255 @@ def transition(a, b, visual_a="code", visual_b="code"):
 
 # --------------------------------------------------------------------------- interactions
 
-def _authored_sequence(prefix, counts, nod_below=200, fx_fn=None):
+def _settle(pose_index, k, index):
+    """Squash on arriving in a pose, then keep breathing so a held pose never freezes."""
+    settle = (0.965, 1.015, 1.0)[k] if k < 3 and pose_index > 0 else 1.0
+    return settle * (1 + 0.008 * math.sin(2 * math.pi * index / 12))
+
+
+def _authored_sequence(prefix, counts, nod_below=200, fx_fn=None, start=0):
     """Hold each authored pose for `counts` frames with a squash on arrival and a gentle bob."""
     frames = []
-    index = 0
+    index = start
     for pose_index, count in enumerate(counts):
         image = load(f"{prefix}_{pose_index + 1}")
+        if prefix.startswith("hug"):
+            image = without_hearts(image)
         for k in range(count):
-            settle = (0.965, 1.015, 1.0)[k] if k < 3 and pose_index > 0 else 1.0
+            sy = _settle(pose_index, k, index)
             nod = (0, -1, -2, -1)[k % 4] if pose_index >= 2 else 0
-            layer = warp(image, sy=settle, sx=1 / math.sqrt(settle), nod=nod, nod_below=nod_below)
+            layer = warp(image, sy=sy, sx=1 / math.sqrt(sy), nod=nod, nod_below=nod_below)
             fx = fx_fn(index, pose_index, k) if fx_fn else []
             frames.append(frame(pet=layer, fx=fx_layer(fx)))
             index += 1
-    assert len(frames) == N_INTERACTION, (prefix, len(frames))
     return frames
 
 
+def without_hearts(image):
+    """Hugs carry no hearts: drop the small pink stamps drawn above the pups."""
+    import cv2
+    alpha = (image[:, :, 3] > 0).astype(np.uint8)
+    count, labels, stats, _ = cv2.connectedComponentsWithStats(alpha, connectivity=8)
+    out = image.copy()
+    for label in range(1, count):
+        x, y, w, h, area = stats[label]
+        if area > 900 or y > 120:
+            continue
+        pixels = image[labels == label][:, :3].astype(np.float32)
+        r, g, b = pixels.mean(0)
+        if r > 180 and r - g > 50:
+            out[labels == label] = 0
+    return out
+
+
+# Ownership contours of the visitor (right of the line) per authored pose, as in
+# src/pet/hugOwnership.ts. Used to lift the visitor out and walk it in and out.
+HUG_CONTOURS = {
+    "work": [[(217, 0), (217, 65), (244, 78), (279, 112), (277, 137), (253, 148), (304, 145), (240, 158), (229, 166), (230, 179), (245, 189), (256, 205), (272, 232), (304, 256)],
+             [(216, 0), (216, 64), (240, 75), (263, 108), (262, 131), (253, 145), (308, 141), (251, 158), (240, 165), (241, 179), (249, 189), (256, 205), (272, 232), (304, 256)],
+             [(218, 0), (218, 63), (246, 76), (270, 106), (269, 133), (255, 148), (302, 144), (225, 158), (215, 165), (216, 180), (239, 189), (250, 206), (271, 234), (304, 256)],
+             [(228, 0), (228, 67), (253, 80), (280, 113), (279, 140), (256, 153), (299, 145), (221, 160), (212, 170), (216, 183), (239, 194), (250, 208), (272, 234), (304, 256)]],
+    "idle": [[(192, 0), (192, 60), (192, 100), (192, 140), (192, 153), (192, 166), (192, 182), (192, 256)],
+             [(195, 0), (204, 61), (200, 105), (190, 141), (198, 153), (198, 168), (175, 184), (186, 256)],
+             [(189, 0), (198, 81), (204, 115), (196, 146), (171, 151), (160, 170), (218, 178), (193, 256)],
+             [(195, 0), (205, 62), (200, 108), (185, 145), (210, 163), (179, 178), (187, 190), (185, 256)]],
+    "leisure": [[(384, 0), (384, 60), (384, 110), (384, 157), (384, 170), (384, 185), (384, 215), (384, 256)],
+                [(218, 0), (221, 65), (211, 113), (201, 153), (220, 170), (218, 188), (211, 216), (242, 256)],
+                [(203, 0), (207, 64), (201, 113), (200, 156), (253, 165), (250, 188), (245, 215), (268, 256)],
+                [(186, 0), (196, 63), (200, 108), (190, 156), (251, 165), (249, 185), (243, 213), (269, 256)]],
+    "rest": [[(384, 0), (384, 110), (384, 144), (384, 158), (384, 177), (384, 199), (384, 221), (384, 256)],
+             [(200, 0), (199, 110), (208, 144), (265, 153), (261, 176), (294, 182), (276, 218), (298, 256)],
+             [(180, 0), (183, 110), (208, 144), (205, 155), (200, 174), (247, 181), (311, 219), (330, 256)],
+             [(186, 0), (192, 110), (208, 144), (239, 175), (230, 184), (235, 203), (281, 211), (311, 256)]],
+}
+# Visitor offsets while it hops in and out; mirrored in src/pet/hugOwnership.ts.
+HUG_APPROACH_MOVES = [(round(230 * (1 - k / 7) ** 3), -round(12 * abs(math.sin(2 * math.pi * k / 7))))
+                      for k in range(HUG_APPROACH)]
+HUG_EXIT_MOVES = [(round(240 * ((k + 1) / HUG_EXIT) ** 2), -round(10 * abs(math.sin(2 * math.pi * (k + 1) / HUG_EXIT))))
+                  for k in range(HUG_EXIT)]
+
+
+def _contour_group(prefix):
+    if prefix.startswith("hug_rest"):
+        return "rest"
+    return {"hug_idle": "idle", "hug_leisure": "leisure"}.get(prefix, "work")
+
+
+def _visitor_mask(group, pose):
+    import cv2
+    pts = HUG_CONTOURS[group][pose]
+    poly = [(pts[0][0], 0)] + list(pts) + [(W, H), (W, 0)]
+    mask = np.zeros((H, W), np.uint8)
+    cv2.fillPoly(mask, [np.array(poly, np.int32)], 1)
+    return mask.astype(bool)
+
+
+def _receiver_base(prefix):
+    """The receiver's ordinary scene, before anyone arrives (composite, unaligned)."""
+    if prefix.startswith("hug_rest"):
+        return composite(loop_frame("rest", 0))
+    name = {"hug_work": None, "hug_meeting": "base_meeting", "hug_leisure": "base_video", "hug_idle": "base_idle"}[prefix]
+    if name is None:
+        return composite(work_frame("none", "code"))
+    dog, props = split(name)
+    return over(dog, props)
+
+
+def _search(have, want, region, scales, dxs, dys):
+    best, best_cost = None, None
+    for s_ in scales:
+        layer = np.zeros((H, W, 4), np.uint8)
+        layer[have] = 255
+        scaled = have if s_ == 1 else warp(layer, sx=s_, sy=s_, anchor=(W / 2, H))[:, :, 3] > 0
+        for dy in dys:
+            for dx in dxs:
+                moved = np.roll(np.roll(scaled, dy, 0), dx, 1)
+                cost = np.count_nonzero((moved != want) & region)
+                if best_cost is None or cost < best_cost:
+                    best, best_cost = (s_, dx, dy), cost
+    return best
+
+
+def _align_params(base, target, region):
+    """Scale and offset that make `base` cover the receiver part of the first hug pose."""
+    want = (target[:, :, 3] > 0) & region
+    have = base[:, :, 3] > 0
+    s_, dx, dy = _search(have, want, region, [0.80 + 0.02 * i for i in range(14)], range(-48, 49, 4), range(-16, 17, 4))
+    return _search(have, want, region, [s_ - 0.01, s_, s_ + 0.01], range(dx - 3, dx + 4), range(dy - 3, dy + 4))
+
+
+def _place(base, params, t):
+    """`base` moved t of the way (0..1) from where it normally sits to its hug placement."""
+    s_, dx, dy = params
+    k = 1 + (s_ - 1) * t
+    return warp(base, sx=k, sy=k, anchor=(W / 2, H), dx=dx * t, dy=dy * t)
+
+
+def _ease(t):
+    return t * t * (3 - 2 * t)
+
+
+def contact_puff(x, y, stage):
+    size = (0.6, 1.0, 0.7, 0.35)[stage]
+    items = [{"k": "puff", "x": x + ox * size, "y": y + oy * size, "r": r * size}
+             for ox, oy, r in ((0, 0, 12), (-18, 14, 9), (18, 12, 9), (-8, -16, 8), (12, -14, 7))]
+    if stage == 1:
+        items += [{"k": "sparkle", "x": x + 34, "y": y - 30}, {"k": "sparkle_s", "x": x - 30, "y": y - 24}]
+    return items
+
+
+# Per frame of every hug strip, who owns which pixels (read by the app and the
+# promo renderer): {"pose": n} uses that pose's contour, {"split": x} means the
+# visitor is everything right of x (it is still walking in or out).
+HUG_TIMELINES = {}
+
+
 def hug(prefix, counts=(4, 4, 10, 6)):
+    group = _contour_group(prefix)
+    # A sleeping pup's first authored pose is a close-up with nobody there yet;
+    # the visitor hops straight into the second (tucking-in) pose instead.
+    first_pose = 1 if prefix.startswith("hug_rest") else 0
+    if first_pose:
+        counts = (6, 10, 8)
+    first = without_hearts(load(f"{prefix}_{first_pose + 1}"))
+    region = ~_visitor_mask(group, first_pose)
+    base = _receiver_base(prefix)
+    params = _align_params(base, first, region)
+    # TA's pup, whole, at the size it has in the hug.
+    walker = dog_of("bridge_idle_to_active")
+    vx0, vy0, vx1, vy1 = bbox(np.where(_visitor_mask(group, first_pose)[..., None], first, 0))
+    wx0, wy0, wx1, wy1 = bbox(walker)
+    k = (vy1 - vy0) / max(1, wy1 - wy0) * 0.85
+    walker = warp(walker, sx=k, sy=k, anchor=((wx0 + wx1) / 2, wy1), dx=(vx0 + vx1) / 2 - (wx0 + wx1) / 2, dy=vy1 - wy1)
+    wl = bbox(walker)[0]
+    contact = (vx0 + 14, (vy0 + vy1) / 2)
+    timeline = []
+
+    frames = []
+    for k_, (dx, dy) in enumerate(HUG_APPROACH_MOVES):
+        receiver = _place(base, params, _ease(k_ / (HUG_APPROACH - 1)))
+        fx = dust(vx0 + 60 + dx, vy1, 0.8) if k_ in (3, 6) else []
+        if k_ == HUG_APPROACH - 1:
+            fx += contact_puff(*contact, 0)
+        frames.append(frame(back=receiver, pet=warp(walker, dx=dx, dy=dy), fx=fx_layer(fx)))
+        timeline.append({"split": int(min(W, max(0, wl + dx - 2)))})
+
     def fx(index, pose, k):
-        items = []
-        if pose >= 2:
-            phase = (index - 8) / 16
-            items += [{"k": "heart", "x": 230 + 14 * math.sin(phase * 7), "y": 60 - phase * 44},
-                      {"k": "heart_s", "x": 150 - 10 * math.sin(phase * 5), "y": 44 - phase * 30}]
-        if pose == 1 and k < 2:
-            items.append({"k": "sparkle", "x": 280, "y": 30})
-        return items
-    return _authored_sequence(prefix, counts, nod_below=190, fx_fn=fx)
+        if pose == 0 and k < 3:
+            return contact_puff(*contact, k + 1)
+        return [{"k": "sparkle", "x": 280, "y": 30}] if pose == 1 and k < 2 else []
+    if first_pose:
+        frames += _authored_sequence_from(prefix, counts, first_pose=first_pose + 1, nod_below=190, start=HUG_APPROACH,
+                                          fx_fn=lambda index, pose, k: fx(index, pose - first_pose, k), hearts=False)
+    else:
+        frames += _authored_sequence(prefix, counts, nod_below=190, fx_fn=fx, start=HUG_APPROACH)
+    for pose, count in enumerate(counts):
+        timeline += [{"pose": pose + first_pose}] * count
+
+    for k_, (dx, dy) in enumerate(HUG_EXIT_MOVES):
+        receiver = _place(base, params, 1 - _ease((k_ + 1) / HUG_EXIT))
+        fx = contact_puff(*contact, min(3, k_ + 1)) if k_ < 3 else []
+        if k_ in (2, 5):
+            fx += dust(vx0 + 60 + dx, vy1, 0.8)
+        frames.append(frame(back=receiver, pet=warp(walker, dx=dx, dy=dy), fx=fx_layer(fx)))
+        timeline.append({"split": int(min(W, max(0, wl + dx - 2)))})
+    assert len(frames) == N_HUG == len(timeline), (prefix, len(frames))
+    HUG_TIMELINES[prefix] = timeline
+    return frames
+
+
+def _cup_of(prefix):
+    """The cup that appears in the second pose (pixels new on the right-hand side)."""
+    before, after = load(f"{prefix}_1"), load(f"{prefix}_2")
+    mask = (after[:, :, 3] > 0) & (before[:, :, 3] == 0)
+    mask[:, :280] = False
+    cup = np.zeros_like(after)
+    cup[mask] = after[mask]
+    return cup if np.count_nonzero(mask) > 40 else None
 
 
 def water(prefix, counts=(5, 6, 7, 6)):
+    """The cup slides in from the right and lands with a bounce, then the authored poses."""
     def fx(index, pose, k):
         if pose == 2 and k < 3:
             return [{"k": "sparkle_s", "x": 360, "y": 190}]
         if pose == 3:
             return [{"k": "heart_s", "x": 300, "y": 50 - 3 * k}]
         return []
-    return _authored_sequence(prefix, counts, nod_below=180, fx_fn=fx)
+    cup = _cup_of(prefix)
+    if cup is None:
+        frames = _authored_sequence(prefix, counts, nod_below=180, fx_fn=fx)
+    else:
+        first = load(f"{prefix}_1")
+        frames = []
+        for k in range(3):
+            sy = _settle(0, k, k)
+            frames.append(frame(pet=warp(first, sy=sy, sx=1 / math.sqrt(sy))))
+        for k, (dx, dy) in enumerate(((90, -6), (58, -12), (30, -12), (10, -6), (0, 0))):
+            f = frame(pet=first, front=warp(cup, dx=dx, dy=dy))
+            if k == 4:
+                f["fx"] = fx_layer([{"k": "sparkle_s", "x": 360, "y": 200}, {"k": "sparkle", "x": 330, "y": 170}])
+            frames.append(f)
+        frames += _authored_sequence_from(prefix, (5, 6, 5), first_pose=2, nod_below=180, start=8,
+                                          fx_fn=fx)
+    assert len(frames) == N_INTERACTION, (prefix, len(frames))
+    return frames
+
+
+def _authored_sequence_from(prefix, counts, first_pose, nod_below, start, fx_fn, hearts=True):
+    frames, index = [], start
+    for offset, count in enumerate(counts):
+        pose_index = first_pose - 1 + offset
+        image = load(f"{prefix}_{pose_index + 1}")
+        if not hearts:
+            image = without_hearts(image)
+        for k in range(count):
+            sy = _settle(pose_index, k, index)
+            nod = (0, -1, -2, -1)[k % 4] if pose_index >= 2 else 0
+            frames.append(frame(pet=warp(image, sy=sy, sx=1 / math.sqrt(sy), nod=nod, nod_below=nod_below),
+                                fx=fx_layer(fx_fn(index, pose_index, k))))
+            index += 1
+    return frames
 
 
 def water_drink(prefix, counts=(5, 5, 8, 6)):
@@ -326,7 +532,9 @@ def water_drink(prefix, counts=(5, 5, 8, 6)):
         if pose == 3:
             return [{"k": "heart", "x": 300, "y": 50 - 3 * k}, {"k": "sparkle_s", "x": 84, "y": 60}]
         return []
-    return _authored_sequence(prefix, counts, nod_below=256, fx_fn=fx)
+    frames = _authored_sequence(prefix, counts, nod_below=256, fx_fn=fx)
+    assert len(frames) == N_INTERACTION, (prefix, len(frames))
+    return frames
 
 
 def website_replay():
