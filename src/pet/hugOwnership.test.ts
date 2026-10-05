@@ -20,10 +20,13 @@ describe('hug ownership', () => {
       }
     }
   });
-  it('splits vertically while the visitor hops in, so the resting receiver keeps its own color', () => {
-    const [[x0, y0], [x1, y1]] = hugSenderContour('hug-work', 0);
-    expect(x0).toBe(x1); expect([y0, y1]).toEqual([0, 256]);
-    expect(x0).toBeGreaterThan(300);
+  it('follows the visitor while it hops in, so the resting receiver keeps its own color', () => {
+    // Off screen at first: nobody is recolored.
+    expect(hugSenderContour('hug-work', 0).every(([x]) => x === 384)).toBe(true);
+    // Arriving: the edge hugs the visitor's outline, top to bottom.
+    const arriving = hugSenderContour('hug-work', 5);
+    expect(arriving[0][1]).toBe(0); expect(arriving.at(-1)![1]).toBe(256);
+    expect(Math.min(...arriving.map(([x]) => x))).toBeLessThan(384);
   });
   it('maps the hug frames to their authored poses, between the walk in and the walk out', () => {
     expect([8, 11, 12, 15, 16, 25, 26, 31].map(frame => hugPoseForFrame('hug-work', frame))).toEqual([0, 0, 1, 1, 2, 2, 3, 3]);

@@ -412,9 +412,21 @@ def contact_puff(x, y, stage):
 
 
 # Per frame of every hug strip, who owns which pixels (read by the app and the
-# promo renderer): {"pose": n} uses that pose's contour, {"split": x} means the
-# visitor is everything right of x (it is still walking in or out).
+# promo renderer): {"pose": n} uses that pose's contour; while the visitor walks
+# in or out, {"edge": [[x, y], ...]} traces its left edge row by row and the
+# visitor is everything right of it.
 HUG_TIMELINES = {}
+
+
+def left_edge(layer, step=8):
+    """Polyline of the layer's leftmost opaque pixel every `step` rows (W where the row is empty)."""
+    alpha = layer[:, :, 3] > 0
+    points = []
+    for y in list(range(0, H, step)) + [H]:
+        rows = alpha[max(0, y - step // 2):min(H, y + step // 2 + 1)]
+        xs = np.nonzero(rows.any(0))[0]
+        points.append([int(max(0, xs.min() - 2)) if len(xs) else W, y])
+    return points
 
 
 def hug(prefix, counts=(4, 4, 10, 6)):
@@ -434,7 +446,6 @@ def hug(prefix, counts=(4, 4, 10, 6)):
     wx0, wy0, wx1, wy1 = bbox(walker)
     k = (vy1 - vy0) / max(1, wy1 - wy0) * 0.85
     walker = warp(walker, sx=k, sy=k, anchor=((wx0 + wx1) / 2, wy1), dx=(vx0 + vx1) / 2 - (wx0 + wx1) / 2, dy=vy1 - wy1)
-    wl = bbox(walker)[0]
     contact = (vx0 + 14, (vy0 + vy1) / 2)
     timeline = []
 
@@ -444,8 +455,9 @@ def hug(prefix, counts=(4, 4, 10, 6)):
         fx = dust(vx0 + 60 + dx, vy1, 0.8) if k_ in (3, 6) else []
         if k_ == HUG_APPROACH - 1:
             fx += contact_puff(*contact, 0)
-        frames.append(frame(back=receiver, pet=warp(walker, dx=dx, dy=dy), fx=fx_layer(fx)))
-        timeline.append({"split": int(min(W, max(0, wl + dx - 2)))})
+        moved = warp(walker, dx=dx, dy=dy)
+        frames.append(frame(back=receiver, pet=moved, fx=fx_layer(fx)))
+        timeline.append({"edge": left_edge(moved)})
 
     def fx(index, pose, k):
         if pose == 0 and k < 3:
@@ -464,8 +476,9 @@ def hug(prefix, counts=(4, 4, 10, 6)):
         fx = contact_puff(*contact, min(3, k_ + 1)) if k_ < 3 else []
         if k_ in (2, 5):
             fx += dust(vx0 + 60 + dx, vy1, 0.8)
-        frames.append(frame(back=receiver, pet=warp(walker, dx=dx, dy=dy), fx=fx_layer(fx)))
-        timeline.append({"split": int(min(W, max(0, wl + dx - 2)))})
+        moved = warp(walker, dx=dx, dy=dy)
+        frames.append(frame(back=receiver, pet=moved, fx=fx_layer(fx)))
+        timeline.append({"edge": left_edge(moved)})
     assert len(frames) == N_HUG == len(timeline), (prefix, len(frames))
     HUG_TIMELINES[prefix] = timeline
     return frames
