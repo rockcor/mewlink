@@ -27,7 +27,8 @@ import { watchInput } from './platform/inputStream';
 import { useRenderBudget } from './platform/resources';
 import { localUtcOffsetMinutes } from './platform/clock';
 import { languageTags, watchSystemLanguage } from './platform/language';
-import { joinWithPairingCode, registerPairCreator, RelayError, resumePairingRegistration, revokeRelationship, syncEncryptedEvents } from './services/relayTransport';
+import { joinWithPairingCode, registerPairCreator, RelayError, requestLiveTicket, resumePairingRegistration, revokeRelationship, syncEncryptedEvents } from './services/relayTransport';
+import { useLiveTyping } from './live/useLiveTyping';
 import { checkForUpdate, installUpdate } from './services/update';
 import { submitFeedback } from './services/feedback';
 import type { Update } from '@tauri-apps/plugin-updater';
@@ -69,6 +70,8 @@ export default function App() {
   const [events, setEvents] = useState<StoredEvent[]>([]);
   const [historyRevision, setHistoryRevision] = useState(0);
   const historyInput = useRef<(previous: InputSignal, current: InputSignal) => void>(() => undefined);
+  const liveInput = useRef<(previous: InputSignal, current: InputSignal) => void>(() => undefined);
+  const syncNow = useRef<() => Promise<void>>(async () => undefined);
   const historyScreenChange = useRef<() => void>(() => undefined);
   const historyStart = useRef<(unseenOnly?: boolean) => Promise<void>>(async () => undefined);
   const historyStop = useRef<() => void>(() => undefined);
@@ -142,8 +145,30 @@ export default function App() {
     undefined, presenceNow,
   ), [activity, workVisual, preferences.selfPetSkin, partnerEvents, pairing, presenceNow]);
   const partnerSkin = companions.partner.skin;
+  // Live typing keys go over the ratchet like any event, so they share the session queue.
+  const liveRatchet = useCallback(<T,>(operation: 'send_live_key' | 'send_live_off') => sessionQueue(async () => {
+    const active = pairingRef.current;
+    if (pairingBlockedRef.current || !active?.ratchet?.verified) throw new Error('pairing_required');
+    return nativeRatchet<T>(operation, active.relationshipId);
+  }).then(result => { void syncNow.current(); return result; }), [sessionQueue]);
+  const live = useLiveTyping({
+    wanted: preferences.liveTyping,
+    session: connected && pairing?.partnerDeviceId ? { relationshipId: pairing.relationshipId, deviceId: pairing.deviceId, partnerDeviceId: pairing.partnerDeviceId } : undefined,
+    activity, workVisual,
+    sendKey: () => liveRatchet<{ epoch: number }>('send_live_key').then(result => result.epoch),
+    sendOff: () => liveRatchet<null>('send_live_off').then(() => undefined),
+    ticket: () => {
+      const active = pairingRef.current;
+      return active ? requestLiveTicket(active) : Promise.reject(new Error('pairing_required'));
+    },
+    syncNow: () => { void syncNow.current(); },
+  });
+  liveInput.current = live.recordInput;
   const [historyDisplay, setHistoryDisplay] = useState<{ activity: ActivityKind; workVisual: WorkVisual }>();
-  const partnerActivity = historyDisplay?.activity ?? companions.partner.activity;
+  // Replay shows the past; otherwise live pulses beat the 30 s presence heartbeat.
+  const liveShown = live.active && !historyDisplay;
+  const partnerActivity = historyDisplay?.activity ?? (liveShown ? live.activity : undefined) ?? companions.partner.activity;
+  const partnerWorkVisual = historyDisplay?.workVisual ?? (liveShown ? live.workVisual : undefined) ?? companions.partner.workVisual;
   const visualInputKind = visualInputForActivity(activity, keyboardPressed, pointerPressed);
   const selfPlayback = useActivityPlayback({
     paused: renderPaused,
@@ -156,11 +181,11 @@ export default function App() {
   });
   const partnerPlayback = useActivityPlayback({
     paused: renderPaused || !connected,
-    desiredActivity: historyDisplay?.activity ?? (companions.partnerLive ? partnerActivity : 'work'),
-    desiredWorkVisual: historyDisplay?.workVisual ?? companions.partner.workVisual,
+    desiredActivity: historyDisplay?.activity ?? (companions.partnerLive || liveShown ? partnerActivity : 'work'),
+    desiredWorkVisual: partnerWorkVisual,
     initialActivity: 'work',
     initialWorkVisual: 'web',
-    workHandsSettled: true,
+    workHandsSettled: !liveShown || (!live.hands.keyboard && !live.hands.pointer),
     transitionDurationMs: Math.round(ACTIVITY_TRANSITION_MS * durationScale),
   });
   useEffect(() => {
@@ -512,10 +537,8 @@ export default function App() {
   useEffect(() => {
     if (!pairing?.relationshipId || !pairing.deviceId) return;
     let stopped = false;
-    let running = false;
-    const sync = async () => {
-      if (running || stopped) return;
-      running = true;
+    let inflight: Promise<void> | undefined;
+    const run = async () => {
       try {
         await sessionQueue(async () => {
           let active = pairingRef.current;
@@ -577,15 +600,21 @@ export default function App() {
         });
       } catch (error) {
         if (!stopped && !pairingBlockedRef.current) setPairingStatus(error instanceof RatchetError ? text.ratchetStorageError : text.connectionRetry);
-      } finally {
-        running = false;
       }
     };
+    const sync = () => {
+      if (stopped) return Promise.resolve();
+      inflight ??= run().finally(() => { inflight = undefined; });
+      return inflight;
+    };
+    // An explicit request (a live nudge, a key just sent) must see the newest state,
+    // so it waits for a sync already running and then starts another.
+    syncNow.current = () => (inflight ? inflight.then(sync) : sync());
     void sync();
     const reconnect = () => { autoReplayPending.current = true; syncStartedAt.current = Date.now(); void sync(); };
     window.addEventListener('online', reconnect);
     const timer = window.setInterval(() => { void sync(); }, 2_500);
-    return () => { stopped = true; window.clearInterval(timer); window.removeEventListener('online', reconnect); };
+    return () => { stopped = true; syncNow.current = async () => undefined; window.clearInterval(timer); window.removeEventListener('online', reconnect); };
   }, [pairing?.relationshipId, pairing?.deviceId, persistPairing, forgetRevokedPair, sessionQueue, text, drinkCup]);
   useEffect(() => {
     let timer: number | undefined;
@@ -627,6 +656,7 @@ export default function App() {
       if (stopped) return;
       if (previous) {
         historyInput.current(previous, signal);
+        liveInput.current(previous, signal);
         const changes = inputChangesForSequence(previous, signal);
         const keyboardEvents = keyboardEventsForSequence(previous, signal);
         const pointerEvents = pointerEventsForSequence(previous, signal);
@@ -902,6 +932,8 @@ export default function App() {
         kind: 'interaction',
         payload: { action, ...(action === 'water' ? { cupStyle } : { blanketStyle: preferences.blanketStyle }) }
       }));
+      // Deliver now and have the partner fetch it at once instead of on its next poll.
+      void syncNow.current().then(() => live.nudge());
       showGesture(action, sent.status === 'queued' ? text.interactionQueued : action === 'hug' ? text.hugSent : text.cupSent(text.cups[cupStyle].label), 'partner', {
         cupStyle,
         blanketStyle: preferences.blanketStyle,
@@ -1091,7 +1123,7 @@ export default function App() {
             onWheel={event => handlePetPinch(event, 'partner')}
           >
             <SpriteCanvas skin={partnerSkin} paused={renderPaused}
-              className={`pet-sprite partner-sprite ${partnerPlayback.displayedActivity} ${partnerPlayback.displayedActivity === 'work' ? `work-${partnerPlayback.displayedWorkVisual}` : ''} input-${playing && !partnerPlayback.transition ? visualInputForActivity(partnerActivity, history.hands.keyboard, history.hands.pointer) : 'none'} ${history.hands.stressed && !partnerPlayback.transition ? 'input-stressed' : ''} ${playing ? 'replaying' : ''} ${partnerPlayback.transition ? 'transition-source-frame' : ''}`}
+              className={`pet-sprite partner-sprite ${partnerPlayback.displayedActivity} ${partnerPlayback.displayedActivity === 'work' ? `work-${partnerPlayback.displayedWorkVisual}` : ''} input-${partnerPlayback.transition ? 'none' : playing ? visualInputForActivity(partnerActivity, history.hands.keyboard, history.hands.pointer) : liveShown ? visualInputForActivity(partnerActivity, live.hands.keyboard, live.hands.pointer) : 'none'} ${(playing ? history.hands.stressed : liveShown && live.hands.stressed) && !partnerPlayback.transition ? 'input-stressed' : ''} ${liveShown ? 'live' : ''} ${playing ? 'replaying' : ''} ${partnerPlayback.transition ? 'transition-source-frame' : ''}`}
               aria-hidden="true"
               onLoopBoundary={partnerPlayback.handleLoopBoundary}
             />
@@ -1121,6 +1153,7 @@ export default function App() {
           inviteCode={inviteCode}
           joinCode={joinCode}
           safetyCode={safetyCode}
+          livePhase={live.phase}
           onConfirmPairing={() => { void confirmPairing(); }}
           cupStyle={cupStyle}
           onChange={setPreferences}

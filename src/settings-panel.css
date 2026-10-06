@@ -102,6 +102,8 @@
 .pixel-panel .setting-title > div, .pixel-panel .setting-row > div { min-width: 0; }
 .pixel-panel .setting-title b, .pixel-panel .setting-row b { font-size: var(--panel-body); }
 .pixel-panel .setting-title small, .pixel-panel .setting-row small { font-size: var(--panel-label); line-height: 1.55; color: #806570; }
+.pixel-panel .live-typing-setting small { display: block; }
+.pixel-panel .live-typing-setting .live-phase { margin-top: 4px; color: #b0566f; }
 .pixel-panel .mini-tabs { display: flex; flex-direction: row; flex-wrap: wrap; flex-shrink: 1; min-width: 0; }
 .pixel-panel .mini-tabs, .pixel-panel .speed-options { border-radius: 5px; background: #f5e9e1; }
 .pixel-panel .mini-tabs button, .pixel-panel .speed-options button { min-height: 44px; font-size: var(--panel-label); border-radius: 3px; }

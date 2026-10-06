@@ -74,6 +74,21 @@ export async function revokeRelationship(state: Revocation, fetcher: Fetcher = f
   if (result.revoked !== true) throw new RelayError('revocation_not_confirmed', 502);
 }
 
+export interface LiveTicket { ticket: string; expiresAt: number; url: string }
+
+/** A five-minute ticket for the live typing Worker; `live_unavailable` when the relay has none configured. */
+export async function requestLiveTicket(state: Pick<PairingState, 'relationshipId' | 'deviceId' | 'relayToken'>, fetcher: Fetcher = fetch): Promise<LiveTicket> {
+  const response = await checked(await fetcher(RELAY_ENDPOINT, {
+    method: 'POST', headers: headers(state),
+    body: JSON.stringify({ operation: 'live_ticket', relationshipId: state.relationshipId, deviceId: state.deviceId }),
+    signal: AbortSignal.timeout(10_000),
+  }));
+  const value = await response.json() as Partial<LiveTicket>;
+  if (typeof value.ticket !== 'string' || !Number.isSafeInteger(value.expiresAt) || typeof value.url !== 'string'
+    || !/^(wss?|https?):\/\//.test(value.url)) throw new RelayError('invalid_live_ticket', 502);
+  return value as LiveTicket;
+}
+
 export async function registerPairCreator(state: PairingState, fetcher: Fetcher = fetch) {
   if (!state.inviteCode) throw new RelayError('请重新生成配对码', 400);
   const response = await checked(await fetcher(RELAY_ENDPOINT, {

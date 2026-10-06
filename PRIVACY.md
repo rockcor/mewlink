@@ -20,6 +20,18 @@ Credential Manager entries; unpair in the app before uninstalling.
 Old pairings must be replaced on both devices before using the new protocol.
 The ratchet does not remove plaintext replay history or copies in OS backups.
 
+Live typing is off by default and works only when both people turn it on.
+While both are online, the app sends the number of key presses, pointer moves
+and clicks in each 0.25-second window, plus the coarse state above, so the
+partner's pet can type along. It never sends which keys were pressed. Each
+pulse is encrypted end to end with a key exchanged over the verified ratchet
+and has a fixed size; a forwarding Worker on Cloudflare (`mewlink-live`) sees
+routing identifiers, connection times and when pulses are sent, but not their
+contents, and stores none of them. Typing rhythm can still say something about
+what a person is doing, which is why it is opt-in. On macOS no pulse is sent
+while a password field has focus (Secure Event Input); Windows has no
+equivalent signal.
+
 Unpairing stops this device's traffic. When the relay confirms the request, both
 devices lose access to that relationship's mailbox and its queued ciphertext is
 deleted. Offline requests are retained securely and retried while the app runs.

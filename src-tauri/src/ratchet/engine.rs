@@ -467,6 +467,7 @@ fn validate_event(event: &Value, relationship: &str, sender: &str) -> Result<()>
                     | "statistics.snapshot"
                     | "cup.consumed"
                     | "operation.batch"
+                    | "live.key"
             )
         )
     {

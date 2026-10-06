@@ -10,7 +10,7 @@ import { pairingKey } from '../src/pairing/pairing';
 import { ratchetPeer } from './ratchetPeer';
 
 const context = vi.hoisted(() => ({ db: undefined as unknown }));
-vi.mock('../website/db', () => ({ getRelayDb: () => context.db }));
+vi.mock('../website/db', () => ({ getRelayDb: () => context.db, liveTicketConfig: () => ({}) }));
 let sqlite: DatabaseSync;
 const peers: ReturnType<typeof ratchetPeer>[] = [];
 function peer() { const value = ratchetPeer(); peers.push(value); return value.port; }

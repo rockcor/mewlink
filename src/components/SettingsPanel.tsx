@@ -7,6 +7,7 @@ import { appCopy } from '../i18n';
 import { blanketStyles, cupStyles, petSkins, type CupStyle, type PetSkin } from '../domain/types';
 import type { AnimationSpeed, Preferences } from '../settings/preferences';
 import { pairingInviteSecondsLeft, type PairingState } from '../pairing/pairing';
+import type { LivePhase } from '../live/liveChannel';
 import { animationSpeeds, formatUtcOffset, replayRetentionOptions } from '../settings/preferences';
 
 export interface UpdateViewState {
@@ -31,6 +32,7 @@ interface SettingsPanelProps {
   inviteCode: string;
   joinCode: string;
   safetyCode: string;
+  livePhase: LivePhase;
   cupStyle: CupStyle;
   onChange: (next: Preferences) => void;
   onCheckUpdate: () => void;
@@ -57,6 +59,8 @@ const copy = {
     expired: '已过期', inviteExpired: '配对码已过期，请重新生成', regenerate: '重新生成', expiresIn: (time: string) => `${time} 后失效`,
     petsConnected: '两只宠物已经连在一起', compareNumber: '请和 TA 核对下方号码', disconnect: '解除绑定', safetyNumber: '核对号码',
     replay: '时差重放', replayNote: '点击回放，重温 TA 最近的状态和互动',
+    liveTyping: '实时打字动画', liveTypingNote: '双方在线时，TA 能实时看到你的小狗在打字。只发送每 0.25 秒的按键和鼠标次数，不发送按了什么键；输入密码时自动暂停。双方都开启才生效。',
+    livePhases: { off: '', connecting: '正在连接…', waiting: '已开启，等 TA 上线并开启', live: '实时中', paused: '已暂停', unavailable: '实时通道暂不可用' } as Record<LivePhase, string>,
     recording: '回放录像', recordingNote: '只保存宠物回放，不录制真实屏幕', saveLocation: '保存位置', chooseFolder: '选择', defaultFolder: '应用默认文件夹', retention: '保留时长', hours: (hours: number) => `${hours} 小时`, chooseFolderTitle: '选择回放录像保存位置',
     update: '自动更新', updateNote: '点击检查将安装新版本并重启应用', goUpdate: '前往更新', installNow: '立即更新', checkNow: '立即检查',
     timezone: '时区', timezoneNote: '自动识别双方时差，可随时关闭', auto: '自动', manual: '手动', off: '关闭', me: '你', partnerPending: 'TA · 连接后识别', step: '每格 15 分钟', hideClocks: '重放中不显示双方时间', manualAria: '手动时区 UTC 偏移',
@@ -74,6 +78,8 @@ const copy = {
     expired: '已過期', inviteExpired: '配對碼已過期，請重新產生', regenerate: '重新產生', expiresIn: (time: string) => `${time} 後失效`,
     petsConnected: '兩隻寵物已經連在一起', compareNumber: '請和 TA 核對下方號碼', disconnect: '解除綁定', safetyNumber: '核對號碼',
     replay: '時差重放', replayNote: '點擊回放，重溫 TA 最近的狀態和互動',
+    liveTyping: '即時打字動畫', liveTypingNote: '雙方在線時，TA 能即時看到你的小狗在打字。只傳送每 0.25 秒的按鍵和滑鼠次數，不傳送按了哪個鍵；輸入密碼時自動暫停。雙方都開啟才生效。',
+    livePhases: { off: '', connecting: '正在連線…', waiting: '已開啟，等 TA 上線並開啟', live: '即時中', paused: '已暫停', unavailable: '即時通道暫不可用' } as Record<LivePhase, string>,
     recording: '回放錄影', recordingNote: '只儲存寵物回放，不錄製真實螢幕', saveLocation: '儲存位置', chooseFolder: '選擇', defaultFolder: '應用程式預設資料夾', retention: '保留時長', hours: (hours: number) => `${hours} 小時`, chooseFolderTitle: '選擇回放錄影儲存位置',
     update: '自動更新', updateNote: '點擊檢查將安裝新版本並重新啟動應用程式', goUpdate: '前往更新', installNow: '立即更新', checkNow: '立即檢查',
     timezone: '時區', timezoneNote: '自動識別雙方時差，可隨時關閉', auto: '自動', manual: '手動', off: '關閉', me: '你', partnerPending: 'TA · 連線後識別', step: '每格 15 分鐘', hideClocks: '重放中不顯示雙方時間', manualAria: '手動時區 UTC 偏移',
@@ -91,6 +97,8 @@ const copy = {
     expired: 'Expired', inviteExpired: 'This code has expired. Create a new one.', regenerate: 'Create new code', expiresIn: (time: string) => `Expires in ${time}`,
     petsConnected: 'Your two companions are connected', compareNumber: 'Compare the number below with your partner', disconnect: 'Unpair', safetyNumber: 'Safety number',
     replay: 'Time-zone replay', replayNote: 'Click replay to revisit their recent activities and interactions',
+    liveTyping: 'Live typing', liveTypingNote: 'While you are both online, they see your pup type in real time. Only key and mouse counts per 0.25 s are sent, never which keys; pauses in password fields. Works when both of you turn it on.',
+    livePhases: { off: '', connecting: 'Connecting…', waiting: 'On, waiting for them to come online with it on', live: 'Live', paused: 'Paused', unavailable: 'Live channel unavailable right now' } as Record<LivePhase, string>,
     recording: 'Replay recordings', recordingNote: 'Saves companion replays, never your real screen', saveLocation: 'Save location', chooseFolder: 'Choose', defaultFolder: 'App default folder', retention: 'Keep for', hours: (hours: number) => `${hours}h`, chooseFolderTitle: 'Choose where to save replay recordings',
     update: 'Automatic updates', updateNote: 'Check now installs available updates and restarts the app', goUpdate: 'Get update', installNow: 'Install now', checkNow: 'Check now',
     timezone: 'Time zone', timezoneNote: 'Detect your time difference automatically or turn it off', auto: 'Auto', manual: 'Manual', off: 'Off', me: 'You', partnerPending: 'Partner · after pairing', step: '15-minute steps', hideClocks: 'Hide both local times during replay', manualAria: 'Manual UTC offset',
@@ -117,6 +125,7 @@ export function SettingsPanel({
   inviteCode,
   joinCode,
   safetyCode,
+  livePhase,
   cupStyle,
   onChange,
   onCheckUpdate,
@@ -243,6 +252,11 @@ export function SettingsPanel({
             disabled={pairingBusy || pairing.ratchet.verified}>{pairing.ratchet.verified ? text.verifiedNumber : text.confirmNumber}</button>}
           {pairingStatus && (!inviteExpired || pairingBusy) && <p className="pairing-status" role="status">{pairingStatus}</p>}
         </article>
+
+        {pairing?.ratchet?.verified && <article hidden={page !== 'connection'} className="setting-row live-typing-setting">
+          <div><b>{text.liveTyping}</b><small>{text.liveTypingNote}</small>{preferences.liveTyping && text.livePhases[livePhase] && <small className="live-phase" role="status">{text.livePhases[livePhase]}</small>}</div>
+          <button type="button" className={`switch ${preferences.liveTyping ? 'on' : ''}`} role="switch" aria-label={text.liveTyping} aria-checked={preferences.liveTyping} onClick={() => patchPreferences({ liveTyping: !preferences.liveTyping })}><span /></button>
+        </article>}
 
         <article hidden={page !== 'replay'} className="setting-row replay-setting">
           <div><b>{text.replay}</b><small>{text.replayNote}</small></div>
