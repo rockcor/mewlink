@@ -124,7 +124,7 @@ def loop_frame(state, i, n=N_LOOP):
         fx = []
         if laughing:
             fx.append({"k": "note", "x": 60 + (i - 12) * 2, "y": 70 - (i - 12) * 5})
-            fx.append({"k": "heart_s", "x": 318, "y": 60 - (i - 12) * 4})
+            fx.append({"k": "sparkle_s", "x": 318, "y": 60 - (i - 12) * 4})
         return frame(pet=dog, front=props_of(pose), fx=fx_layer(fx))
     if state == "rest":
         pose = "peak_rest" if i in (14, 15) else "base_rest"
@@ -265,7 +265,7 @@ def transition(a, b, visual_a="code", visual_b="code"):
             f[side_b] = props_b
         else:
             sy = (0.96, 1.0, 1.01, 1.0, 0.98, 1.0, 1.0)[k]
-            f = frame(pet=_neutral(xb, sy=sy), fx=fx_layer([{"k": "heart_s", "x": xb + 96, "y": 40 - 4 * k}] if k < 4 else []))
+            f = frame(pet=_neutral(xb, sy=sy), fx=fx_layer([{"k": "sparkle_s", "x": xb + 96, "y": 40 - 4 * k}] if k < 4 else []))
         frames.append(f)
     frames.append(loop_start(b, visual_b))
     assert len(frames) == N_TRANSITION, len(frames)
@@ -299,7 +299,7 @@ def _authored_sequence(prefix, counts, nod_below=200, fx_fn=None, start=0):
 
 
 def without_hearts(image):
-    """Hugs carry no hearts: drop the small pink stamps drawn above the pups."""
+    """No hearts anywhere (the app is for friends too): drop the small pink stamps drawn above the pups."""
     import cv2
     alpha = (image[:, :, 3] > 0).astype(np.uint8)
     count, labels, stats, _ = cv2.connectedComponentsWithStats(alpha, connectivity=8)
@@ -500,7 +500,7 @@ def water(prefix, counts=(5, 6, 7, 6)):
         if pose == 2 and k < 3:
             return [{"k": "sparkle_s", "x": 360, "y": 190}]
         if pose == 3:
-            return [{"k": "heart_s", "x": 300, "y": 50 - 3 * k}]
+            return [{"k": "sparkle_s", "x": 300, "y": 50 - 3 * k}]
         return []
     cup = _cup_of(prefix)
     if cup is None:
@@ -543,7 +543,7 @@ def water_drink(prefix, counts=(5, 5, 8, 6)):
         if pose == 2:
             return [{"k": "tick_l" if k % 2 else "tick_r", "x": 100, "y": 150}]
         if pose == 3:
-            return [{"k": "heart", "x": 300, "y": 50 - 3 * k}, {"k": "sparkle_s", "x": 84, "y": 60}]
+            return [{"k": "sparkle", "x": 300, "y": 50 - 3 * k}, {"k": "sparkle_s", "x": 84, "y": 60}]
         return []
     frames = _authored_sequence(prefix, counts, nod_below=256, fx_fn=fx)
     assert len(frames) == N_INTERACTION, (prefix, len(frames))

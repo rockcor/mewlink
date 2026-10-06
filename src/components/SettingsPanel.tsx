@@ -1,6 +1,7 @@
 import { open } from '@tauri-apps/plugin-dialog';
 import { useEffect, useRef, useState } from 'react';
 import { PanelFrame } from './PanelFrame';
+import { PixelIcon } from './PixelIcon';
 import { CupIcon } from './CupIcon';
 import { AutostartSetting } from './AutostartSetting';
 import { appCopy } from '../i18n';
@@ -237,7 +238,7 @@ export function SettingsPanel({
             <div className="pairing-actions"><button type="button" className="pairing-primary" onClick={inviteExpired ? onCreatePairing : () => { void copyInvite(); }} disabled={pairingBusy || (!inviteExpired && (copyStatus === 'copying' || !inviteCode))} aria-busy={copyStatus === 'copying'}>{inviteExpired ? text.regenerate : copyStatus === 'copying' ? copyLabels.copying : copyStatus === 'copied' ? copyLabels.copied : text.copyInvite}</button><button type="button" className="pairing-quiet" onClick={onDisconnect} disabled={pairingBusy}>{text.cancel}</button></div>
             {!inviteExpired && (copyStatus === 'copied' || copyStatus === 'error') && <p className="pairing-status" role="status">{copyStatus === 'copied' ? appCopy[preferences.language].inviteCopied : appCopy[preferences.language].inviteCopyError}</p>}
           </>}
-          {pairing?.partnerDeviceId && <div className="pairing-connected"><span className="pairing-heart" aria-hidden="true">♥</span><div><b>{text.petsConnected}</b><small>{text.compareNumber}</small></div><button type="button" className="pairing-quiet" onClick={onDisconnect}>{text.disconnect}</button></div>}
+          {pairing?.partnerDeviceId && <div className="pairing-connected"><span className="pairing-mark" aria-hidden="true"><PixelIcon name="hug"/></span><div><b>{text.petsConnected}</b><small>{text.compareNumber}</small></div><button type="button" className="pairing-quiet" onClick={onDisconnect}>{text.disconnect}</button></div>}
           {pairing?.ratchet?.established && safetyCode && <div className="safety-code"><small>{text.safetyNumber}</small><b>{safetyCode}</b></div>}
           {pairing?.ratchet?.established && <button type="button" className="pairing-primary" onClick={onConfirmPairing}
             disabled={pairingBusy || pairing.ratchet.verified}>{pairing.ratchet.verified ? text.verifiedNumber : text.confirmNumber}</button>}

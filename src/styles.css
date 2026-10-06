@@ -439,7 +439,8 @@ button { font: inherit; }
 .pairing-connected > div { display: grid; gap: 2px; }
 .pairing-connected b { font-size: 9px; }
 .pairing-connected small { color: #9b7887; font-size: 8px; }
-.pairing-heart { display: grid; place-items: center; width: 30px; height: 30px; border-radius: 50%; background: #fff; color: #d986a5; }
+.pairing-mark { display: grid; place-items: center; width: 30px; height: 30px; border-radius: 50%; background: #fff; }
+.pairing-mark .pixel-icon { width: 20px; height: 20px; min-width: 20px; flex-basis: 20px; }
 .safety-code { display: flex; flex-direction: column; align-items: flex-start; gap: 8px; margin-top: 8px; padding: 8px 10px; border-radius: 10px; background: #f2e8ec; }
 .safety-code small { color: #694a59; font-size: 14px; }
 .safety-code b { color: #694a59; font: 800 14px/1.6 ui-monospace, SFMono-Regular, Menlo, monospace; letter-spacing: .05em; white-space: normal; }
