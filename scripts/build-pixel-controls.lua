@@ -11,11 +11,12 @@ local icons = {
     "     #### #bb#  ", "     #pp# #bb#  ", "     #pp# #bb#  ", "#### #pp# #bb#  ",
     "#mm# #pp# #bb#  ", "#mm# #pp# #bb#  ", "#mm# #pp# #bb#  ", "#mm# #pp# #bb#  ",
     "#### #### ####  ", "                ", "############### ", "                "}},
+  -- Two paws high-fiving (no heart: friends use MewLink too).
   {"hug", {
-    "                ", "   ###    ###   ", "  #ppp#  #ppp#  ", " #pccpp##ppppp# ",
-    " #pcpppppppppp# ", " #pppppppppppp# ", "  #pppppppppp#  ", "  ##pppppppp##  ",
-    " #cc#pppppp#cc# ", "#cccc#pppp#cccc#", "#cccc#pppp#cccc#", " #ccc#pppp#ccc# ",
-    "  ### #pp# ###  ", "       ##       ", "                ", "                "}},
+    "                ", "      #  #      ", "    #      #    ", "                ",
+    "  #####  #####  ", " #ccccc##ccccc# ", " #pcpcp##pcpcp# ", " #ccccc##ccccc# ",
+    " #cpppc##cpppc# ", " #cpppc##cpppc# ", " #ccccc##ccccc# ", "  #ccc#  #ccc#  ",
+    "   ###    ###   ", "                ", "                ", "                "}},
   {"replay", {
     "                ", "     ######     ", "   ##mmmmmm##   ", "  #mmm####mmm#  ",
     " #mm##    ##mm# ", " #m#   ##   #m# ", " #m#   #p#  #m# ", "###m#  #pp# #m# ",

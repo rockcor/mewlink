@@ -15,9 +15,10 @@ const twentyFourFrame = [
   ...['work', 'meeting', 'leisure', 'idle', 'rest'].flatMap(state =>
     ['ceramic', 'tumbler', 'bottle'].map(style => `water-${state}-${style}`)),
   ...['ceramic', 'tumbler', 'bottle'].map(style => `water-drink-${style}`),
-  'hug-work', 'hug-meeting', 'hug-leisure', 'hug-idle',
-  ...['blush', 'night', 'mint'].map(style => `hug-rest-${style}`),
 ];
+// Hugs: 8 frames of the visitor hopping in, 24 of the hug, 8 hopping away.
+const hugFrames = 40;
+const hugs = ['hug-work', 'hug-meeting', 'hug-leisure', 'hug-idle', ...['blush', 'night', 'mint'].map(style => `hug-rest-${style}`)];
 const states = ['work', 'meeting', 'leisure', 'idle', 'rest'];
 const transitionSpecs = states.flatMap(from => states.filter(to => to !== from).map(to => ({
   name: `transition-${from}-${to}`,
@@ -36,6 +37,7 @@ const expected = new Map([
   ...inputFrame.map(name => [name, 4]),
   ...stressedInputFrame.map(name => [name, 4]),
   ...twentyFourFrame.map(name => [name, loopFrames]),
+  ...hugs.map(name => [name, hugFrames]),
   ...transitionSpecs.map(({ name }) => [name, transitionFrames]),
   ['website-replay', 48],
 ]);
