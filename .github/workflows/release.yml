@@ -75,9 +75,26 @@ jobs:
           APPLE_ID: ${{ secrets.APPLE_ID }}
           APPLE_PASSWORD: ${{ secrets.APPLE_PASSWORD }}
           APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+          MACOS_SELF_SIGNED_CERTIFICATE: ${{ secrets.MACOS_SELF_SIGNED_CERTIFICATE }}
+          MACOS_SELF_SIGNED_CERTIFICATE_PASSWORD: ${{ secrets.MACOS_SELF_SIGNED_CERTIFICATE_PASSWORD }}
       - run: cargo test --manifest-path src-tauri/Cargo.toml --locked
+      # codesign only uses a self-signed identity that is trusted for code signing.
+      # The runner is thrown away after the job; users' Macs are never changed.
+      - name: Trust the MewLink self-signed signing certificate
+        if: runner.os == 'macOS' && steps.signing.outputs.selfsigned == 'true'
+        run: sudo security add-trusted-cert -d -r trustRoot -p codeSign -k /Library/Keychains/System.keychain src-tauri/macos/mewlink-self-signed.pem
       - uses: tauri-apps/tauri-action@v0
-        if: steps.signing.outputs.notarize != 'true'
+        if: steps.signing.outputs.notarize != 'true' && steps.signing.outputs.selfsigned != 'true'
+        with:
+          args: --target ${{ matrix.target }} --bundles ${{ matrix.bundles }}
+          uploadUpdaterJson: false
+      # Same certificate for every release, so macOS Keychain "Always Allow" survives updates.
+      - uses: tauri-apps/tauri-action@v0
+        if: steps.signing.outputs.selfsigned == 'true'
+        env:
+          APPLE_CERTIFICATE: ${{ secrets.MACOS_SELF_SIGNED_CERTIFICATE }}
+          APPLE_CERTIFICATE_PASSWORD: ${{ secrets.MACOS_SELF_SIGNED_CERTIFICATE_PASSWORD }}
+          APPLE_SIGNING_IDENTITY: MewLink Self-Signed Code Signing
         with:
           args: --target ${{ matrix.target }} --bundles ${{ matrix.bundles }}
           uploadUpdaterJson: false
@@ -99,6 +116,13 @@ jobs:
           executable=$(/usr/libexec/PlistBuddy -c 'Print :CFBundleExecutable' src-tauri/target/universal-apple-darwin/release/bundle/macos/MewLink.app/Contents/Info.plist)
           lipo "src-tauri/target/universal-apple-darwin/release/bundle/macos/MewLink.app/Contents/MacOS/$executable" -verify_arch arm64 x86_64
           codesign --verify --deep --strict src-tauri/target/universal-apple-darwin/release/bundle/macos/MewLink.app
+          if [ "${{ steps.signing.outputs.selfsigned }}" = "true" ]; then
+            app=src-tauri/target/universal-apple-darwin/release/bundle/macos/MewLink.app
+            codesign -dvv "$app" 2>&1 | grep -q "Authority=MewLink Self-Signed Code Signing"
+            leaf=$(openssl x509 -in src-tauri/macos/mewlink-self-signed.pem -noout -fingerprint -sha1 | sed 's/.*=//; s/://g' | tr 'A-F' 'a-f')
+            codesign -d -r- "$app" 2>&1 | tr 'A-F' 'a-f' | grep -Eq "certificate (leaf|root) = h\"$leaf\""
+            echo "Signed with the stable MewLink certificate (leaf $leaf)"
+          fi
           if [ "${{ steps.signing.outputs.notarize }}" = "true" ]; then
             xcrun stapler validate src-tauri/target/universal-apple-darwin/release/bundle/macos/MewLink.app
             spctl --assess --type execute src-tauri/target/universal-apple-darwin/release/bundle/macos/MewLink.app

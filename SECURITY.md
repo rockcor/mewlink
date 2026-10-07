@@ -61,9 +61,12 @@ not an account-level device manager: a lost sole device cannot be remotely
 revoked without the other paired device. An active compromised endpoint cannot
 be made trustworthy by re-pairing alone.
 
-MewLink ships as a public beta without an Apple Developer ID. macOS builds are
-ad-hoc signed and not notarized, so macOS shows a security warning on first
-launch. Publishing such a build requires the explicit `allow_unnotarized`
+MewLink ships as a public beta without an Apple Developer ID. macOS releases
+are signed with one fixed self-signed certificate (public half in
+`src-tauri/macos/mewlink-self-signed.pem`) and are not notarized, so macOS shows
+a security warning on first launch. Because the certificate never changes, the
+Keychain access a user approves ("Always Allow") stays valid across updates;
+release builds are never ad-hoc signed. Publishing such a build requires the explicit `allow_unnotarized`
 release input; if Developer ID credentials are configured later, the same
 workflow notarizes and verifies the ticket instead. Update packages always
 require the Tauri updater signature, which is separate from Apple signing.

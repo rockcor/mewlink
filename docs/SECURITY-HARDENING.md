@@ -56,9 +56,17 @@ never commit their values or paste private keys into an issue:
   replace the updater public key to work around a missing private key.
 
 These Apple secrets are optional while MewLink is a public beta. Without them,
-`scripts/check-release.mjs` allows an ad-hoc signed, unnotarized macOS build only
-for build-only runs or when the `allow_unnotarized` release input is set, and the
-release notes say so. With them, the workflow uses Tauri's Developer ID
+`scripts/macos-signing.mjs` allows an unnotarized macOS build only for build-only
+runs or when the `allow_unnotarized` release input is set, and the release notes
+say so. A published unnotarized build must be signed with the MewLink
+self-signed certificate (`MACOS_SELF_SIGNED_CERTIFICATE`, base64 PKCS#12, and
+`MACOS_SELF_SIGNED_CERTIFICATE_PASSWORD`); the runner trusts its public half
+(`src-tauri/macos/mewlink-self-signed.pem`) for code signing, and the build is
+checked to carry that exact certificate. Keychain items are bound to the code
+signature, so a stable certificate keeps users' "Always Allow" across updates;
+ad-hoc signatures change on every build. The private key lives only in the
+GitHub secret and with the maintainer (`~/.mewlink-signing/`); losing it means
+users approve Keychain access once more after the next update. With them, the workflow uses Tauri's Developer ID
 signing/notarization flow, then runs codesign, stapler and Gatekeeper checks.
 The updater key is always required. Do not publish a release whose verification
 job failed. Windows updater artifacts have updater signatures; Authenticode
@@ -76,7 +84,8 @@ References: [Tauri macOS signing](https://v2.tauri.app/distribute/sign/macos/),
   directions of encrypted delivery, revocation, wrong credentials, cancellation
   before creation, competing pairing requests and a send/revoke race. Requires
   the separate website checkout and its migrations.
-- `pnpm test:release`: missing credentials and rejection of ad-hoc/store identities.
+- `pnpm test:release`: missing credentials, rejection of ad-hoc/store identities, and
+  no ad-hoc fallback for a published unnotarized build.
 - `cargo test --manifest-path src-tauri/Cargo.toml`: native checks.
 - The opt-in native test `secure_storage::tests::native_credential_round_trip`
   creates and deletes only an isolated credential under
