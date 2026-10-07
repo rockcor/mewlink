@@ -135,9 +135,20 @@ jobs:
           codesign --verify --deep --strict src-tauri/target/universal-apple-darwin/release/bundle/macos/MewLink.app
           if [ "${{ steps.signing.outputs.selfsigned }}" = "true" ]; then
             app=src-tauri/target/universal-apple-darwin/release/bundle/macos/MewLink.app
-            codesign -dvv "$app" 2>&1 | grep -q "Authority=MewLink Self-Signed Code Signing"
+            details=$(codesign -dvv "$app" 2>&1)
+            requirement=$(codesign -d -r- "$app" 2>&1)
             leaf=$(openssl x509 -in src-tauri/macos/mewlink-self-signed.pem -noout -fingerprint -sha1 | sed 's/.*=//; s/://g' | tr 'A-F' 'a-f')
-            codesign -d -r- "$app" 2>&1 | tr 'A-F' 'a-f' | grep -Eq "certificate (leaf|root) = h\"$leaf\""
+            echo "$details" | grep -E '^(Identifier|Authority|TeamIdentifier|Signature)' || true
+            echo "$requirement"
+            echo "Expected certificate SHA-1: $leaf"
+            if ! grep -q 'Authority=MewLink Self-Signed Code Signing' <<< "$details"; then
+              echo "::error::MewLink.app is not signed by the MewLink self-signed certificate"; exit 1
+            fi
+            # The designated requirement pins the certificate by its SHA-1 hash
+            # (spelled "certificate leaf/root = H" or "anchor H" depending on macOS).
+            if ! tr 'A-F' 'a-f' <<< "$requirement" | grep -q "$leaf"; then
+              echo "::error::The designated requirement does not pin the MewLink certificate"; exit 1
+            fi
             echo "Signed with the stable MewLink certificate (leaf $leaf)"
           fi
           if [ "${{ steps.signing.outputs.notarize }}" = "true" ]; then
