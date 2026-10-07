@@ -78,11 +78,30 @@ jobs:
           MACOS_SELF_SIGNED_CERTIFICATE: ${{ secrets.MACOS_SELF_SIGNED_CERTIFICATE }}
           MACOS_SELF_SIGNED_CERTIFICATE_PASSWORD: ${{ secrets.MACOS_SELF_SIGNED_CERTIFICATE_PASSWORD }}
       - run: cargo test --manifest-path src-tauri/Cargo.toml --locked
-      # codesign only uses a self-signed identity that is trusted for code signing.
-      # The runner is thrown away after the job; users' Macs are never changed.
-      - name: Trust the MewLink self-signed signing certificate
+      # Tauri's own APPLE_CERTIFICATE import only accepts Apple-issued identity
+      # names, so the self-signed identity is installed here and Tauri gets just
+      # APPLE_SIGNING_IDENTITY. codesign only uses an identity that is trusted
+      # for code signing; the runner is thrown away after the job and users'
+      # Macs are never changed.
+      - name: Install the MewLink self-signed signing certificate
         if: runner.os == 'macOS' && steps.signing.outputs.selfsigned == 'true'
-        run: sudo security add-trusted-cert -d -r trustRoot -p codeSign -k /Library/Keychains/System.keychain src-tauri/macos/mewlink-self-signed.pem
+        env:
+          CERTIFICATE: ${{ secrets.MACOS_SELF_SIGNED_CERTIFICATE }}
+          CERTIFICATE_PASSWORD: ${{ secrets.MACOS_SELF_SIGNED_CERTIFICATE_PASSWORD }}
+        run: |
+          keychain="$RUNNER_TEMP/mewlink-signing.keychain-db"
+          keychain_password=$(openssl rand -hex 24)
+          security create-keychain -p "$keychain_password" "$keychain"
+          security set-keychain-settings -lut 21600 "$keychain"
+          security unlock-keychain -p "$keychain_password" "$keychain"
+          printf '%s' "$CERTIFICATE" | base64 --decode > "$RUNNER_TEMP/mewlink-signing.p12"
+          security import "$RUNNER_TEMP/mewlink-signing.p12" -k "$keychain" -P "$CERTIFICATE_PASSWORD" -T /usr/bin/codesign
+          rm -f "$RUNNER_TEMP/mewlink-signing.p12"
+          security set-key-partition-list -S apple-tool:,apple:,codesign: -s -k "$keychain_password" "$keychain" > /dev/null
+          security list-keychains -d user -s "$keychain" $(security list-keychains -d user | tr -d '"')
+          sudo security add-trusted-cert -d -r trustRoot -p codeSign -k /Library/Keychains/System.keychain src-tauri/macos/mewlink-self-signed.pem
+          security find-identity -v -p codesigning | grep -q "MewLink Self-Signed Code Signing"
+          echo "MewLink self-signed identity is ready for codesign"
       - uses: tauri-apps/tauri-action@v0
         if: steps.signing.outputs.notarize != 'true' && steps.signing.outputs.selfsigned != 'true'
         with:
@@ -92,8 +111,6 @@ jobs:
       - uses: tauri-apps/tauri-action@v0
         if: steps.signing.outputs.selfsigned == 'true'
         env:
-          APPLE_CERTIFICATE: ${{ secrets.MACOS_SELF_SIGNED_CERTIFICATE }}
-          APPLE_CERTIFICATE_PASSWORD: ${{ secrets.MACOS_SELF_SIGNED_CERTIFICATE_PASSWORD }}
           APPLE_SIGNING_IDENTITY: MewLink Self-Signed Code Signing
         with:
           args: --target ${{ matrix.target }} --bundles ${{ matrix.bundles }}

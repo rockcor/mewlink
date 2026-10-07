@@ -60,8 +60,10 @@ These Apple secrets are optional while MewLink is a public beta. Without them,
 runs or when the `allow_unnotarized` release input is set, and the release notes
 say so. A published unnotarized build must be signed with the MewLink
 self-signed certificate (`MACOS_SELF_SIGNED_CERTIFICATE`, base64 PKCS#12, and
-`MACOS_SELF_SIGNED_CERTIFICATE_PASSWORD`); the runner trusts its public half
-(`src-tauri/macos/mewlink-self-signed.pem`) for code signing, and the build is
+`MACOS_SELF_SIGNED_CERTIFICATE_PASSWORD`); the runner imports it into a build
+keychain and trusts its public half (`src-tauri/macos/mewlink-self-signed.pem`)
+for code signing (Tauri's own certificate import only accepts Apple-issued
+identity names), and the build is
 checked to carry that exact certificate. Keychain items are bound to the code
 signature, so a stable certificate keeps users' "Always Allow" across updates;
 ad-hoc signatures change on every build. The private key lives only in the
