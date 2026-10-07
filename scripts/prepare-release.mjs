@@ -32,7 +32,7 @@ try {
   const macDownload = { url: `https://github.com/${repository}/releases/download/v${version}/MewLink_${version}_universal.dmg`, format: 'dmg' };
   const manifest = {
     schema: 1, version, source: process.env.GITHUB_SHA,
-    notes: '新增加密动作历史与离线补传，可回放按键、鼠标和前台应用类别变化；双方在线时优先显示当前状态。修复配对码复制，鼠标移动不再触发紧张闭眼。双方请更新至此版本。 / Adds encrypted operation history, offline retry and replay of input rhythm and foreground categories. Live presence takes priority when both people are online. Fixes pairing-code copy and prevents pointer movement from triggering tense eyes. Update both devices.',
+    notes: '新增实时打字动画（默认关闭，双方可在设置中开启）；离开时小狗睡到垫子上，拥抱改为走近拥抱后离开，送水改为杯子滑入。升级至原生 ratchet 加密配对，双方请更新后重新配对并核对安全号码。测试版尚未经独立安全审计；macOS 可能未经公证，Windows 未进行 Authenticode 签名。 / Adds opt-in live typing animation (off by default), sleeping when away, walk-in/walk-out hugs, and sliding cups. Pairing now uses a native ratchet: update both devices, pair again, and compare safety numbers. Beta, not independently audited; macOS may be unnotarized and Windows is not Authenticode-signed.',
     pub_date: new Date().toISOString(),
     platforms: { 'darwin-aarch64': macUpdate, 'darwin-x86_64': macUpdate, 'windows-x86_64': winUpdate },
     downloads: { 'darwin-aarch64': macDownload, 'darwin-x86_64': macDownload, 'windows-x86_64': { url: winUpdate.url, format: 'exe' } },
