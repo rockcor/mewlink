@@ -32,6 +32,12 @@ what a person is doing, which is why it is opt-in. On macOS no pulse is sent
 while a password field has focus (Secure Event Input); Windows has no
 equivalent signal.
 
+Feedback typed into the app (a nickname, the message, the interface language
+and app version) is forwarded by email to the developer through the email
+service Resend. It is not published and MewLink's servers keep no copy; only
+anonymous counters (a daily-salted hash of the sender address) limit how often
+feedback can be sent.
+
 Unpairing stops this device's traffic. When the relay confirms the request, both
 devices lose access to that relationship's mailbox and its queued ciphertext is
 deleted. Offline requests are retained securely and retried while the app runs.

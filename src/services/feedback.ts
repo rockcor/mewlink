@@ -2,10 +2,13 @@ import type { Language } from '../settings/preferences';
 
 export const FEEDBACK_ENDPOINT = 'https://mewlink.jshmhsb.chatgpt.site/api/comments';
 
+// The site forwards feedback to the developer by email; it is never published.
 export interface FeedbackSubmission {
   nickname: string;
   message: string;
   language: Language;
+  /** App version, so a report can be matched to a release. */
+  version?: string;
 }
 
 export async function submitFeedback(

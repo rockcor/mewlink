@@ -42,7 +42,7 @@ export function compareVersions(left: string, right: string): number {
   return 0;
 }
 
-async function currentVersion(): Promise<string> {
+export async function currentVersion(): Promise<string> {
   if (typeof window !== 'undefined' && '__TAURI_INTERNALS__' in window) return getVersion();
   return FALLBACK_APP_VERSION;
 }

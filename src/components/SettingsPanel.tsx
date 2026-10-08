@@ -69,7 +69,7 @@ const copy = {
     petColor: '宠物配色', petColorNote: '选择自己的颜色；连接后会同步显示', petColorAria: '我的宠物配色', skins: { cream: '奶油', peach: '蜜桃', mint: '薄荷', sky: '晴空', lavender: '丁香', luka: 'Luka', sixtySix: '66', shell: '贝壳' },
     props: '互动道具', propsNote: '只有水杯和被子可以更换', cup: '水杯', blanket: '被子', blankets: { blush: '樱粉', night: '星夜', mint: '薄荷' },
     speed: '动画速度', speedNote: '默认采用更从容的节奏', speedAria: '动画速度', speeds: { calm: '舒缓', natural: '自然', lively: '活泼' },
-    feedback: '意见反馈', feedbackNote: '提交后会公开显示在官网评论区', nickname: '昵称', nicknamePlaceholder: '怎么称呼你', nicknameAria: '反馈昵称', feedbackPlaceholder: '写下你的感受或建议…', feedbackAria: '反馈内容', sendFeedback: '发送反馈',
+    feedback: '意见反馈', feedbackNote: '会发送到开发者邮箱，不会公开显示', nickname: '昵称', nicknamePlaceholder: '怎么称呼你', nicknameAria: '反馈昵称', feedbackPlaceholder: '写下你的感受或建议…', feedbackAria: '反馈内容', sendFeedback: '发送反馈',
   },
   'zh-Hant': {
     confirmNumber: '已核對，號碼完全一致', verifiedNumber: '已核對',
@@ -88,7 +88,7 @@ const copy = {
     petColor: '寵物配色', petColorNote: '選擇自己的顏色；連線後會同步顯示', petColorAria: '我的寵物配色', skins: { cream: '奶油', peach: '蜜桃', mint: '薄荷', sky: '晴空', lavender: '丁香', luka: 'Luka', sixtySix: '66', shell: '貝殼' },
     props: '互動道具', propsNote: '只有水杯和被子可以更換', cup: '水杯', blanket: '被子', blankets: { blush: '櫻粉', night: '星夜', mint: '薄荷' },
     speed: '動畫速度', speedNote: '預設採用更從容的節奏', speedAria: '動畫速度', speeds: { calm: '舒緩', natural: '自然', lively: '活潑' },
-    feedback: '意見回饋', feedbackNote: '提交後會公開顯示在官網留言區', nickname: '暱稱', nicknamePlaceholder: '怎麼稱呼你', nicknameAria: '回饋暱稱', feedbackPlaceholder: '寫下你的感受或建議…', feedbackAria: '回饋內容', sendFeedback: '傳送回饋',
+    feedback: '意見回饋', feedbackNote: '會傳送到開發者信箱，不會公開顯示', nickname: '暱稱', nicknamePlaceholder: '怎麼稱呼你', nicknameAria: '回饋暱稱', feedbackPlaceholder: '寫下你的感受或建議…', feedbackAria: '回饋內容', sendFeedback: '傳送回饋',
   },
   en: {
     confirmNumber: 'Compared — both numbers match', verifiedNumber: 'Verified',
@@ -107,7 +107,7 @@ const copy = {
     petColor: 'Companion color', petColorNote: 'Choose yours; it appears for your partner after pairing', petColorAria: 'My companion color', skins: { cream: 'Cream', peach: 'Peach', mint: 'Mint', sky: 'Sky', lavender: 'Lilac', luka: 'Luka', sixtySix: '66', shell: 'Shell' },
     props: 'Interaction props', propsNote: 'Only mugs and blankets can be changed', cup: 'Mug', blanket: 'Blanket', blankets: { blush: 'Blush', night: 'Night', mint: 'Mint' },
     speed: 'Animation speed', speedNote: 'A calmer pace is selected by default', speedAria: 'Animation speed', speeds: { calm: 'Calm', natural: 'Natural', lively: 'Lively' },
-    feedback: 'Feedback', feedbackNote: 'Your message will appear publicly in the website comments', nickname: 'Nickname', nicknamePlaceholder: 'How should we call you?', nicknameAria: 'Feedback nickname', feedbackPlaceholder: 'Share a thought or suggestion…', feedbackAria: 'Feedback message', sendFeedback: 'Send feedback',
+    feedback: 'Feedback', feedbackNote: 'Sent privately to the developer by email, never shown publicly', nickname: 'Nickname', nicknamePlaceholder: 'How should we call you?', nicknameAria: 'Feedback nickname', feedbackPlaceholder: 'Share a thought or suggestion…', feedbackAria: 'Feedback message', sendFeedback: 'Send feedback',
   },
 } as const;
 

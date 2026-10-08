@@ -71,7 +71,7 @@ export const appCopy: Record<Language, AppCopy> = {
     connected: '已连接，可以互相发送拥抱和喝水', waitingForInvite: '等待对方输入配对码', connectionRetry: '暂时无法连接，稍后会自动重试',
     incomingHug: 'TA 送来一个拥抱', incomingWater: 'TA 提醒你喝水', creatingInvite: '正在生成配对码…', createInviteError: '暂时无法生成，请稍后再试', connecting: '正在用配对码连接…', connectError: '配对码无效、已过期或暂时无法连接',
     inviteCopied: '配对码已复制，请私下发给对方', inviteCopyError: '复制失败，请手动记下配对码', disconnected: '已解除连接', pairFirst: '先连接 TA，才能送出互动', hugSent: '拥抱已送出', cupSent: name => `${name}已送出`, sendError: '暂时没有送出去', cupChanged: name => `已换成${name}`,
-    feedbackSending: '正在发送…', feedbackShared: '谢谢，已发送到官网评论区', feedbackError: '暂时没有发送成功，请稍后再试',
+    feedbackSending: '正在发送…', feedbackShared: '谢谢，已发送给开发者', feedbackError: '暂时没有发送成功，请稍后再试',
     petZone: 'MewLink 双人桌面宠物', soloPetZone: 'MewLink 桌面宠物', partnerWaiting: '等待同步', actionsAria: '给 TA 一个小动作', hug: '拥抱', water: '喝水', changeCup: '换杯', replay: '回放', statistics: '统计', settings: '设置', myPet: status => `我的宠物：${status}`, partnerPet: status => `TA 的宠物：${status}`,
   },
   'zh-Hant': {
@@ -89,7 +89,7 @@ export const appCopy: Record<Language, AppCopy> = {
     connected: '已連線，可以互相傳送擁抱和喝水', waitingForInvite: '等待對方輸入配對碼', connectionRetry: '暫時無法連線，稍後會自動重試',
     incomingHug: 'TA 送來一個擁抱', incomingWater: 'TA 提醒你喝水', creatingInvite: '正在產生配對碼…', createInviteError: '暫時無法產生，請稍後再試', connecting: '正在用配對碼連線…', connectError: '配對碼無效、已過期或暫時無法連線',
     inviteCopied: '配對碼已複製，請私下傳給對方', inviteCopyError: '複製失敗，請手動記下配對碼', disconnected: '已解除連線', pairFirst: '先連線 TA，才能送出互動', hugSent: '擁抱已送出', cupSent: name => `${name}已送出`, sendError: '暫時無法送出', cupChanged: name => `已換成${name}`,
-    feedbackSending: '正在傳送…', feedbackShared: '謝謝，已傳送至官網留言區', feedbackError: '暫時未能傳送成功，請稍後再試',
+    feedbackSending: '正在傳送…', feedbackShared: '謝謝，已傳送給開發者', feedbackError: '暫時未能傳送成功，請稍後再試',
     petZone: 'MewLink 雙人桌面寵物', soloPetZone: 'MewLink 桌面寵物', partnerWaiting: '等待同步', actionsAria: '給 TA 一個小動作', hug: '擁抱', water: '喝水', changeCup: '換杯', replay: '回放', statistics: '統計', settings: '設定', myPet: status => `我的寵物：${status}`, partnerPet: status => `TA 的寵物：${status}`,
   },
   en: {
@@ -107,7 +107,7 @@ export const appCopy: Record<Language, AppCopy> = {
     connected: 'Connected — you can send hugs and water', waitingForInvite: 'Waiting for the other person to enter the pairing code', connectionRetry: 'Unable to connect right now. Retrying automatically.',
     incomingHug: 'Your friend sent a hug', incomingWater: 'Your friend reminded you to drink water', creatingInvite: 'Creating a pairing code…', createInviteError: 'Unable to create a pairing code. Try again later.', connecting: 'Connecting with the pairing code…', connectError: 'The pairing code is invalid, expired, or unavailable right now',
     inviteCopied: 'Pairing code copied — send it privately', inviteCopyError: 'Copy failed. Note the pairing code manually.', disconnected: 'Disconnected', pairFirst: 'Connect someone before sending an interaction', hugSent: 'Hug sent', cupSent: name => `${name} sent`, sendError: 'Unable to send right now', cupChanged: name => `Changed to ${name}`,
-    feedbackSending: 'Sending…', feedbackShared: 'Thank you — posted to the website comments', feedbackError: 'Unable to send right now. Try again later.',
+    feedbackSending: 'Sending…', feedbackShared: 'Thank you — sent to the developer', feedbackError: 'Unable to send right now. Try again later.',
     petZone: 'MewLink desktop companions', soloPetZone: 'MewLink desktop companion', partnerWaiting: 'Waiting to sync', actionsAria: 'Send your partner a small gesture', hug: 'Hug', water: 'Water', changeCup: 'Cup', replay: 'Replay', statistics: 'Stats', settings: 'Settings', myPet: status => `Your companion: ${status}`, partnerPet: status => `Partner companion: ${status}`,
   },
 };

@@ -29,7 +29,7 @@ import { localUtcOffsetMinutes } from './platform/clock';
 import { languageTags, watchSystemLanguage } from './platform/language';
 import { joinWithPairingCode, registerPairCreator, RelayError, requestLiveTicket, resumePairingRegistration, revokeRelationship, syncEncryptedEvents } from './services/relayTransport';
 import { useLiveTyping } from './live/useLiveTyping';
-import { checkForUpdate, installUpdate } from './services/update';
+import { checkForUpdate, currentVersion, installUpdate } from './services/update';
 import { submitFeedback } from './services/feedback';
 import type { Update } from '@tauri-apps/plugin-updater';
 import { discardRelationshipHistory, pruneEventsOlderThan, putEvent } from './storage/events';
@@ -1027,7 +1027,8 @@ export default function App() {
     setFeedbackSending(true);
     setFeedbackStatus(text.feedbackSending);
     try {
-      await submitFeedback({ nickname, message, language: preferences.language });
+      const version = await currentVersion().catch(() => undefined);
+      await submitFeedback({ nickname, message, language: preferences.language, version });
       window.localStorage.setItem(feedbackNicknameKey, nickname);
       setFeedback('');
       setFeedbackStatus(text.feedbackShared);

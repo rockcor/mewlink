@@ -2,12 +2,12 @@ import { describe, expect, it, vi } from 'vitest';
 import { FEEDBACK_ENDPOINT, submitFeedback } from './feedback';
 
 describe('feedback submission', () => {
-  it('sends the nickname and message to the public comments endpoint', async () => {
+  it('sends the nickname, message and app version for the developer', async () => {
     const fetcher = vi.fn(async () => new Response(JSON.stringify({ ok: true }), { status: 201 }));
-    await submitFeedback({ nickname: 'Luka', message: '动画很可爱', language: 'zh' }, fetcher as typeof fetch);
+    await submitFeedback({ nickname: 'Luka', message: '动画很可爱', language: 'zh', version: '0.3.28' }, fetcher as typeof fetch);
     expect(fetcher).toHaveBeenCalledWith(FEEDBACK_ENDPOINT, expect.objectContaining({
       method: 'POST',
-      body: JSON.stringify({ nickname: 'Luka', message: '动画很可爱', language: 'zh', source: 'app' })
+      body: JSON.stringify({ nickname: 'Luka', message: '动画很可爱', language: 'zh', version: '0.3.28', source: 'app' })
     }));
   });
 
