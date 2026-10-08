@@ -1,17 +1,17 @@
 import { useRef, useState, type KeyboardEvent, type PointerEvent } from 'react';
-import { sessionBreaks, type ReplayDay } from '../history/days';
+import { restSpans, type ReplayDay } from '../history/days';
 import { PixelIcon } from './PixelIcon';
 
 /** "TA 的回放 · 5 小时": offered under the partner's pup instead of starting by itself. */
-export function ReplayNotice({ label, onPlay }: { label: string; onPlay: () => void }) {
-  return <button type="button" className="replay-notice" onPointerDown={event => event.stopPropagation()} onClick={onPlay}>
+export function ReplayNotice({ label, detail, onPlay }: { label: string; detail: string; onPlay: () => void }) {
+  return <button type="button" className="replay-notice" title={detail} onPointerDown={event => event.stopPropagation()} onClick={onPlay}>
     <PixelIcon name="replay" /><span>{label}</span>
   </button>;
 }
 
 interface ScrubberProps {
   day: ReplayDay;
-  /** 0..1 of the day's recorded time. */
+  /** 0..1 of the day, rest included. */
   progress: number;
   /** Where the replay is, in the partner's own time. */
   timeLabel: string;
@@ -21,7 +21,7 @@ interface ScrubberProps {
   onClose: () => void;
 }
 
-/** A video-style bar for one day: breaks are marked, click or drag to jump, arrows step 5%. */
+/** A video-style bar for one day: rest is dotted, click or drag to jump, arrows step 5%. */
 export function ReplayScrubber({ day, progress, timeLabel, positionLabel, closeLabel, onSeek, onClose }: ScrubberProps) {
   const track = useRef<HTMLDivElement>(null);
   const [dragging, setDragging] = useState<number>();
@@ -46,7 +46,8 @@ export function ReplayScrubber({ day, progress, timeLabel, positionLabel, closeL
       onPointerCancel={() => setDragging(undefined)}
       onKeyDown={step}>
       <span className="replay-fill" style={{ width: `${shown * 100}%` }} />
-      {sessionBreaks(day).map(at => <i key={at} className="replay-break" style={{ left: `${at * 100}%` }} />)}
+      {restSpans(day).map(rest => <i key={rest.from} className="replay-rest"
+        style={{ left: `${rest.from * 100}%`, width: `${(rest.to - rest.from) * 100}%` }} />)}
       <span className="replay-thumb" style={{ left: `${shown * 100}%` }} />
     </div>
     <button type="button" className="replay-close" aria-label={closeLabel} title={closeLabel} onClick={onClose}><PixelIcon name="close" /></button>

@@ -878,14 +878,11 @@ button { font: inherit; }
   border-radius: 999px;
   background: linear-gradient(90deg, #e9a3bb, #d986a5);
 }
-.replay-break {
+.replay-rest {
   position: absolute;
-  top: 4px;
-  width: 2px;
-  height: 6px;
-  margin-left: -1px;
-  border-radius: 1px;
-  background: rgba(255, 250, 247, .95);
+  top: 5px;
+  height: 4px;
+  background: repeating-linear-gradient(90deg, rgba(255, 250, 247, .9) 0 2px, transparent 2px 4px);
 }
 .replay-thumb {
   position: absolute;

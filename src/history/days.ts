@@ -3,10 +3,12 @@ import type { Language } from '../platform/language';
 import { OPERATION_BATCH_MS } from './operations';
 
 // Replay is offered per day of the partner's own calendar (a day ends at their
-// midnight). Pieces recorded less than SESSION_GAP_MS apart form one session;
-// sessions are played back to back, so breaks cost no playback time and the
-// progress bar measures recorded time only.
-export const SESSION_GAP_MS = 15 * 60_000;
+// midnight) and runs on their real clock, from the first record of the day to
+// the last. While the app runs, two minutes without input are recorded as idle
+// and ten as rest, so a longer silence means the app was offline (closed,
+// asleep, recording off): all of it is shown as rest, taking its true share of
+// the bar and of the playback time.
+export const REST_GAP_MS = 3 * 60_000;
 /** A whole day plays back in about this long; the user can jump anywhere on the bar. */
 export const DAY_PLAYBACK_MS = 45_000;
 
@@ -14,8 +16,9 @@ export interface ReplaySession { start: number; end: number }
 export interface ReplayDay {
   key: string;
   refs: HistoryRef[];
+  /** Stretches with records; the gaps between them are rest. */
   sessions: ReplaySession[];
-  /** Recorded time, breaks excluded. */
+  /** Time inside sessions. */
   activeMs: number;
   start: number;
   end: number;
@@ -32,7 +35,7 @@ export function dayKey(at: number, offsetMinutes: number) {
   return new Date(at + offsetMinutes * 60_000).toISOString().slice(0, 10);
 }
 
-const spanOf = (ref: HistoryRef) => ref.kind === 'operation.batch' ? OPERATION_BATCH_MS : 1_000;
+const refSpan = (ref: HistoryRef) => ref.kind === 'operation.batch' ? OPERATION_BATCH_MS : 1_000;
 
 export function groupReplayDays(refs: readonly HistoryRef[], offsetMinutes: number): ReplayDay[] {
   const days = new Map<string, ReplayDay>();
@@ -43,9 +46,9 @@ export function groupReplayDays(refs: readonly HistoryRef[], offsetMinutes: numb
     let day = days.get(key);
     if (!day) { day = { key, refs: [], sessions: [], activeMs: 0, start: at, end: at }; days.set(key, day); }
     day.refs.push(ref);
-    const end = at + spanOf(ref);
+    const end = at + refSpan(ref);
     const last = day.sessions.at(-1);
-    if (last && at - last.end <= SESSION_GAP_MS) last.end = Math.max(last.end, end);
+    if (last && at - last.end <= REST_GAP_MS) last.end = Math.max(last.end, end);
     else day.sessions.push({ start: at, end });
     day.end = Math.max(day.end, end);
   }
@@ -53,41 +56,45 @@ export function groupReplayDays(refs: readonly HistoryRef[], offsetMinutes: numb
   return [...days.values()].sort((a, b) => a.start - b.start);
 }
 
-/** Share (0..1) of the day's recorded time that has passed at instant `at`. */
+/** From the first record to the last, rest included. */
+export const daySpanMs = (day: ReplayDay) => day.end - day.start;
+
+/** Share (0..1) of the day that has passed at instant `at`. */
 export function dayProgress(day: ReplayDay, at: number) {
-  if (day.activeMs <= 0) return 0;
-  let elapsed = 0;
-  for (const session of day.sessions) {
-    if (at <= session.start) break;
-    elapsed += Math.min(at, session.end) - session.start;
-  }
-  return Math.min(1, Math.max(0, elapsed / day.activeMs));
+  const span = daySpanMs(day);
+  return span > 0 ? Math.min(1, Math.max(0, (at - day.start) / span)) : 0;
 }
 
-/** The instant at which `fraction` of the day's recorded time has passed. */
+/** The instant at `fraction` of the day. */
 export function dayInstant(day: ReplayDay, fraction: number) {
-  let remaining = Math.min(1, Math.max(0, fraction)) * day.activeMs;
-  for (const session of day.sessions) {
-    const length = session.end - session.start;
-    if (remaining <= length) return session.start + remaining;
-    remaining -= length;
-  }
-  return day.end;
+  return day.start + Math.min(1, Math.max(0, fraction)) * daySpanMs(day);
 }
 
-/** Where each session after the first starts on the bar (0..1), to mark the breaks. */
-export function sessionBreaks(day: ReplayDay) {
-  return day.sessions.slice(1).map(session => dayProgress(day, session.start));
+/** The rests between sessions, as bar positions (0..1). */
+export function restSpans(day: ReplayDay) {
+  return day.sessions.slice(1).map((session, index) => ({
+    from: dayProgress(day, day.sessions[index].end), to: dayProgress(day, session.start),
+  }));
 }
 
-/** Recorded time after `seen` (the replay watermark), breaks excluded. */
+/** Whether `at` falls in a rest between two sessions. */
+export function restingAt(day: ReplayDay, at: number) {
+  return day.sessions.some((session, index) => index > 0 && at < session.start && at >= day.sessions[index - 1].end);
+}
+
+/** Time after `seen` (the replay watermark), rest included. */
 export function unseenMs(day: ReplayDay, seen: number) {
+  return Math.max(0, day.end - Math.max(day.start, seen));
+}
+
+/** Time in sessions after `seen`. */
+export function unseenWorkMs(day: ReplayDay, seen: number) {
   return day.sessions.reduce((sum, s) => sum + Math.max(0, s.end - Math.max(s.start, seen)), 0);
 }
 
 /** Playback speed so a day lasts about DAY_PLAYBACK_MS, never slower than 4x. */
 export function daySpeed(day: ReplayDay) {
-  return Math.max(4, day.activeMs / DAY_PLAYBACK_MS);
+  return Math.max(4, daySpanMs(day) / DAY_PLAYBACK_MS);
 }
 
 export function formatDuration(ms: number, language: Language) {

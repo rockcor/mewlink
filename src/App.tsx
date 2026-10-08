@@ -6,7 +6,7 @@ import { SettingsPanel, type UpdateViewState } from './components/SettingsPanel'
 import { StatisticsPanel } from './components/StatisticsPanel';
 import { PetActions } from './components/PetActions';
 import { ReplayNotice, ReplayScrubber } from './components/ReplayControls';
-import { formatDuration, partnerClock } from './history/days';
+import { dayInstant, formatDuration, partnerClock } from './history/days';
 import { consumeCup, restorePendingCups, waterClickAction, type PendingCups, type PetTarget } from './pet/pendingCups';
 import { hugSkins } from './pet/hugOwnership';
 import type { ActivityKind, BlanketStyle, CupStyle, InteractionKind, InteractionPayload, PetSkin, PlainEvent, StatisticsPayload, StatisticsVisibility, StoredEvent, WorkVisual } from './domain/types';
@@ -1131,9 +1131,10 @@ export default function App() {
         {connected && !settingsOpen && !statisticsOpen && (playing || history.unseen) && <div className="replay-dock">
           {playing && history.playingDay
             ? <ReplayScrubber day={history.playingDay} progress={history.progress}
-              timeLabel={partnerClock(current ? Date.parse(current.at) : history.playingDay.start, partnerUtcOffsetMinutes ?? receiverUtcOffsetMinutes)}
+              timeLabel={partnerClock(dayInstant(history.playingDay, history.progress), partnerUtcOffsetMinutes ?? receiverUtcOffsetMinutes)}
               positionLabel={text.replayPosition} closeLabel={text.stopReplay} onSeek={history.seek} onClose={history.stop} />
             : history.unseen && <ReplayNotice label={text.replayNotice(formatDuration(history.unseen.ms, preferences.language), history.unseen.days)}
+              detail={text.replayDetail(formatDuration(history.unseen.workMs, preferences.language), formatDuration(history.unseen.ms - history.unseen.workMs, preferences.language))}
               onPlay={() => { void history.start({ unseen: true }); }} />}
         </div>}
         {(notice || history.error) && <div className="pet-toast" aria-live="polite">{notice || text.historyError}</div>}

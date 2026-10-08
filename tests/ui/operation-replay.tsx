@@ -7,7 +7,7 @@ import type { PairingState } from '../../src/pairing/pairing';
 import type { ActivityKind, PlainEvent, StoredEvent, WorkVisual } from '../../src/domain/types';
 import { SpriteCanvas } from '../../src/pet/SpriteCanvas';
 import { ReplayNotice, ReplayScrubber } from '../../src/components/ReplayControls';
-import { formatDuration, partnerClock } from '../../src/history/days';
+import { dayInstant, daySpanMs, formatDuration, partnerClock } from '../../src/history/days';
 import '../../src/settings-panel.css';
 import { transitionAssetName, useActivityPlayback } from '../../src/pet/activityPlayback';
 import { visualInputForActivity } from '../../src/platform/activity';
@@ -27,7 +27,7 @@ export function Checks() {
     return stored;
   }, []);
   const replay = useOperationHistory({ pairing: identity, enabled, paused, activity: 'work', workVisual: 'code',
-    retentionHours: 12, receiverOffset: -420, partnerOffset: 480, showTimezone: true, language: 'zh', revision, durationScale: 0.2, onRecord,
+    retentionHours: 48, receiverOffset: -420, partnerOffset: 480, showTimezone: true, language: 'zh', revision, durationScale: 0.2, onRecord,
     displayReady: (activity, visual) => ready.current(activity, visual) });
   const playback = useActivityPlayback({ desiredActivity: replay.playing ? replay.display.activity : 'work',
     desiredWorkVisual: replay.playing ? replay.display.workVisual : 'web', initialActivity: 'work', initialWorkVisual: 'web',
@@ -42,7 +42,10 @@ export function Checks() {
     replay.stop();
     await discardRelationshipHistory(identity.relationshipId);
     // A partner day: 40 min of work, a long lunch, then 30 min more with a hug.
-    const sessions = [[Date.now() - 6 * 3600_000, 40], [Date.now() - 3 * 3600_000, 30]] as const;
+    // From 09:00 on the partner's (UTC+8) latest day that has already reached 13:00.
+    let base = Math.floor((Date.now() + 480 * 60_000) / 86_400_000) * 86_400_000 - 480 * 60_000 + 9 * 3600_000;
+    if (base + 4 * 3600_000 > Date.now()) base -= 86_400_000;
+    const sessions = [[base, 40], [base + 3 * 3600_000, 30]] as const;
     const visuals = [0, 1, 2, 3];
     let index = 0;
     for (const [start, minutes] of sessions) {
@@ -83,13 +86,14 @@ export function Checks() {
         className={`pet-sprite partner-sprite activity-transition ${transitionAssetName(playback.transition)}`}
         onPlaybackEnd={() => playback.completeTransition(playback.transition!.key)} />}
     </div>
-    <p>Days: {replay.days.map(day => `${day.key} ${formatDuration(day.activeMs, 'zh')} (${day.sessions.length} sessions)`).join('; ') || 'none'} · progress {replay.progress.toFixed(3)}</p>
+    <p>Days: {replay.days.map(day => `${day.key} ${formatDuration(daySpanMs(day), 'zh')}, work ${formatDuration(day.activeMs, 'zh')} (${day.sessions.length} sessions)`).join('; ') || 'none'} · progress {replay.progress.toFixed(3)}</p>
     <div className="pet-zone" data-testid="window" style={{ width: 440, height: 120, position: 'relative', background: '#f6ece6', borderRadius: 12 }}>
       <div className="replay-dock">
         {replay.playing && replay.playingDay
-          ? <ReplayScrubber day={replay.playingDay} progress={replay.progress} timeLabel={partnerClock(frame ? Date.parse(frame.at) : replay.playingDay.start, 480)}
+          ? <ReplayScrubber day={replay.playingDay} progress={replay.progress} timeLabel={partnerClock(dayInstant(replay.playingDay, replay.progress), 480)}
             positionLabel="回放进度" closeLabel="结束回放" onSeek={replay.seek} onClose={replay.stop} />
-          : replay.unseen && <ReplayNotice label={`TA 的回放 · ${formatDuration(replay.unseen.ms, 'zh')}`} onPlay={() => { void replay.start({ unseen: true }); }} />}
+          : replay.unseen && <ReplayNotice label={`TA 的回放 · ${formatDuration(replay.unseen.ms, 'zh')}`}
+            detail={`工作 ${formatDuration(replay.unseen.workMs, 'zh')} · 休息 ${formatDuration(replay.unseen.ms - replay.unseen.workMs, 'zh')}`} onPlay={() => { void replay.start({ unseen: true }); }} />}
       </div>
     </div>
     <p>Frames: {progress.slice(-6).join(', ')}</p>
