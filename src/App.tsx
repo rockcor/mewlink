@@ -5,6 +5,8 @@ import { v4 as uuid } from 'uuid';
 import { SettingsPanel, type UpdateViewState } from './components/SettingsPanel';
 import { StatisticsPanel } from './components/StatisticsPanel';
 import { PetActions } from './components/PetActions';
+import { ReplayNotice, ReplayScrubber } from './components/ReplayControls';
+import { formatDuration, partnerClock } from './history/days';
 import { consumeCup, restorePendingCups, waterClickAction, type PendingCups, type PetTarget } from './pet/pendingCups';
 import { hugSkins } from './pet/hugOwnership';
 import type { ActivityKind, BlanketStyle, CupStyle, InteractionKind, InteractionPayload, PetSkin, PlainEvent, StatisticsPayload, StatisticsVisibility, StoredEvent, WorkVisual } from './domain/types';
@@ -73,12 +75,9 @@ export default function App() {
   const liveInput = useRef<(previous: InputSignal, current: InputSignal) => void>(() => undefined);
   const syncNow = useRef<() => Promise<void>>(async () => undefined);
   const historyScreenChange = useRef<() => void>(() => undefined);
-  const historyStart = useRef<(unseenOnly?: boolean) => Promise<void>>(async () => undefined);
   const historyStop = useRef<() => void>(() => undefined);
   const replayingRef = useRef(false);
   const syncStartedAt = useRef(Date.now());
-  const autoReplayPending = useRef(true);
-  const autoReplayRunning = useRef(false);
   const [gesture, setGesture] = useState<{ id: string; variant: GestureVariant; target: PetTarget; cupStyle?: CupStyle; blanketStyle?: BlanketStyle }>();
   const [pendingCups, setPendingCups] = useState(loadPendingCups);
   const pendingCupsRef = useRef(pendingCups);
@@ -359,13 +358,12 @@ export default function App() {
     pairing, enabled: preferences.replayEnabled, activity, workVisual, paused: renderPaused,
     retentionHours: preferences.replayRetentionHours, receiverOffset: receiverUtcOffsetMinutes,
     showTimezone: preferences.timezoneMode !== 'off', language: preferences.language,
-    revision: historyRevision, onRecord: enqueueEncryptedEvent, durationScale,
+    revision: historyRevision, partnerOffset: partnerUtcOffsetMinutes, onRecord: enqueueEncryptedEvent, durationScale,
     displayReady: (target, visual) => !partnerPlayback.transition && partnerPlayback.displayedActivity === target
       && (target !== 'work' || partnerPlayback.displayedWorkVisual === visual),
   });
   historyInput.current = history.recordInput;
   historyScreenChange.current = history.recordScreenChange;
-  historyStart.current = history.start;
   historyStop.current = history.stop;
   replayingRef.current = history.playing;
   const playing = history.playing;
@@ -588,15 +586,8 @@ export default function App() {
               drinkCup('partner', payload.cupEventId, true);
             }
           }
+          // Replay is offered by a notice (with its length), never started automatically.
           setPresenceNow(Date.now());
-          if (result.partnerOnline && autoReplayRunning.current) historyStop.current();
-          if (autoReplayPending.current && result.caughtUp) {
-            autoReplayPending.current = false;
-            if (!result.partnerOnline) {
-              autoReplayRunning.current = true;
-              void historyStart.current(true).finally(() => { autoReplayRunning.current = false; });
-            }
-          }
         });
       } catch (error) {
         if (!stopped && !pairingBlockedRef.current) setPairingStatus(error instanceof RatchetError ? text.ratchetStorageError : text.connectionRetry);
@@ -611,7 +602,7 @@ export default function App() {
     // so it waits for a sync already running and then starts another.
     syncNow.current = () => (inflight ? inflight.then(sync) : sync());
     void sync();
-    const reconnect = () => { autoReplayPending.current = true; syncStartedAt.current = Date.now(); void sync(); };
+    const reconnect = () => { syncStartedAt.current = Date.now(); void sync(); };
     window.addEventListener('online', reconnect);
     const timer = window.setInterval(() => { void sync(); }, 2_500);
     return () => { stopped = true; syncNow.current = async () => undefined; window.clearInterval(timer); window.removeEventListener('online', reconnect); };
@@ -1076,7 +1067,7 @@ export default function App() {
             onStatistics={() => { void openPanel('statistics'); }}
             onHug={() => { void send('hug'); }}
             onWater={() => { void send('water'); }}
-            onReplay={() => { dismissPetMenu(); void history.start(); }} />
+            onReplay={() => { dismissPetMenu(); void history.start(history.playing || !history.unseen ? {} : { unseen: true }); }} />
         </div>
 
         <div className={`pet-pair ${connected ? 'paired' : 'solo'} ${displayedGesture ? `interacting target-${displayedGesture.target} interaction-${displayedGesture.variant.startsWith('hug') ? 'hug' : 'water'}` : ''}`}>
@@ -1137,6 +1128,14 @@ export default function App() {
           {displayedGesture && <SpriteCanvas key={displayedGesture.id} skin={gestureSkins.receiver} senderSkin={displayedGesture.variant.startsWith('hug') ? gestureSkins.sender : undefined} paused={renderPaused} className={`interaction-sprite ${displayedGesture.variant} target-${displayedGesture.target} cup-${displayedGesture.cupStyle ?? 'ceramic'} blanket-${displayedGesture.blanketStyle ?? preferences.blanketStyle}`} aria-hidden="true" />}
           {(['self', 'partner'] as const).map(target => pendingCups[target] && !(displayedGesture?.target === target && displayedGesture.variant.startsWith('water')) && <span key={target} className={`waiting-cup target-${target} ${pendingCups[target]!.style}`} aria-label={text.water}><i /><i /></span>)}
         </div>
+        {connected && !settingsOpen && !statisticsOpen && (playing || history.unseen) && <div className="replay-dock">
+          {playing && history.playingDay
+            ? <ReplayScrubber day={history.playingDay} progress={history.progress}
+              timeLabel={partnerClock(current ? Date.parse(current.at) : history.playingDay.start, partnerUtcOffsetMinutes ?? receiverUtcOffsetMinutes)}
+              positionLabel={text.replayPosition} closeLabel={text.stopReplay} onSeek={history.seek} onClose={history.stop} />
+            : history.unseen && <ReplayNotice label={text.replayNotice(formatDuration(history.unseen.ms, preferences.language), history.unseen.days)}
+              onPlay={() => { void history.start({ unseen: true }); }} />}
+        </div>}
         {(notice || history.error) && <div className="pet-toast" aria-live="polite">{notice || text.historyError}</div>}
         {settingsOpen && <SettingsPanel
           preferences={preferences}

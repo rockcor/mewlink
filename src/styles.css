@@ -808,3 +808,107 @@ button { font: inherit; }
     transition-duration: .001ms !important;
   }
 }
+
+/* Replay: a notice with the length on offer, then a video-style bar under the partner's pup. */
+.replay-dock {
+  position: absolute;
+  z-index: 4;
+  right: 10px;
+  bottom: 6px;
+  display: flex;
+  justify-content: flex-end;
+  width: 212px;
+  pointer-events: none;
+}
+.replay-notice,
+.replay-scrubber {
+  pointer-events: auto;
+  border: 1px solid rgba(111, 64, 89, .12);
+  background: rgba(255, 250, 247, .95);
+  box-shadow: 0 8px 22px rgba(69, 36, 55, .16);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  animation: pet-toast-in 160ms ease both;
+}
+.replay-notice {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  max-width: 100%;
+  padding: 5px 10px 5px 7px;
+  border-radius: 999px;
+  color: #6a485a;
+  font: inherit;
+  font-size: 10px;
+  font-weight: 650;
+  white-space: nowrap;
+  cursor: pointer;
+}
+.replay-notice span { overflow: hidden; text-overflow: ellipsis; }
+.replay-notice:hover { background: #fff; }
+.replay-notice:focus-visible, .replay-track:focus-visible, .replay-close:focus-visible { outline: 2px solid #d986a5; outline-offset: 2px; }
+.replay-scrubber {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  align-items: center;
+  gap: 7px;
+  width: 100%;
+  padding: 5px 5px 5px 9px;
+  border-radius: 999px;
+}
+.replay-time { color: #8a6878; font-size: 9px; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.replay-track {
+  position: relative;
+  height: 14px;
+  cursor: pointer;
+  touch-action: none;
+}
+.replay-track::before {
+  content: '';
+  position: absolute;
+  inset: 5px 0;
+  border-radius: 999px;
+  background: #f1dfe5;
+}
+.replay-fill {
+  position: absolute;
+  left: 0;
+  top: 5px;
+  height: 4px;
+  border-radius: 999px;
+  background: linear-gradient(90deg, #e9a3bb, #d986a5);
+}
+.replay-break {
+  position: absolute;
+  top: 4px;
+  width: 2px;
+  height: 6px;
+  margin-left: -1px;
+  border-radius: 1px;
+  background: rgba(255, 250, 247, .95);
+}
+.replay-thumb {
+  position: absolute;
+  top: 2px;
+  width: 10px;
+  height: 10px;
+  margin-left: -5px;
+  border: 2px solid #fff;
+  border-radius: 50%;
+  background: #d986a5;
+  box-shadow: 0 1px 4px rgba(69, 36, 55, .3);
+}
+.replay-close {
+  display: grid;
+  place-items: center;
+  width: 20px;
+  height: 20px;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: transparent;
+  cursor: pointer;
+}
+.replay-close .pixel-icon { width: 12px; height: 12px; min-width: 12px; flex-basis: 12px; }
+.replay-close:hover { background: #f6e7ec; }
+@media (prefers-reduced-motion: reduce) { .replay-notice, .replay-scrubber { animation: none; } }
