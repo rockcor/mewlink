@@ -157,6 +157,8 @@ jobs:
             echo "MEWLINK_NOTARIZED=true" >> "$GITHUB_ENV"
           fi
       - run: node scripts/collect-release.mjs ${{ matrix.platform }} ${{ matrix.target }}
+        env:
+          MEWLINK_SELF_SIGNED: ${{ steps.signing.outputs.selfsigned }}
       - uses: actions/upload-artifact@v4
         with:
           name: release-${{ matrix.platform }}
@@ -198,7 +200,7 @@ jobs:
           if gh release view "$tag" --json isDraft > release-state.json 2>/dev/null; then
             node -e "if (!require('./release-state.json').isDraft) throw Error('Refusing to replace a published version')"
           else
-            gh release create "$tag" --target "$GITHUB_SHA" --draft --prerelease --title "MewLink $tag" --notes "Public beta for macOS (Apple Silicon and Intel) and Windows x64. New connections use a native Olm ratchet: both people need to update, pair again and compare safety numbers. Update packages are signature-verified. macOS may be unnotarized; Windows is not Authenticode-signed. OS warnings may appear. Not independently audited; do not use for sensitive communication."
+            gh release create "$tag" --target "$GITHUB_SHA" --draft --prerelease --title "MewLink $tag" --notes "$(node -p "require('./release-assets/latest.json').notes")"
           fi
           gh release upload "$tag" release-assets/MewLink_* release-assets/latest.json release-assets/SHA256SUMS --clobber
           gh release edit "$tag" --draft=false --prerelease --latest=false

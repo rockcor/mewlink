@@ -25,4 +25,5 @@ assert.match(process.env.GITHUB_SHA ?? '', /^[0-9a-f]{40}$/);
 writeFileSync(join(output, `build-${platform}.json`), JSON.stringify({
   version, platform, commit: process.env.GITHUB_SHA, files,
   notarized: platform === 'macos' && process.env.MEWLINK_NOTARIZED === 'true',
+  selfSigned: platform === 'macos' && process.env.MEWLINK_SELF_SIGNED === 'true',
 }, null, 2));

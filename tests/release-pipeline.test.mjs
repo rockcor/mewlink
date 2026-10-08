@@ -3,13 +3,18 @@ import test from 'node:test';
 import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { assertVersions, combineBuilds } from '../scripts/release-common.mjs';
+import { assertVersions, combineBuilds, macSigningLabel } from '../scripts/release-common.mjs';
 import { macSigning, SELF_SIGNED_CERTIFICATE } from '../scripts/macos-signing.mjs';
 
 const commit = '1'.repeat(40);
 const mac = { platform: 'macos', version: '0.3.22', commit, files: [{ name: 'MewLink_0.3.22_universal.dmg', sha256: 'a'.repeat(64) }] };
 const win = { ...mac, platform: 'windows', files: [{ name: 'MewLink_0.3.22_x64-setup.exe', sha256: 'b'.repeat(64) }] };
 test('all app version sources match', () => assert.match(assertVersions(process.cwd()), /^\d+\.\d+\.\d+$/));
+test('release metadata distinguishes notarized, stable self-signed and ad-hoc builds', () => {
+  assert.equal(macSigningLabel({ notarized: true, selfSigned: false }), 'notarized');
+  assert.equal(macSigningLabel({ notarized: false, selfSigned: true }), 'self-signed');
+  assert.equal(macSigningLabel({ notarized: false, selfSigned: false }), 'ad-hoc');
+});
 test('Windows CRLF checkouts keep the same version', () => {
   const directory = mkdtempSync(join(tmpdir(), 'mewlink-versions-'));
   try {
@@ -49,4 +54,3 @@ test('the public certificate is committed and carries no private key', () => {
   assert.match(pem, /BEGIN CERTIFICATE/);
   assert.doesNotMatch(pem, /PRIVATE KEY/);
 });
-

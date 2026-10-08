@@ -6,6 +6,10 @@ export const requiredTargets = ['darwin-aarch64', 'darwin-x86_64', 'windows-x86_
 export const repository = 'rockcor/mewlink';
 export const sha256 = bytes => createHash('sha256').update(bytes).digest('hex');
 
+export function macSigningLabel(build) {
+  return build.notarized ? 'notarized' : build.selfSigned ? 'self-signed' : 'ad-hoc';
+}
+
 export function assertVersions(root, tag) {
   const version = JSON.parse(readFileSync(`${root}/package.json`, 'utf8')).version;
   assert.match(version, /^\d+\.\d+\.\d+$/);
