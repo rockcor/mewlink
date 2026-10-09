@@ -40,7 +40,7 @@ import { useOperationHistory } from './history/useOperationHistory';
 import { companionStates, partnerEventsFor, PRESENCE_HEARTBEAT_MS } from './services/companionState';
 import { createSessionQueue } from './pairing/sessionQueue';
 import { copyPairingInvite } from './pairing/copyInvite';
-import { animationDurationScale, effectiveUtcOffsetMinutes, loadPreferences, savePreferences, scalePetWithPinch } from './settings/preferences';
+import { animationDurationScale, effectiveUtcOffsetMinutes, loadPreferences, petDistance, petWindowWidth, savePreferences, scalePetWithPinch } from './settings/preferences';
 import { currentStatisticsBundle, flushStatistics, recordActivityStatistics, recordInputStatistics } from './statistics/statistics';
 import { appCopy } from './i18n';
 import { queueDesktopWindow, setDesktopPanel } from './platform/desktopPanel';
@@ -79,6 +79,8 @@ export default function App() {
   const replayingRef = useRef(false);
   const syncStartedAt = useRef(Date.now());
   const [gesture, setGesture] = useState<{ id: string; variant: GestureVariant; target: PetTarget; cupStyle?: CupStyle; blanketStyle?: BlanketStyle }>();
+  /** The hug whose companions have finished sliding together. */
+  const [gatheredHug, setGatheredHug] = useState<string>();
   const [pendingCups, setPendingCups] = useState(loadPendingCups);
   const pendingCupsRef = useRef(pendingCups);
   const drinkInProgress = useRef(false);
@@ -190,9 +192,13 @@ export default function App() {
   useEffect(() => {
     if (!renderPaused) void preloadSprite(`work-${workVisual}-stress`).catch(() => undefined);
   }, [renderPaused, workVisual]);
+  // Hug strips show the pair at the default distance; at any other, they slide there first.
+  const gatherMs = preferences.petDistancePercent === 100 ? 0 : 280;
   const motionStyle = useMemo(() => ({
     '--self-pet-scale': String(preferences.selfPetScalePercent / 100),
     '--partner-pet-scale': String(preferences.partnerPetScalePercent / 100),
+    '--pet-distance': `${petDistance(preferences.petDistancePercent)}px`,
+    '--gather-ms': `${gatherMs}ms`,
     '--self-pet-skin-filter': petSkinFilters[preferences.selfPetSkin],
     '--partner-pet-skin-filter': petSkinFilters[partnerSkin],
     '--pet-breathe-duration': `${Math.round(3_600 * durationScale)}ms`,
@@ -204,7 +210,7 @@ export default function App() {
     '--pet-idle-duration': `${Math.round(3_800 * durationScale)}ms`,
     '--interaction-duration': `${Math.round(3_200 * durationScale)}ms`,
     '--activity-transition-duration': `${Math.round(ACTIVITY_TRANSITION_MS * durationScale)}ms`
-  }) as CSSProperties, [durationScale, partnerSkin, preferences.partnerPetScalePercent, preferences.selfPetScalePercent, preferences.selfPetSkin]);
+  }) as CSSProperties, [durationScale, gatherMs, partnerSkin, preferences.partnerPetScalePercent, preferences.petDistancePercent, preferences.selfPetScalePercent, preferences.selfPetSkin]);
 
   const installAvailableUpdate = useCallback(async (update: Update) => {
     setUpdateState({ kind: 'downloading', message: text.updateDownloading(), canInstall: true });
@@ -492,6 +498,13 @@ export default function App() {
     const retryTimer = window.setInterval(() => { if (!delivered) publish(); }, 30_000);
     return () => window.clearInterval(retryTimer);
   }, [connected, pairing?.relationshipId, preferences.selfPetSkin, publishPetSkin]);
+  // The window widens when the companions sit further apart than fits the default width.
+  const windowWidth = petWindowWidth(preferences.petDistancePercent);
+  useEffect(() => {
+    if (!isTauriWindow) return;
+    void queueDesktopWindow(() => invoke('set_pet_width', { width: windowWidth })).catch(() => undefined);
+  }, [windowWidth]);
+
   useEffect(() => {
     if (!isTauriWindow) return;
     const appWindow = getCurrentWindow();
@@ -769,7 +782,7 @@ export default function App() {
       setPendingCups(pendingCupsRef.current);
     }
     setNotice(message);
-    gestureTimer.current = window.setTimeout(() => setGesture(undefined), Math.round(3_200 * durationScale));
+    gestureTimer.current = window.setTimeout(() => setGesture(undefined), Math.round(3_200 * durationScale) + (action === 'hug' ? gatherMs : 0));
     noticeTimer.current = window.setTimeout(() => setNotice(''), Math.round(2_800 * durationScale));
   }
 
@@ -1038,6 +1051,14 @@ export default function App() {
     blanketStyle: current.blanketStyle
   } : undefined;
   const displayedGesture = connected ? (gesture ?? replayGesture) : undefined;
+  // A hug at another distance waits while the two slide together.
+  const hugGathering = Boolean(gatherMs && displayedGesture?.variant.startsWith('hug') && gatheredHug !== displayedGesture.id);
+  const gatheringHug = hugGathering ? displayedGesture?.id : undefined;
+  useEffect(() => {
+    if (!gatheringHug) return;
+    const timer = window.setTimeout(() => setGatheredHug(gatheringHug), gatherMs);
+    return () => window.clearTimeout(timer);
+  }, [gatheringHug, gatherMs]);
   const gestureSkins = hugSkins(displayedGesture?.target ?? 'self', preferences.selfPetSkin, partnerSkin);
 
   return (
@@ -1126,7 +1147,7 @@ export default function App() {
               onPlaybackEnd={() => partnerPlayback.completeTransition(partnerPlayback.transition!.key)}
             />}
           </button>}
-          {displayedGesture && <SpriteCanvas key={displayedGesture.id} skin={gestureSkins.receiver} senderSkin={displayedGesture.variant.startsWith('hug') ? gestureSkins.sender : undefined} paused={renderPaused} className={`interaction-sprite ${displayedGesture.variant} target-${displayedGesture.target} cup-${displayedGesture.cupStyle ?? 'ceramic'} blanket-${displayedGesture.blanketStyle ?? preferences.blanketStyle}`} aria-hidden="true" />}
+          {displayedGesture && !hugGathering && <SpriteCanvas key={displayedGesture.id} skin={gestureSkins.receiver} senderSkin={displayedGesture.variant.startsWith('hug') ? gestureSkins.sender : undefined} paused={renderPaused} className={`interaction-sprite ${displayedGesture.variant} target-${displayedGesture.target} cup-${displayedGesture.cupStyle ?? 'ceramic'} blanket-${displayedGesture.blanketStyle ?? preferences.blanketStyle}`} aria-hidden="true" />}
           {(['self', 'partner'] as const).map(target => pendingCups[target] && !(displayedGesture?.target === target && displayedGesture.variant.startsWith('water')) && <span key={target} className={`waiting-cup target-${target} ${pendingCups[target]!.style}`} aria-label={text.water}><i /><i /></span>)}
         </div>
         {connected && !settingsOpen && !statisticsOpen && (playing || history.unseen) && <div className="replay-dock">

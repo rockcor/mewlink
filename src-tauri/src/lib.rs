@@ -806,7 +806,8 @@ pub fn run() {
             live::live_command,
             window_layout::set_panel_open,
             window_layout::pet_window_position,
-            window_layout::restore_pet_position
+            window_layout::restore_pet_position,
+            window_layout::set_pet_width
         ])
         .setup(|app| {
             resources::start_input_monitor(app.handle().clone());

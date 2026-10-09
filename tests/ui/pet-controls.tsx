@@ -1,10 +1,10 @@
 // Isolated fixture: no pairing, relay, preferences writes or real interactions.
-import { StrictMode, useState, type CSSProperties } from 'react';
+import { StrictMode, useEffect, useState, type CSSProperties } from 'react';
 import { createRoot } from 'react-dom/client';
 import { PetActions } from '../../src/components/PetActions';
 import { SettingsPanel } from '../../src/components/SettingsPanel';
 import { StatisticsPanel } from '../../src/components/StatisticsPanel';
-import { defaultPreferences, type Preferences } from '../../src/settings/preferences';
+import { defaultPreferences, petDistance, petWindowWidth, type Preferences } from '../../src/settings/preferences';
 import { SpriteCanvas } from '../../src/pet/SpriteCanvas';
 import { transitionAssetName, useActivityPlayback } from '../../src/pet/activityPlayback';
 import { spriteSheets } from '../../src/pet/spriteAssets';
@@ -16,24 +16,38 @@ import '../../src/settings-panel.css';
 const noop = () => undefined;
 const kinds: ActivityKind[] = ['work', 'meeting', 'leisure', 'rest', 'idle'];
 export function Checks() {
-  const [preferences, setPreferences] = useState<Preferences>(() => ({ ...defaultPreferences(), language: 'en' }));
+  const [preferences, setPreferences] = useState<Preferences>(() => ({ ...defaultPreferences(), language: 'en',
+    petDistancePercent: Number(new URLSearchParams(location.search).get('distance') ?? 100) }));
   const [panel, setPanel] = useState('');
   const [cup, setCup] = useState<CupStyle>('ceramic');
   const [activity, setActivity] = useState<ActivityKind>('idle');
   const [paused, setPaused] = useState(false);
   const [reduced, setReduced] = useState(false);
   const [remount, setRemount] = useState(0);
-  return <><main className="desktop-pet" style={{ background: '#f2e6db' }}>
+  // A hug as the app shows it: at another distance the pair slides together first.
+  const [hug, setHug] = useState<string>();
+  const [gathered, setGathered] = useState<string>();
+  const gatherMs = preferences.petDistancePercent === 100 ? 0 : 280;
+  const gathering = Boolean(hug && gatherMs && gathered !== hug);
+  useEffect(() => {
+    if (!hug) return;
+    const ready = window.setTimeout(() => setGathered(hug), gatherMs);
+    const done = window.setTimeout(() => setHug(undefined), 3_200 + gatherMs);
+    return () => { window.clearTimeout(ready); window.clearTimeout(done); };
+  }, [hug, gatherMs]);
+  return <><main className="desktop-pet" data-window-width={petWindowWidth(preferences.petDistancePercent)} style={{ background: '#f2e6db',
+    '--pet-distance': `${petDistance(preferences.petDistancePercent)}px`, '--gather-ms': `${gatherMs}ms` } as CSSProperties}>
     <section className="pet-zone">
       <div className="hover-ui menu-visible">
         <div className="status-row"><div className="status-pill">Working</div><div className="status-pill">Working</div></div>
         <PetActions language={preferences.language} connected canReplay cupStyle={cup}
           onSettings={() => setPanel('settings')} onStatistics={() => setPanel('statistics')}
-          onHug={noop} onWater={noop} onReplay={noop} />
+          onHug={() => setHug(String(Date.now()))} onWater={noop} onReplay={noop} />
       </div>
-      <div className="pet-pair paired">
+      <div className={`pet-pair paired ${hug ? 'interacting target-partner interaction-hug' : ''}`}>
         <button className="pet-avatar self-pet" aria-label="Self working"><SpriteCanvas skin="cream" paused={false} className="pet-sprite work work-code input-none" /></button>
         <Playback key={remount} desired={activity} paused={paused} reduced={reduced} />
+        {hug && !gathering && <SpriteCanvas key={hug} skin="mint" senderSkin="cream" paused={paused} className="interaction-sprite hug-idle target-partner" aria-hidden="true" />}
       </div>
     </section>
   </main>

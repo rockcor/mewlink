@@ -220,9 +220,68 @@ pub fn restore_pet_position(
     place_pet(&window, rect, area)
 }
 
+/// The pet window's width in physical pixels for a logical width, kept within
+/// what the companions can use (they sit at most 160% of the default apart).
+fn pet_width(logical: f64, scale: f64) -> u32 {
+    let logical = if logical.is_finite() { logical } else { 440.0 };
+    let scale = if scale.is_finite() && scale > 0.0 {
+        scale
+    } else {
+        1.0
+    };
+    (logical.clamp(440.0, 600.0) * scale).round() as u32
+}
+
+/// Sets the pet window's width when the companions' distance changes. The left
+/// edge stays put (that is what the saved position records); while a panel is
+/// open, the pet size it returns to is updated instead.
+#[tauri::command]
+pub fn set_pet_width(
+    window: WebviewWindow,
+    state: State<'_, DesktopLayout>,
+    width: f64,
+) -> Result<(), String> {
+    let mut saved = state.0.lock().map_err(|e| e.to_string())?;
+    let scale = window.scale_factor().map_err(|e| e.to_string())?;
+    let width = pet_width(width, scale);
+    if let Some(pet) = saved.as_mut() {
+        pet.width = width;
+        return Ok(());
+    }
+    let rect = bounds(&window)?;
+    if rect.width == width {
+        return Ok(());
+    }
+    let (area, _) = monitor_area(&window, rect)?;
+    let next = Rect { width, ..rect }.fit(area, 0);
+    // Resize without taking focus, unlike opening a panel.
+    let size = PhysicalSize::new(next.width, next.height);
+    window
+        .set_min_size(None::<PhysicalSize<u32>>)
+        .map_err(|e| e.to_string())?;
+    window
+        .set_max_size(None::<PhysicalSize<u32>>)
+        .map_err(|e| e.to_string())?;
+    window.set_size(size).map_err(|e| e.to_string())?;
+    window
+        .set_position(PhysicalPosition::new(next.x, next.y))
+        .map_err(|e| e.to_string())?;
+    window.set_min_size(Some(size)).map_err(|e| e.to_string())?;
+    window.set_max_size(Some(size)).map_err(|e| e.to_string())
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn pet_width_follows_distance_within_bounds() {
+        assert_eq!(pet_width(440.0, 1.0), 440);
+        assert_eq!(pet_width(567.0, 2.0), 1134);
+        assert_eq!(pet_width(300.0, 1.5), 660);
+        assert_eq!(pet_width(5000.0, 1.0), 600);
+        assert_eq!(pet_width(f64::NAN, 2.0), 880);
+    }
+
     #[test]
     fn readable_panel_size_is_consistent_across_display_scaling() {
         for scale in [1.0, 1.25, 1.5, 2.0, 3.0] {

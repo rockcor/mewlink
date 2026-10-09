@@ -65,7 +65,7 @@ const copy = {
     recording: '回放录像', recordingNote: '只保存宠物回放，不录制真实屏幕', saveLocation: '保存位置', chooseFolder: '选择', defaultFolder: '应用默认文件夹', retention: '保留时长', hours: (hours: number) => `${hours} 小时`, chooseFolderTitle: '选择回放录像保存位置',
     update: '自动更新', updateNote: '点击检查将安装新版本并重启应用', goUpdate: '前往更新', installNow: '立即更新', checkNow: '立即检查',
     timezone: '时区', timezoneNote: '自动识别双方时差，可随时关闭', auto: '自动', manual: '手动', off: '关闭', me: '你', partnerPending: 'TA · 连接后识别', step: '每格 15 分钟', hideClocks: '重放中不显示双方时间', manualAria: '手动时区 UTC 偏移',
-    petSize: '宠物大小', petSizeNote: '两只宠物可分别调整', selfPet: '我的宠物', partnerPet: 'TA 的宠物', petSizeAria: '宠物大小',
+    petSize: '宠物大小和距离', petSizeNote: '两只宠物可分别调整，距离越远窗口越宽', selfPet: '我的宠物', partnerPet: 'TA 的宠物', petSizeAria: '宠物大小', petDistance: '距离', petDistanceAria: '两只宠物之间的距离',
     petColor: '宠物配色', petColorNote: '选择自己的颜色；连接后会同步显示', petColorAria: '我的宠物配色', skins: { cream: '奶油', peach: '蜜桃', mint: '薄荷', sky: '晴空', lavender: '丁香', luka: 'Luka', sixtySix: '66', shell: '贝壳' },
     props: '互动道具', propsNote: '只有水杯和被子可以更换', cup: '水杯', blanket: '被子', blankets: { blush: '樱粉', night: '星夜', mint: '薄荷' },
     speed: '动画速度', speedNote: '默认采用更从容的节奏', speedAria: '动画速度', speeds: { calm: '舒缓', natural: '自然', lively: '活泼' },
@@ -84,7 +84,7 @@ const copy = {
     recording: '回放錄影', recordingNote: '只儲存寵物回放，不錄製真實螢幕', saveLocation: '儲存位置', chooseFolder: '選擇', defaultFolder: '應用程式預設資料夾', retention: '保留時長', hours: (hours: number) => `${hours} 小時`, chooseFolderTitle: '選擇回放錄影儲存位置',
     update: '自動更新', updateNote: '點擊檢查將安裝新版本並重新啟動應用程式', goUpdate: '前往更新', installNow: '立即更新', checkNow: '立即檢查',
     timezone: '時區', timezoneNote: '自動識別雙方時差，可隨時關閉', auto: '自動', manual: '手動', off: '關閉', me: '你', partnerPending: 'TA · 連線後識別', step: '每格 15 分鐘', hideClocks: '重放中不顯示雙方時間', manualAria: '手動時區 UTC 偏移',
-    petSize: '寵物大小', petSizeNote: '兩隻寵物可分別調整', selfPet: '我的寵物', partnerPet: 'TA 的寵物', petSizeAria: '寵物大小',
+    petSize: '寵物大小和距離', petSizeNote: '兩隻寵物可分別調整，距離越遠視窗越寬', selfPet: '我的寵物', partnerPet: 'TA 的寵物', petSizeAria: '寵物大小', petDistance: '距離', petDistanceAria: '兩隻寵物之間的距離',
     petColor: '寵物配色', petColorNote: '選擇自己的顏色；連線後會同步顯示', petColorAria: '我的寵物配色', skins: { cream: '奶油', peach: '蜜桃', mint: '薄荷', sky: '晴空', lavender: '丁香', luka: 'Luka', sixtySix: '66', shell: '貝殼' },
     props: '互動道具', propsNote: '只有水杯和被子可以更換', cup: '水杯', blanket: '被子', blankets: { blush: '櫻粉', night: '星夜', mint: '薄荷' },
     speed: '動畫速度', speedNote: '預設採用更從容的節奏', speedAria: '動畫速度', speeds: { calm: '舒緩', natural: '自然', lively: '活潑' },
@@ -103,7 +103,7 @@ const copy = {
     recording: 'Replay recordings', recordingNote: 'Saves companion replays, never your real screen', saveLocation: 'Save location', chooseFolder: 'Choose', defaultFolder: 'App default folder', retention: 'Keep for', hours: (hours: number) => `${hours}h`, chooseFolderTitle: 'Choose where to save replay recordings',
     update: 'Automatic updates', updateNote: 'Check now installs available updates and restarts the app', goUpdate: 'Get update', installNow: 'Install now', checkNow: 'Check now',
     timezone: 'Time zone', timezoneNote: 'Detect your time difference automatically or turn it off', auto: 'Auto', manual: 'Manual', off: 'Off', me: 'You', partnerPending: 'Partner · after pairing', step: '15-minute steps', hideClocks: 'Hide both local times during replay', manualAria: 'Manual UTC offset',
-    petSize: 'Companion size', petSizeNote: 'Adjust each companion independently', selfPet: 'Mine', partnerPet: 'Partner', petSizeAria: 'Companion size',
+    petSize: 'Size and distance', petSizeNote: 'Adjust each companion; a wider distance widens the window', selfPet: 'Mine', partnerPet: 'Partner', petSizeAria: 'Companion size', petDistance: 'Distance', petDistanceAria: 'Distance between the companions',
     petColor: 'Companion color', petColorNote: 'Choose yours; it appears for your partner after pairing', petColorAria: 'My companion color', skins: { cream: 'Cream', peach: 'Peach', mint: 'Mint', sky: 'Sky', lavender: 'Lilac', luka: 'Luka', sixtySix: '66', shell: 'Shell' },
     props: 'Interaction props', propsNote: 'Only mugs and blankets can be changed', cup: 'Mug', blanket: 'Blanket', blankets: { blush: 'Blush', night: 'Night', mint: 'Mint' },
     speed: 'Animation speed', speedNote: 'A calmer pace is selected by default', speedAria: 'Animation speed', speeds: { calm: 'Calm', natural: 'Natural', lively: 'Lively' },
@@ -297,6 +297,7 @@ export function SettingsPanel({
           <div className="setting-title"><div><b>{text.petSize}</b><small>{text.petSizeNote}</small></div></div>
           <label className="pet-size-slider named"><span>{text.selfPet}</span><input type="range" min="70" max="110" step="5" value={preferences.selfPetScalePercent} onChange={event => patchPreferences({ selfPetScalePercent: Number(event.target.value) })} aria-label={`${text.selfPet} ${text.petSizeAria}`}/><output>{preferences.selfPetScalePercent}%</output></label>
           <label className="pet-size-slider named"><span>{text.partnerPet}</span><input type="range" min="70" max="110" step="5" value={preferences.partnerPetScalePercent} onChange={event => patchPreferences({ partnerPetScalePercent: Number(event.target.value) })} aria-label={`${text.partnerPet} ${text.petSizeAria}`}/><output>{preferences.partnerPetScalePercent}%</output></label>
+          <label className="pet-size-slider named"><span>{text.petDistance}</span><input type="range" min="80" max="160" step="10" value={preferences.petDistancePercent} onChange={event => patchPreferences({ petDistancePercent: Number(event.target.value) })} aria-label={text.petDistanceAria}/><output>{preferences.petDistancePercent}%</output></label>
         </article>
 
         <article hidden={page !== 'pet'} className="setting-block pet-color-setting">

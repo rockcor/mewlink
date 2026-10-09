@@ -22,6 +22,8 @@ export interface Preferences {
   animationSpeed: AnimationSpeed;
   selfPetScalePercent: number;
   partnerPetScalePercent: number;
+  /** How far apart the two companions sit, as a share of the default distance. */
+  petDistancePercent: number;
   selfPetSkin: PetSkin;
   blanketStyle: BlanketStyle;
   language: Language;
@@ -44,6 +46,7 @@ export function defaultPreferences(): Preferences {
     animationSpeed: 'calm',
     selfPetScalePercent: 100,
     partnerPetScalePercent: 100,
+    petDistancePercent: 100,
     selfPetSkin: 'cream',
     blanketStyle: 'blush',
     language: browserLanguage(),
@@ -55,6 +58,21 @@ export function normalizePetScalePercent(value: number): number {
   if (!Number.isFinite(value)) return 100;
   return Math.min(110, Math.max(70, Math.round(value / 5) * 5));
 }
+
+// The companions' centres are this far apart by default (logical px). Each
+// companion is PET_FRAME_WIDTH wide, so the window grows when they sit further apart.
+export const DEFAULT_PET_DISTANCE = 212;
+export const PET_FRAME_WIDTH = 228;
+export const PET_WINDOW_MIN_WIDTH = 440;
+
+export function normalizePetDistancePercent(value: number): number {
+  if (!Number.isFinite(value)) return 100;
+  return Math.min(160, Math.max(80, Math.round(value / 10) * 10));
+}
+
+export const petDistance = (percent: number) => Math.round(DEFAULT_PET_DISTANCE * normalizePetDistancePercent(percent) / 100);
+/** The pet window's logical width for a distance setting. */
+export const petWindowWidth = (percent: number) => Math.max(PET_WINDOW_MIN_WIDTH, petDistance(percent) + PET_FRAME_WIDTH);
 
 export function scalePetWithPinch(current: number, deltaY: number): number {
   if (!Number.isFinite(deltaY) || deltaY === 0) return normalizePetScalePercent(current);
@@ -105,6 +123,9 @@ export function loadPreferences(storage?: StorageLike): Preferences {
       partnerPetScalePercent: typeof value.partnerPetScalePercent === 'number'
         ? normalizePetScalePercent(value.partnerPetScalePercent)
         : legacyScale ?? defaults.partnerPetScalePercent,
+      petDistancePercent: typeof value.petDistancePercent === 'number'
+        ? normalizePetDistancePercent(value.petDistancePercent)
+        : defaults.petDistancePercent,
       selfPetSkin: petSkins.includes(value.selfPetSkin as PetSkin) ? value.selfPetSkin as PetSkin : defaults.selfPetSkin,
       blanketStyle: blanketStyles.includes(value.blanketStyle as BlanketStyle) ? value.blanketStyle as BlanketStyle : defaults.blanketStyle,
       language: manualLanguage ? value.language as Language : defaults.language,
