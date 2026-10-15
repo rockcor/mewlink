@@ -17,6 +17,15 @@ describe('encrypted event compatibility', () => {
     expect(JSON.stringify(envelope)).not.toContain('received-cup-id');
     await expect(decryptEvent(envelope, key)).resolves.toEqual(event);
   });
+  it('carries the busyness level in the presence heartbeat, which older versions accept as before', async () => {
+    const key = await newDemoKey();
+    const at = new Date().toISOString();
+    const event: PlainEvent = { id: 'heartbeat-1', version: 1, relationshipId: 'relationshipTest01', senderDeviceId: 'senderDevice000001',
+      createdAt: at, senderUtcOffsetMinutes: 480, kind: 'activity.segment',
+      payload: { category: 'work', workVisual: 'code', startedAt: at, endedAt: at, growth: 0.65 } };
+    const envelope = await encryptEvent(event, 'recipientDevice001', 1, key);
+    await expect(decryptEvent(envelope, key)).resolves.toEqual(event);
+  });
   it('decrypts an envelope created by an independent libsodium peer', async () => {
     await sodium.ready;
     const key = await newDemoKey();

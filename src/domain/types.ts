@@ -13,7 +13,11 @@ export type PetSkin = (typeof petSkins)[number];
 export const statisticsVisibilities = ['private', 'partner'] as const;
 export type StatisticsVisibility = (typeof statisticsVisibilities)[number];
 
-export interface ActivitySegment { category: ActivityKind; startedAt: string; endedAt: string; workVisual?: WorkVisual }
+export interface ActivitySegment {
+  category: ActivityKind; startedAt: string; endedAt: string; workVisual?: WorkVisual;
+  /** Today's busyness, 0..1 in 0.05 steps (see statistics/growth); older versions omit it. */
+  growth?: number;
+}
 // Relative milliseconds, key presses, pointer events, clicks, activity, work screen.
 // Counts and categories only: never key values, titles, URLs or coordinates.
 export type OperationPoint = [number, number, number, number, number, number];

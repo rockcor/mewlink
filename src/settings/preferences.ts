@@ -24,6 +24,8 @@ export interface Preferences {
   partnerPetScalePercent: number;
   /** How far apart the two companions sit, as a share of the default distance. */
   petDistancePercent: number;
+  /** The companions grow with today's busyness, and the partner sees it. */
+  growWithBusyness: boolean;
   selfPetSkin: PetSkin;
   blanketStyle: BlanketStyle;
   language: Language;
@@ -47,6 +49,7 @@ export function defaultPreferences(): Preferences {
     selfPetScalePercent: 100,
     partnerPetScalePercent: 100,
     petDistancePercent: 100,
+    growWithBusyness: true,
     selfPetSkin: 'cream',
     blanketStyle: 'blush',
     language: browserLanguage(),
@@ -71,8 +74,12 @@ export function normalizePetDistancePercent(value: number): number {
 }
 
 export const petDistance = (percent: number) => Math.round(DEFAULT_PET_DISTANCE * normalizePetDistancePercent(percent) / 100);
-/** The pet window's logical width for a distance setting. */
-export const petWindowWidth = (percent: number) => Math.max(PET_WINDOW_MIN_WIDTH, petDistance(percent) + PET_FRAME_WIDTH);
+/**
+ * The pet window's logical width for a distance setting and the companions'
+ * sizes (settings times busyness growth); it matches .pet-pair in styles.css.
+ */
+export const petWindowWidth = (percent: number, selfScale = 1, partnerScale = 1) => Math.max(PET_WINDOW_MIN_WIDTH,
+  Math.ceil(PET_FRAME_WIDTH / 2 * (selfScale + partnerScale) + petDistance(percent) * (selfScale + partnerScale) / 2));
 
 export function scalePetWithPinch(current: number, deltaY: number): number {
   if (!Number.isFinite(deltaY) || deltaY === 0) return normalizePetScalePercent(current);
@@ -126,6 +133,7 @@ export function loadPreferences(storage?: StorageLike): Preferences {
       petDistancePercent: typeof value.petDistancePercent === 'number'
         ? normalizePetDistancePercent(value.petDistancePercent)
         : defaults.petDistancePercent,
+      growWithBusyness: typeof value.growWithBusyness === 'boolean' ? value.growWithBusyness : defaults.growWithBusyness,
       selfPetSkin: petSkins.includes(value.selfPetSkin as PetSkin) ? value.selfPetSkin as PetSkin : defaults.selfPetSkin,
       blanketStyle: blanketStyles.includes(value.blanketStyle as BlanketStyle) ? value.blanketStyle as BlanketStyle : defaults.blanketStyle,
       language: manualLanguage ? value.language as Language : defaults.language,

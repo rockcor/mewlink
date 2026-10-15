@@ -190,9 +190,18 @@
 .pet-pair.interaction-water.target-self .self-pet,
 .pet-pair.interaction-water.target-partner .partner-pet { opacity: 0; }
 /* At another distance they first slide together (--gather-ms), then the hug strip takes over. */
-.pet-pair.interaction-hug .pet-avatar { transition: transform 180ms cubic-bezier(.2, .8, .2, 1), opacity 0s linear var(--gather-ms, 0ms); }
-.pet-pair.interaction-water .interaction-sprite { left: 0; bottom: 6px; width: 230px; height: 153px; transform: none; }
-.pet-pair.interaction-water.target-partner .interaction-sprite { left: auto; right: 0; }
+.pet-pair.interaction-hug .pet-avatar { transition: transform 180ms cubic-bezier(.2, .8, .2, 1), left 180ms, right 180ms, opacity 0s linear var(--gather-ms, 0ms); }
+/* Interaction strips follow the companions' sizes: a hug sits between the two at their average size, water on its companion. */
+.pet-pair.interaction-hug .interaction-sprite {
+  left: calc(114px * var(--self-s) + var(--pet-gap) / 2);
+  transform: translateX(-50%) scale(calc((var(--self-s) + var(--partner-s)) / 2));
+  transform-origin: 50% 100%;
+}
+.pet-pair.interaction-water .interaction-sprite {
+  left: calc(114px * (var(--self-s) - 1)); bottom: 6px; width: 230px; height: 153px;
+  transform: scale(var(--self-s)); transform-origin: 50% 100%;
+}
+.pet-pair.interaction-water.target-partner .interaction-sprite { left: auto; right: calc(114px * (var(--partner-s) - 1)); transform: scale(var(--partner-s)); }
 
 @keyframes interaction-fade {
   0%, 98% { opacity: 1; }
@@ -211,8 +220,8 @@
   background: #ef91ad;
   filter: drop-shadow(0 5px 5px rgba(86, 45, 67, .16));
 }
-.waiting-cup.target-self { left: 208px; }
-.waiting-cup.target-partner { right: 1px; }
+.waiting-cup.target-self { left: calc(208px * var(--self-s)); bottom: calc(28px * var(--self-s)); }
+.waiting-cup.target-partner { right: calc(17px * var(--partner-s) - 16px); bottom: calc(28px * var(--partner-s)); }
 .waiting-cup::after { content: ''; position: absolute; top: 3px; right: -7px; width: 5px; height: 7px; border: 2px solid #54173e; border-left: 0; border-radius: 0 6px 6px 0; }
 .waiting-cup.tumbler { height: 19px; background: #9dc8ed; }
 .waiting-cup.bottle { width: 13px; height: 20px; border-radius: 4px; background: #9edbcf; }

@@ -1,4 +1,5 @@
 import type { ActivityKind, StatisticsSnapshot, WorkVisual } from '../domain/types';
+import { growthLevel } from './growth';
 
 export type { StatisticsSnapshot } from '../domain/types';
 
@@ -211,6 +212,11 @@ export function aggregateStatistics(data: StatisticsData, range: StatisticsRange
 
 export function currentStatistics(range: StatisticsRange, now = Date.now()): StatisticsSnapshot {
   return aggregateStatistics(loadStatistics(), range, now);
+}
+
+/** Today's busyness against the usual day, for the companion's size. */
+export function currentGrowthLevel(now = Date.now()): number {
+  return growthLevel(loadStatistics(), now);
 }
 
 export function currentStatisticsBundle(now = Date.now()) {

@@ -9,7 +9,7 @@ import { ReplayNotice, ReplayScrubber } from './components/ReplayControls';
 import { dayInstant, formatDuration, partnerClock } from './history/days';
 import { consumeCup, restorePendingCups, waterClickAction, type PendingCups, type PetTarget } from './pet/pendingCups';
 import { hugSkins } from './pet/hugOwnership';
-import type { ActivityKind, BlanketStyle, CupStyle, InteractionKind, InteractionPayload, PetSkin, PlainEvent, StatisticsPayload, StatisticsVisibility, StoredEvent, WorkVisual } from './domain/types';
+import type { ActivityKind, ActivitySegment, BlanketStyle, CupStyle, InteractionKind, InteractionPayload, PetSkin, PlainEvent, StatisticsPayload, StatisticsVisibility, StoredEvent, WorkVisual } from './domain/types';
 import { cupStyles } from './domain/types';
 import {
   createPairingState,
@@ -40,8 +40,9 @@ import { useOperationHistory } from './history/useOperationHistory';
 import { companionStates, partnerEventsFor, PRESENCE_HEARTBEAT_MS } from './services/companionState';
 import { createSessionQueue } from './pairing/sessionQueue';
 import { copyPairingInvite } from './pairing/copyInvite';
-import { animationDurationScale, effectiveUtcOffsetMinutes, loadPreferences, petDistance, petWindowWidth, savePreferences, scalePetWithPinch } from './settings/preferences';
-import { currentStatisticsBundle, flushStatistics, recordActivityStatistics, recordInputStatistics } from './statistics/statistics';
+import { animationDurationScale, effectiveUtcOffsetMinutes, loadPreferences, PET_WINDOW_MIN_WIDTH, petDistance, petWindowWidth, savePreferences, scalePetWithPinch } from './settings/preferences';
+import { currentGrowthLevel, currentStatisticsBundle, flushStatistics, recordActivityStatistics, recordInputStatistics } from './statistics/statistics';
+import { growthScale, partnerGrowthLevel } from './statistics/growth';
 import { appCopy } from './i18n';
 import { queueDesktopWindow, setDesktopPanel } from './platform/desktopPanel';
 import './styles.css';
@@ -146,6 +147,13 @@ export default function App() {
     undefined, presenceNow,
   ), [activity, workVisual, preferences.selfPetSkin, partnerEvents, pairing, presenceNow]);
   const partnerSkin = companions.partner.skin;
+  // How busy the partner is today, from their latest heartbeat (normal size after their midnight).
+  const partnerGrowth = useMemo(() => {
+    const latest = [...partnerEvents].reverse().find(({ event }) => event.kind === 'activity.segment'
+      && (event.payload as ActivitySegment).growth !== undefined);
+    return latest ? partnerGrowthLevel((latest.event.payload as ActivitySegment).growth, latest.event.createdAt,
+      latest.event.senderUtcOffsetMinutes, presenceNow) : 0;
+  }, [partnerEvents, presenceNow]);
   // Live typing keys go over the ratchet like any event, so they share the session queue.
   const liveRatchet = useCallback(<T,>(operation: 'send_live_key' | 'send_live_off') => sessionQueue(async () => {
     const active = pairingRef.current;
@@ -194,11 +202,23 @@ export default function App() {
   }, [renderPaused, workVisual]);
   // Hug strips show the pair at the default distance; at any other, they slide there first.
   const gatherMs = preferences.petDistancePercent === 100 ? 0 : 280;
+  // Each companion grows with its person's busyness today (statistics/growth),
+  // re-read every minute; the partner's level arrives with their heartbeat.
+  const growWithBusyness = preferences.growWithBusyness;
+  const [selfGrowthLevel, setSelfGrowthLevel] = useState(() => currentGrowthLevel());
+  useEffect(() => {
+    const timer = window.setInterval(() => setSelfGrowthLevel(currentGrowthLevel()), 60_000);
+    return () => window.clearInterval(timer);
+  }, []);
+  const selfGrowth = growWithBusyness ? selfGrowthLevel : 0;
+  const selfScale = preferences.selfPetScalePercent / 100 * growthScale(selfGrowth);
+  const partnerScale = preferences.partnerPetScalePercent / 100 * growthScale(growWithBusyness ? partnerGrowth : 0);
   const motionStyle = useMemo(() => ({
-    '--self-pet-scale': String(preferences.selfPetScalePercent / 100),
-    '--partner-pet-scale': String(preferences.partnerPetScalePercent / 100),
+    '--self-pet-scale': String(selfScale),
+    '--partner-pet-scale': String(partnerScale),
     '--pet-distance': `${petDistance(preferences.petDistancePercent)}px`,
     '--gather-ms': `${gatherMs}ms`,
+    '--pair-ms': `${Math.max(gatherMs, 180)}ms`,
     '--self-pet-skin-filter': petSkinFilters[preferences.selfPetSkin],
     '--partner-pet-skin-filter': petSkinFilters[partnerSkin],
     '--pet-breathe-duration': `${Math.round(3_600 * durationScale)}ms`,
@@ -210,7 +230,7 @@ export default function App() {
     '--pet-idle-duration': `${Math.round(3_800 * durationScale)}ms`,
     '--interaction-duration': `${Math.round(3_200 * durationScale)}ms`,
     '--activity-transition-duration': `${Math.round(ACTIVITY_TRANSITION_MS * durationScale)}ms`
-  }) as CSSProperties, [durationScale, gatherMs, partnerSkin, preferences.partnerPetScalePercent, preferences.petDistancePercent, preferences.selfPetScalePercent, preferences.selfPetSkin]);
+  }) as CSSProperties, [durationScale, gatherMs, partnerScale, partnerSkin, preferences.petDistancePercent, preferences.selfPetSkin, selfScale]);
 
   const installAvailableUpdate = useCallback(async (update: Update) => {
     setUpdateState({ kind: 'downloading', message: text.updateDownloading(), canInstall: true });
@@ -461,7 +481,7 @@ export default function App() {
           return { id: uuid(), version: 1, relationshipId: active.relationshipId,
             senderDeviceId: active.deviceId, createdAt: endedAt,
             senderUtcOffsetMinutes: receiverUtcOffsetMinutes, kind: 'activity.segment',
-            payload: { category: activity, workVisual, startedAt, endedAt } };
+            payload: { category: activity, workVisual, startedAt, endedAt, ...(growWithBusyness ? { growth: selfGrowth } : {}) } };
         });
         startedAt = new Date().toISOString();
       } catch {
@@ -471,7 +491,7 @@ export default function App() {
     void publish();
     const timer = window.setInterval(() => { void publish(); }, PRESENCE_HEARTBEAT_MS);
     return () => { stopped = true; window.clearInterval(timer); };
-  }, [activity, workVisual, connected, pairing?.relationshipId, receiverUtcOffsetMinutes, enqueueEncryptedEvent]);
+  }, [activity, workVisual, connected, pairing?.relationshipId, receiverUtcOffsetMinutes, enqueueEncryptedEvent, growWithBusyness, selfGrowth]);
   useEffect(() => {
     if (!connected) return;
     let delivered = false;
@@ -499,7 +519,8 @@ export default function App() {
     return () => window.clearInterval(retryTimer);
   }, [connected, pairing?.relationshipId, preferences.selfPetSkin, publishPetSkin]);
   // The window widens when the companions sit further apart than fits the default width.
-  const windowWidth = petWindowWidth(preferences.petDistancePercent);
+  // Alone, one companion always fits the default width.
+  const windowWidth = connected ? petWindowWidth(preferences.petDistancePercent, selfScale, partnerScale) : PET_WINDOW_MIN_WIDTH;
   useEffect(() => {
     if (!isTauriWindow) return;
     void queueDesktopWindow(() => invoke('set_pet_width', { width: windowWidth })).catch(() => undefined);
@@ -1070,19 +1091,6 @@ export default function App() {
           onPointerEnter={revealPetMenu}
           onPointerLeave={hidePetMenuSoon}
         >
-          <div className="status-row" aria-live="polite">
-            <div className="status-pill self-status">
-              <span>●</span>
-              <span className="status-copy"><b>{text.status[activity]}</b></span>
-            </div>
-            {connected && <div className="status-pill partner-status">
-              <span>{current?.icon ?? '○'}</span>
-              <span className="status-copy">
-                <b>{partnerLabel}</b>
-                {current?.clockLabel && <small>{current.clockLabel}</small>}
-              </span>
-            </div>}
-          </div>
           <PetActions language={preferences.language} connected={connected} canReplay={history.available} replaying={playing}
             cupStyle={pendingCups.self?.style ?? cupStyle}
             onSettings={() => { void openPanel('settings'); }}

@@ -5,6 +5,7 @@ import { PetActions } from '../../src/components/PetActions';
 import { SettingsPanel } from '../../src/components/SettingsPanel';
 import { StatisticsPanel } from '../../src/components/StatisticsPanel';
 import { defaultPreferences, petDistance, petWindowWidth, type Preferences } from '../../src/settings/preferences';
+import { growthScale } from '../../src/statistics/growth';
 import { SpriteCanvas } from '../../src/pet/SpriteCanvas';
 import { transitionAssetName, useActivityPlayback } from '../../src/pet/activityPlayback';
 import { spriteSheets } from '../../src/pet/spriteAssets';
@@ -17,7 +18,11 @@ const noop = () => undefined;
 const kinds: ActivityKind[] = ['work', 'meeting', 'leisure', 'rest', 'idle'];
 export function Checks() {
   const [preferences, setPreferences] = useState<Preferences>(() => ({ ...defaultPreferences(), language: 'en',
-    petDistancePercent: Number(new URLSearchParams(location.search).get('distance') ?? 100) }));
+    petDistancePercent: Number(new URLSearchParams(location.search).get('distance') ?? 100),
+    selfPetScalePercent: Number(new URLSearchParams(location.search).get('size') ?? 100),
+    partnerPetScalePercent: Number(new URLSearchParams(location.search).get('size') ?? 100) }));
+  // ?growth=0..1 previews today's busyness growth on both companions.
+  const growth = growthScale(Number(new URLSearchParams(location.search).get('growth') ?? 0));
   const [panel, setPanel] = useState('');
   const [cup, setCup] = useState<CupStyle>('ceramic');
   const [activity, setActivity] = useState<ActivityKind>('idle');
@@ -35,11 +40,11 @@ export function Checks() {
     const done = window.setTimeout(() => setHug(undefined), 3_200 + gatherMs);
     return () => { window.clearTimeout(ready); window.clearTimeout(done); };
   }, [hug, gatherMs]);
-  return <><main className="desktop-pet" data-window-width={petWindowWidth(preferences.petDistancePercent)} style={{ background: '#f2e6db',
-    '--pet-distance': `${petDistance(preferences.petDistancePercent)}px`, '--gather-ms': `${gatherMs}ms` } as CSSProperties}>
+  return <><main className="desktop-pet" data-window-width={petWindowWidth(preferences.petDistancePercent, preferences.selfPetScalePercent / 100 * growth, preferences.partnerPetScalePercent / 100 * growth)} style={{ background: '#f2e6db',
+    '--pet-distance': `${petDistance(preferences.petDistancePercent)}px`, '--gather-ms': `${gatherMs}ms`,
+    '--self-pet-scale': String(preferences.selfPetScalePercent / 100 * growth), '--partner-pet-scale': String(preferences.partnerPetScalePercent / 100 * growth) } as CSSProperties}>
     <section className="pet-zone">
       <div className="hover-ui menu-visible">
-        <div className="status-row"><div className="status-pill">Working</div><div className="status-pill">Working</div></div>
         <PetActions language={preferences.language} connected canReplay cupStyle={cup}
           onSettings={() => setPanel('settings')} onStatistics={() => setPanel('statistics')}
           onHug={() => setHug(String(Date.now()))} onWater={noop} onReplay={noop} />

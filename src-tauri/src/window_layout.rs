@@ -221,7 +221,8 @@ pub fn restore_pet_position(
 }
 
 /// The pet window's width in physical pixels for a logical width, kept within
-/// what the companions can use (they sit at most 160% of the default apart).
+/// what the companions can use (at most 160% of the default distance, at the
+/// largest size times the largest busyness growth).
 fn pet_width(logical: f64, scale: f64) -> u32 {
     let logical = if logical.is_finite() { logical } else { 440.0 };
     let scale = if scale.is_finite() && scale > 0.0 {
@@ -229,7 +230,7 @@ fn pet_width(logical: f64, scale: f64) -> u32 {
     } else {
         1.0
     };
-    (logical.clamp(440.0, 600.0) * scale).round() as u32
+    (logical.clamp(440.0, 800.0) * scale).round() as u32
 }
 
 /// Sets the pet window's width when the companions' distance changes. The left
@@ -278,7 +279,7 @@ mod tests {
         assert_eq!(pet_width(440.0, 1.0), 440);
         assert_eq!(pet_width(567.0, 2.0), 1134);
         assert_eq!(pet_width(300.0, 1.5), 660);
-        assert_eq!(pet_width(5000.0, 1.0), 600);
+        assert_eq!(pet_width(5000.0, 1.0), 800);
         assert_eq!(pet_width(f64::NAN, 2.0), 880);
     }
 

@@ -56,21 +56,12 @@ button { font: inherit; }
   transition: opacity 150ms ease, transform 180ms cubic-bezier(.2, .8, .2, 1);
 }
 
-.status-row {
-  display: flex;
-  justify-content: center;
-  gap: 6px;
-  width: 100%;
-  flex-wrap: wrap;
-}
-
 .hover-ui.menu-visible {
   opacity: 1;
   pointer-events: auto;
   transform: translate(-50%, 0) scale(1);
 }
 
-.status-pill,
 .pet-toast {
   border: 1px solid rgba(111, 64, 89, .12);
   background: rgba(255, 250, 247, .94);
@@ -78,39 +69,6 @@ button { font: inherit; }
   backdrop-filter: blur(12px);
   -webkit-backdrop-filter: blur(12px);
 }
-
-.status-pill {
-  display: flex;
-  align-items: center;
-  gap: 7px;
-  min-height: 32px;
-  padding: 7px 12px;
-  border-radius: 999px;
-  color: #6a485a;
-  font-size: 12px;
-}
-
-.status-pill > span {
-  color: #d986a5;
-  font-size: 10px;
-}
-
-.status-pill .status-copy {
-  display: grid;
-  gap: 2px;
-  color: #6a485a;
-  font-size: 12px;
-}
-
-.status-pill .status-copy small {
-  color: #9b7c8b;
-  font-size: 8px;
-  font-weight: 550;
-  white-space: nowrap;
-}
-
-.self-status > span:first-child { color: #d986a5; }
-.partner-status > span:first-child { color: #8173c6; }
 
 .quick-actions {
   display: flex;
@@ -197,15 +155,20 @@ button { font: inherit; }
   z-index: 2;
   left: 50%;
   bottom: 0;
-  /* The companions sit at either end, so the width sets how far apart they are. */
-  width: calc(var(--pet-distance, 212px) + 228px);
+  /* Sizes chosen in settings times today's busyness growth. */
+  --self-s: var(--self-pet-scale, 1);
+  --partner-s: var(--partner-pet-scale, 1);
+  /* Centres are --pet-distance apart at normal size and spread with the
+     companions' sizes, so the gap between them stays; each sits at an end. */
+  --pet-gap: calc(var(--pet-distance, 212px) * (var(--self-s) + var(--partner-s)) / 2);
+  width: calc(114px * var(--self-s) + var(--pet-gap) + 114px * var(--partner-s));
   height: 238px;
   transform: translateX(-50%);
   transform-origin: 50% 100%;
-  transition: transform 180ms cubic-bezier(.2, .8, .2, 1), width var(--gather-ms, 0ms) cubic-bezier(.2, .8, .2, 1);
+  transition: transform 180ms cubic-bezier(.2, .8, .2, 1), width var(--pair-ms, 180ms) cubic-bezier(.2, .8, .2, 1);
 }
 /* Hug strips are drawn at the default distance: the two slide together first. */
-.pet-pair.interaction-hug { width: 440px; }
+.pet-pair.interaction-hug { --pet-distance: 212px; }
 
 .pet-avatar {
   position: absolute;
@@ -223,11 +186,12 @@ button { font: inherit; }
 
 .self-pet {
   z-index: 1;
-  left: 0;
+  /* Grown, it still ends at the pair's edge. */
+  left: calc(114px * (var(--self-s) - 1));
   cursor: grab;
   transform: scale(var(--self-pet-scale, 1));
   transform-origin: 50% 100%;
-  transition: transform 180ms cubic-bezier(.2, .8, .2, 1);
+  transition: transform 180ms cubic-bezier(.2, .8, .2, 1), left 180ms cubic-bezier(.2, .8, .2, 1);
 }
 
 .self-pet:active { cursor: grabbing; }
@@ -235,11 +199,11 @@ button { font: inherit; }
 
 .partner-pet {
   z-index: 2;
-  right: 0;
+  right: calc(114px * (var(--partner-s) - 1));
   cursor: pointer;
   transform: scale(var(--partner-pet-scale, 1));
   transform-origin: 50% 100%;
-  transition: transform 180ms cubic-bezier(.2, .8, .2, 1);
+  transition: transform 180ms cubic-bezier(.2, .8, .2, 1), right 180ms cubic-bezier(.2, .8, .2, 1);
 }
 
 .partner-pet:focus-visible {

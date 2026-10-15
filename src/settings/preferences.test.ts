@@ -41,7 +41,7 @@ describe('desktop preferences', () => {
 
   it('persists replay, manual timezone, and update preferences', () => {
     const storage = memoryStorage();
-    savePreferences({ autoUpdate: false, replayEnabled: false, liveTyping: true, replaySaveDirectory: '/tmp/mewlink-replays', replayRetentionHours: 36, statisticsVisibility: 'partner', timezoneMode: 'manual', manualUtcOffsetMinutes: 330, animationSpeed: 'natural', selfPetScalePercent: 85, partnerPetScalePercent: 95, petDistancePercent: 130, selfPetSkin: 'sixtySix', blanketStyle: 'night', language: 'en', languageMode: 'manual' }, storage);
+    savePreferences({ autoUpdate: false, replayEnabled: false, liveTyping: true, replaySaveDirectory: '/tmp/mewlink-replays', replayRetentionHours: 36, statisticsVisibility: 'partner', timezoneMode: 'manual', manualUtcOffsetMinutes: 330, animationSpeed: 'natural', selfPetScalePercent: 85, partnerPetScalePercent: 95, petDistancePercent: 130, growWithBusyness: false, selfPetSkin: 'sixtySix', blanketStyle: 'night', language: 'en', languageMode: 'manual' }, storage);
     const saved = loadPreferences(storage);
     expect(effectiveUtcOffsetMinutes(saved)).toBe(330);
     expect(saved.autoUpdate).toBe(false);
@@ -53,6 +53,7 @@ describe('desktop preferences', () => {
     expect(saved.selfPetScalePercent).toBe(85);
     expect(saved.partnerPetScalePercent).toBe(95);
     expect(saved.petDistancePercent).toBe(130);
+    expect(saved.growWithBusyness).toBe(false);
     expect(saved.selfPetSkin).toBe('sixtySix');
     expect(saved.blanketStyle).toBe('night');
     expect(saved.language).toBe('en');
@@ -69,7 +70,7 @@ describe('desktop preferences', () => {
 
   it('lets people turn automatic timezone detection off', () => {
     const storage = memoryStorage();
-    savePreferences({ autoUpdate: true, replayEnabled: true, liveTyping: false, replaySaveDirectory: '', replayRetentionHours: 24, statisticsVisibility: 'private', timezoneMode: 'off', manualUtcOffsetMinutes: 0, animationSpeed: 'calm', selfPetScalePercent: 100, partnerPetScalePercent: 100, petDistancePercent: 100, selfPetSkin: 'cream', blanketStyle: 'blush', language: 'zh', languageMode: 'manual' }, storage);
+    savePreferences({ autoUpdate: true, replayEnabled: true, liveTyping: false, replaySaveDirectory: '', replayRetentionHours: 24, statisticsVisibility: 'private', timezoneMode: 'off', manualUtcOffsetMinutes: 0, animationSpeed: 'calm', selfPetScalePercent: 100, partnerPetScalePercent: 100, petDistancePercent: 100, growWithBusyness: true, selfPetSkin: 'cream', blanketStyle: 'blush', language: 'zh', languageMode: 'manual' }, storage);
     expect(loadPreferences(storage).timezoneMode).toBe('off');
   });
 
@@ -81,6 +82,7 @@ describe('desktop preferences', () => {
 
   it('keeps the companions\' distance in range and sizes the window for it', () => {
     expect(loadPreferences({ getItem: () => null, setItem: () => undefined }).petDistancePercent).toBe(100);
+    expect(loadPreferences({ getItem: () => '{}', setItem: () => undefined }).growWithBusyness).toBe(true);
     expect(normalizePetDistancePercent(10)).toBe(80);
     expect(normalizePetDistancePercent(500)).toBe(160);
     expect(normalizePetDistancePercent(133)).toBe(130);
@@ -90,6 +92,9 @@ describe('desktop preferences', () => {
     expect(petWindowWidth(80)).toBe(440);
     expect(petDistance(160)).toBe(339);
     expect(petWindowWidth(160)).toBe(567);
+    // Grown companions spread apart and widen the window too: 25% bigger at the default distance.
+    expect(petWindowWidth(100, 1.25, 1.25)).toBe(550);
+    expect(petWindowWidth(100, 0.8, 0.8)).toBe(440);
     const stored = JSON.stringify({ petDistancePercent: 140 });
     expect(loadPreferences({ getItem: () => stored, setItem: () => undefined }).petDistancePercent).toBe(140);
   });
