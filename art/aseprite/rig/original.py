@@ -299,18 +299,36 @@ def _authored_sequence(prefix, counts, nod_below=200, fx_fn=None, start=0):
 
 
 def without_hearts(image):
-    """No hearts anywhere (the app is for friends too): drop the small pink stamps drawn above the pups."""
+    """No hearts anywhere (the app is for friends too): drop the heart stamps standing
+    apart from the pups, wherever they are, and the little strokes drawn beside them.
+
+    A heart is a small separate shape that is reddish on average (pink stamps above
+    the pups), or at least a fifth heart red even with a thick dark outline (the
+    standing hug's big heart, and the ones low in the frame). Excitement marks and
+    motion lines are at most a tenth heart red and stay.
+    """
     import cv2
     alpha = (image[:, :, 3] > 0).astype(np.uint8)
+    rgb = image[:, :, :3].astype(int)
+    heart_red = (alpha > 0) & (rgb[:, :, 0] > 200) & (rgb[:, :, 1] < 130) & (rgb[:, :, 2] < 160)
     count, labels, stats, _ = cv2.connectedComponentsWithStats(alpha, connectivity=8)
     out = image.copy()
+    hearts = []
     for label in range(1, count):
         x, y, w, h, area = stats[label]
-        if area > 900 or y > 120:
+        if area > 900:
             continue
-        pixels = image[labels == label][:, :3].astype(np.float32)
-        r, g, b = pixels.mean(0)
-        if r > 180 and r - g > 50:
+        mask = labels == label
+        r, g, b = image[mask][:, :3].astype(np.float32).mean(0)
+        if (y <= 120 and r > 180 and r - g > 50) or heart_red[mask].sum() >= 0.2 * area:
+            out[mask] = 0
+            hearts.append((x, y, w, h))
+    for label in range(1, count):
+        x, y, w, h, area = stats[label]
+        if area > 300 or heart_red[labels == label].sum() < 6:
+            continue
+        if any(x < hx + hw + 16 and hx < x + w + 16 and y < hy + hh + 16 and hy < y + h + 16
+               for hx, hy, hw, hh in hearts):
             out[labels == label] = 0
     return out
 
