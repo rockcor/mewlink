@@ -2,7 +2,11 @@ import { openDB } from 'idb';
 import type { EncryptedEnvelope, OperationBatch, StoredEvent } from '../domain/types';
 import type { PairingState } from '../pairing/pairing';
 export interface OutboxItem { id: string; envelope: EncryptedEnvelope; stored: StoredEvent }
-export interface HistoryRef { id: string; at: string; kind: 'operation.batch' | 'interaction' | 'activity.segment' }
+export interface HistoryRef {
+  id: string; at: string; kind: 'operation.batch' | 'interaction' | 'activity.segment';
+  /** The sender's UTC offset when it was recorded (daylight saving, travel). */
+  offset?: number;
+}
 const db = openDB('mewlink', 2, { upgrade(database, oldVersion) {
   if (oldVersion < 1) {
     const events = database.createObjectStore('events', { keyPath: 'event.id' });
@@ -102,7 +106,8 @@ export async function replayReferences(state: PairingState, since: number, until
       const { event, direction } = cursor.value as StoredEvent;
       if (direction === 'in' && event.relationshipId === state.relationshipId && event.senderDeviceId === state.partnerDeviceId
         && (event.kind === 'operation.batch' || event.kind === 'interaction' || event.kind === 'activity.segment')) {
-        refs.push({ id: event.id, at: event.createdAt, kind: event.kind });
+        refs.push({ id: event.id, at: event.createdAt, kind: event.kind,
+          ...(event.senderUtcOffsetMinutes === undefined ? {} : { offset: event.senderUtcOffsetMinutes }) });
       }
       cursor = await cursor.continue();
     }

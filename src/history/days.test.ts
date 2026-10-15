@@ -63,6 +63,20 @@ describe('replay days', () => {
     expect(groupReplayDays(far, 0)[0].sessions).toHaveLength(2);
   });
 
+  it('ends each day at the midnight the partner had when recording (daylight saving, travel)', () => {
+    // London leaves summer time on 25 Oct 2026. 23:30 UTC on the 24th is 00:30 BST on the 25th.
+    const beforeChange = { ...batch(iso(23, 30, 24)), offset: 60 };
+    const afterChange = { ...batch(iso(12, 0, 25)), offset: 0 };
+    // Grouped with today's (winter) offset alone, the 00:30 record would land on the 24th.
+    const days = groupReplayDays([beforeChange, afterChange], 0);
+    expect(days.map(day => day.key)).toEqual(['2026-10-25']);
+    expect(days[0].refs).toHaveLength(2);
+    // The bar's clock uses the offset the day ended with.
+    expect(days[0].offset).toBe(0);
+    // Records without an offset (older versions) use the partner's current one.
+    expect(groupReplayDays([batch(iso(23, 30, 24))], 0)[0].key).toBe('2026-10-24');
+  });
+
   it('shows the bar time in the partner\'s own clock', () => {
     expect(partnerClock(Date.parse(iso(13, 5)), LONDON)).toBe('10/08 14:05');
     expect(partnerClock(Date.parse(iso(23, 30)), LONDON)).toBe('10/09 00:30');

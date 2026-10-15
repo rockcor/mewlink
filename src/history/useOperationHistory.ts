@@ -17,6 +17,8 @@ interface Options {
   /** The partner's UTC offset in minutes: a replay day ends at their midnight. */
   partnerOffset?: number;
   durationScale: number;
+  /** Extra time a hug takes to show (the companions slide together first at another distance). */
+  hugLeadMs?: number;
   displayReady?: (activity: ActivityKind, visual: WorkVisual) => boolean;
   onRecord: (create: (state: PairingState) => PlainEvent) => Promise<StoredEvent>;
 }
@@ -161,6 +163,8 @@ export function useOperationHistory(options: Options) {
   const start = useCallback(async (request: ReplayRequest = {}) => {
     const seeking = request.fraction !== undefined && session.current;
     if (session.current && !seeking) { stop(); return; }
+    // A seek moves the thumb at once, before the new playback has started.
+    if (seeking) setProgress(Math.min(1, Math.max(0, request.fraction!)));
     const config = latest.current;
     const identity = config.pairing;
     if (!config.enabled || !identity?.partnerDeviceId) return;
@@ -172,15 +176,20 @@ export function useOperationHistory(options: Options) {
     let releaseTimer: ReturnType<typeof setTimeout> | undefined;
     let stressUntil = 0;
     let samples: InputBurstSample[] = [];
+    // Nothing from where the previous playback was (a gesture, pressed paws) carries over.
+    setCurrent(undefined);
+    setHands({ keyboard: false, pointer: false, stressed: false });
     try {
       const seenAt = await historySeen(identity.relationshipId);
       if (!valid()) return;
-      const day = request.day ? all.find(item => item.key === request.day)
+      // A seek uses the day the bar is drawn from, even if today has grown since.
+      const day = request.day ? (playingDayRef.current?.key === request.day ? playingDayRef.current : all.find(item => item.key === request.day))
         : request.unseen ? all.find(item => unseenMs(item, seenAt) >= MIN_UNSEEN_MS) ?? all.at(-1)
         : all.at(-1);
       if (!day) { session.current = false; return; }
       const fraction = request.fraction ?? (request.unseen ? dayProgress(day, Math.max(day.start, seenAt + 1)) : 0);
-      const from = dayInstant(day, fraction >= 0.999 ? 0 : fraction);
+      // An unseen start at the very end replays the day; a seek to the end goes there.
+      const from = dayInstant(day, request.fraction === undefined && fraction >= 0.999 ? 0 : fraction);
       setPlayingDay(day);
       setProgress(dayProgress(day, from));
       setPlaying(true);
@@ -204,6 +213,7 @@ export function useOperationHistory(options: Options) {
         while (valid() && (elapsed < total || latest.current.paused)) {
           const step = Math.min(Math.max(total - elapsed, 16), 50);
           await new Promise(resolve => setTimeout(resolve, step));
+          if (!valid()) break;
           if (latest.current.paused) continue;
           elapsed += step;
           setProgress(dayProgress(day, Math.min(to, begin + elapsed * speed)));
@@ -261,7 +271,11 @@ export function useOperationHistory(options: Options) {
           clearTimeout(releaseTimer);
           releaseTimer = setTimeout(() => { if (valid()) setHands({ keyboard: false, pointer: false, stressed: false }); }, 110);
         }
-        if (frame.interaction) await wait(3300 * config.durationScale);
+        if (frame.interaction) {
+          await wait(3300 * config.durationScale + (frame.interaction === 'hug' ? latest.current.hugLeadMs ?? 0 : 0));
+          // The gesture is over: what follows (a long rest, say) shows the pups again.
+          if (valid()) setCurrent(value => value === frame ? { ...frame, interaction: undefined } : value);
+        }
         previous = frame;
       }
       // Watched to the end of the day: its notice goes away.

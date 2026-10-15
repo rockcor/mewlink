@@ -80,8 +80,8 @@ export default function App() {
   const replayingRef = useRef(false);
   const syncStartedAt = useRef(Date.now());
   const [gesture, setGesture] = useState<{ id: string; variant: GestureVariant; target: PetTarget; cupStyle?: CupStyle; blanketStyle?: BlanketStyle }>();
-  /** The hug whose companions have finished sliding together. */
-  const [gatheredHug, setGatheredHug] = useState<string>();
+  /** The companions have slid together for the hugs showing now; a run of hugs gathers once. */
+  const [hugGathered, setHugGathered] = useState(false);
   const [pendingCups, setPendingCups] = useState(loadPendingCups);
   const pendingCupsRef = useRef(pendingCups);
   const drinkInProgress = useRef(false);
@@ -385,7 +385,7 @@ export default function App() {
     pairing, enabled: preferences.replayEnabled, activity, workVisual, paused: renderPaused,
     retentionHours: preferences.replayRetentionHours, receiverOffset: receiverUtcOffsetMinutes,
     showTimezone: preferences.timezoneMode !== 'off', language: preferences.language,
-    revision: historyRevision, partnerOffset: partnerUtcOffsetMinutes, onRecord: enqueueEncryptedEvent, durationScale,
+    revision: historyRevision, partnerOffset: partnerUtcOffsetMinutes, onRecord: enqueueEncryptedEvent, durationScale, hugLeadMs: gatherMs,
     displayReady: (target, visual) => !partnerPlayback.transition && partnerPlayback.displayedActivity === target
       && (target !== 'work' || partnerPlayback.displayedWorkVisual === visual),
   });
@@ -811,7 +811,8 @@ export default function App() {
       setPendingCups(pendingCupsRef.current);
     }
     setNotice(message);
-    gestureTimer.current = window.setTimeout(() => setGesture(undefined), Math.round(3_200 * durationScale) + (action === 'hug' ? gatherMs : 0));
+    // A first hug waits while the companions slide together; one following it does not.
+    gestureTimer.current = window.setTimeout(() => setGesture(undefined), Math.round(3_200 * durationScale) + (action === 'hug' && !hugGathered ? gatherMs : 0));
     noticeTimer.current = window.setTimeout(() => setNotice(''), Math.round(2_800 * durationScale));
   }
 
@@ -1081,13 +1082,14 @@ export default function App() {
   } : undefined;
   const displayedGesture = connected ? (gesture ?? replayGesture) : undefined;
   // A hug at another distance waits while the two slide together.
-  const hugGathering = Boolean(gatherMs && displayedGesture?.variant.startsWith('hug') && gatheredHug !== displayedGesture.id);
-  const gatheringHug = hugGathering ? displayedGesture?.id : undefined;
+  const hugShown = Boolean(displayedGesture?.variant.startsWith('hug'));
+  const hugGathering = Boolean(gatherMs && hugShown && !hugGathered);
   useEffect(() => {
-    if (!gatheringHug) return;
-    const timer = window.setTimeout(() => setGatheredHug(gatheringHug), gatherMs);
+    if (!gatherMs || hugShown === hugGathered) return;
+    // Gathered once the slide is done; apart again once no hug is showing.
+    const timer = window.setTimeout(() => setHugGathered(hugShown), hugShown ? gatherMs : 0);
     return () => window.clearTimeout(timer);
-  }, [gatheringHug, gatherMs]);
+  }, [hugShown, hugGathered, gatherMs]);
   const gestureSkins = hugSkins(displayedGesture?.target ?? 'self', preferences.selfPetSkin, partnerSkin);
 
   return (
@@ -1169,7 +1171,7 @@ export default function App() {
         {connected && !settingsOpen && !statisticsOpen && (playing || history.unseen) && <div className="replay-dock">
           {playing && history.playingDay
             ? <ReplayScrubber day={history.playingDay} progress={history.progress}
-              timeLabel={partnerClock(dayInstant(history.playingDay, history.progress), partnerUtcOffsetMinutes ?? receiverUtcOffsetMinutes)}
+              timeLabel={partnerClock(dayInstant(history.playingDay, history.progress), history.playingDay.offset)}
               positionLabel={text.replayPosition} closeLabel={text.stopReplay} onSeek={history.seek} onClose={history.stop} />
             : history.unseen && <ReplayNotice label={text.replayNotice(formatDuration(history.unseen.ms, preferences.language), history.unseen.days)}
               detail={text.replayDetail(formatDuration(history.unseen.workMs, preferences.language), formatDuration(history.unseen.ms - history.unseen.workMs, preferences.language))}

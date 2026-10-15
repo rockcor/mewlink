@@ -22,6 +22,8 @@ export interface ReplayDay {
   activeMs: number;
   start: number;
   end: number;
+  /** The partner's UTC offset at the end of the day, for the bar's clock. */
+  offset: number;
 }
 
 /** "10/08 14:05" in the partner's own time, for the replay bar. */
@@ -42,9 +44,13 @@ export function groupReplayDays(refs: readonly HistoryRef[], offsetMinutes: numb
   for (const ref of [...refs].sort((a, b) => a.at.localeCompare(b.at) || a.id.localeCompare(b.id))) {
     const at = Date.parse(ref.at);
     if (!Number.isFinite(at)) continue;
-    const key = dayKey(at, offsetMinutes);
+    // Each record's own offset, so a daylight-saving change or a trip moves
+    // midnight only for the records made after it.
+    const offset = ref.offset ?? offsetMinutes;
+    const key = dayKey(at, offset);
     let day = days.get(key);
-    if (!day) { day = { key, refs: [], sessions: [], activeMs: 0, start: at, end: at }; days.set(key, day); }
+    if (!day) { day = { key, refs: [], sessions: [], activeMs: 0, start: at, end: at, offset }; days.set(key, day); }
+    day.offset = offset;
     day.refs.push(ref);
     const end = at + refSpan(ref);
     const last = day.sessions.at(-1);

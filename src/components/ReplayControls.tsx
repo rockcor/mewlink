@@ -25,6 +25,8 @@ interface ScrubberProps {
 export function ReplayScrubber({ day, progress, timeLabel, positionLabel, closeLabel, onSeek, onClose }: ScrubberProps) {
   const track = useRef<HTMLDivElement>(null);
   const [dragging, setDragging] = useState<number>();
+  // Arrow presses add up even before the seek they started has caught up.
+  const pendingKey = useRef<{ at: number; fraction: number }>(undefined);
   const fractionAt = (event: PointerEvent) => {
     const box = track.current?.getBoundingClientRect();
     return box && box.width > 0 ? Math.min(1, Math.max(0, (event.clientX - box.left) / box.width)) : 0;
@@ -34,7 +36,10 @@ export function ReplayScrubber({ day, progress, timeLabel, positionLabel, closeL
     const delta = event.key === 'ArrowRight' ? 0.05 : event.key === 'ArrowLeft' ? -0.05 : 0;
     if (!delta) return;
     event.preventDefault();
-    onSeek(Math.min(1, Math.max(0, progress + delta)));
+    const recent = pendingKey.current && performance.now() - pendingKey.current.at < 600 ? pendingKey.current.fraction : progress;
+    const fraction = Math.min(1, Math.max(0, recent + delta));
+    pendingKey.current = { at: performance.now(), fraction };
+    onSeek(fraction);
   };
   return <div className="replay-scrubber" onPointerDown={event => event.stopPropagation()}>
     <span className="replay-time">{timeLabel}</span>

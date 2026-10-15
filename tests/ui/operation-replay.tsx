@@ -58,6 +58,11 @@ export function Checks() {
             payload: { format: 1, startedAt: at, points: [[0, 2, 1, 0, 0, visual], [4000, 3, 0, i % 7 === 0 ? 1 : 0, 0, visual]] } } });
       }
     }
+    // A hug just before lunch: the long rest after it must show the sleeping pup, not the hug.
+    await putEvent({ direction: 'in', status: 'delivered', receivedAt: new Date().toISOString(),
+      event: { id: 'qa-hug-before-lunch', version: 1, relationshipId: identity.relationshipId, senderDeviceId: identity.partnerDeviceId!,
+        senderUtcOffsetMinutes: 480, createdAt: new Date(sessions[0][0] + 39 * 60_000).toISOString(), kind: 'interaction',
+        payload: { action: 'hug', blanketStyle: 'blush' } } });
     await putEvent({ direction: 'in', status: 'delivered', receivedAt: new Date().toISOString(),
       event: { id: 'qa-hug', version: 1, relationshipId: identity.relationshipId, senderDeviceId: identity.partnerDeviceId!,
         senderUtcOffsetMinutes: 480, createdAt: new Date(sessions[1][0] + 10 * 60_000).toISOString(), kind: 'interaction',
@@ -77,7 +82,7 @@ export function Checks() {
     <button onClick={() => setEnabled(value => !value)}>Enable / disable</button>
     <button onClick={async () => setReport('Seen: ' + await historySeen(identity.relationshipId) + '; queued: ' + (await pendingOutgoing(identity)).length)}>Check watermark</button>
     <p role="status">{replay.playing ? 'Playing' : 'Stopped'} · {paused ? 'Paused' : 'Running'} · {enabled ? 'Enabled' : 'Disabled'} · {replay.error ? 'ERROR' : 'No errors'}</p>
-    <p>{report}</p><p>Current: {replay.current?.id ?? 'none'} · {replay.current?.clockLabel}</p>
+    <p>{report}</p><p>Current: {replay.current?.id ?? 'none'} · {replay.current?.clockLabel} · interaction {replay.current?.interaction ?? 'none'}</p>
     <p>Rendered: {playback.displayedActivity} / {playback.displayedWorkVisual} / {playback.transition ? 'transition' : 'settled'}</p>
     <div className="pet-avatar partner-pet" style={{ position: 'relative', height: 300, width: 340 }}>
       <SpriteCanvas skin="mint" paused={paused} onLoopBoundary={playback.handleLoopBoundary}

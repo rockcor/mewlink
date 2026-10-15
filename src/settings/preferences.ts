@@ -47,7 +47,8 @@ export function defaultPreferences(): Preferences {
     replayEnabled: true,
     liveTyping: false,
     replaySaveDirectory: '',
-    replayRetentionHours: 24,
+    // Replay is offered by the partner's day; 36 h keeps yesterday whole until it is watched.
+    replayRetentionHours: 36,
     statisticsVisibility: 'private',
     timezoneMode: 'auto',
     manualUtcOffsetMinutes: localUtcOffsetMinutes(),
@@ -100,7 +101,7 @@ export function scalePetWithPinch(current: number, deltaY: number): number {
 }
 
 export function normalizeReplayRetentionHours(value: number): ReplayRetentionHours {
-  if (!Number.isFinite(value)) return 24;
+  if (!Number.isFinite(value)) return 36;
   return replayRetentionOptions.reduce((closest, option) =>
     Math.abs(option - value) < Math.abs(closest - value) ? option : closest
   );

@@ -128,6 +128,10 @@ describe('desktop preferences', () => {
     expect(normalizeReplayRetentionHours(12)).toBe(12);
     expect(normalizeReplayRetentionHours(31)).toBe(36);
     expect(normalizeReplayRetentionHours(90)).toBe(48);
+    expect(normalizeReplayRetentionHours(Number.NaN)).toBe(36);
+    // New installs keep a day and a half, so yesterday stays whole until it is watched; a saved choice stays.
+    expect(loadPreferences({ getItem: () => '{}', setItem: () => undefined }).replayRetentionHours).toBe(36);
+    expect(loadPreferences({ getItem: () => '{"replayRetentionHours":24}', setItem: () => undefined }).replayRetentionHours).toBe(24);
   });
 
   it('falls back safely when stored data is malformed', () => {
