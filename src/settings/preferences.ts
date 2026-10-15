@@ -7,6 +7,9 @@ export const animationSpeeds = ['calm', 'natural', 'lively'] as const;
 export type AnimationSpeed = (typeof animationSpeeds)[number];
 export type TimezoneMode = 'auto' | 'manual' | 'off';
 export const replayRetentionOptions = [12, 24, 36, 48] as const;
+/** Keep the companions above other windows, or below them like a desktop widget. */
+export const windowLayers = ['top', 'bottom'] as const;
+export type WindowLayer = (typeof windowLayers)[number];
 export type ReplayRetentionHours = (typeof replayRetentionOptions)[number];
 
 export interface Preferences {
@@ -26,6 +29,9 @@ export interface Preferences {
   petDistancePercent: number;
   /** The companions grow with today's busyness, and the partner sees it. */
   growWithBusyness: boolean;
+  windowLayer: WindowLayer;
+  /** 0 is solid; the companions turn solid again while the pointer is on them. */
+  petTransparencyPercent: number;
   selfPetSkin: PetSkin;
   blanketStyle: BlanketStyle;
   language: Language;
@@ -50,6 +56,8 @@ export function defaultPreferences(): Preferences {
     partnerPetScalePercent: 100,
     petDistancePercent: 100,
     growWithBusyness: true,
+    windowLayer: 'top',
+    petTransparencyPercent: 0,
     selfPetSkin: 'cream',
     blanketStyle: 'blush',
     language: browserLanguage(),
@@ -67,6 +75,11 @@ export function normalizePetScalePercent(value: number): number {
 export const DEFAULT_PET_DISTANCE = 212;
 export const PET_FRAME_WIDTH = 228;
 export const PET_WINDOW_MIN_WIDTH = 440;
+
+export function normalizePetTransparencyPercent(value: number): number {
+  if (!Number.isFinite(value)) return 0;
+  return Math.min(70, Math.max(0, Math.round(value / 10) * 10));
+}
 
 export function normalizePetDistancePercent(value: number): number {
   if (!Number.isFinite(value)) return 100;
@@ -134,6 +147,10 @@ export function loadPreferences(storage?: StorageLike): Preferences {
         ? normalizePetDistancePercent(value.petDistancePercent)
         : defaults.petDistancePercent,
       growWithBusyness: typeof value.growWithBusyness === 'boolean' ? value.growWithBusyness : defaults.growWithBusyness,
+      windowLayer: windowLayers.includes(value.windowLayer as WindowLayer) ? value.windowLayer as WindowLayer : defaults.windowLayer,
+      petTransparencyPercent: typeof value.petTransparencyPercent === 'number'
+        ? normalizePetTransparencyPercent(value.petTransparencyPercent)
+        : defaults.petTransparencyPercent,
       selfPetSkin: petSkins.includes(value.selfPetSkin as PetSkin) ? value.selfPetSkin as PetSkin : defaults.selfPetSkin,
       blanketStyle: blanketStyles.includes(value.blanketStyle as BlanketStyle) ? value.blanketStyle as BlanketStyle : defaults.blanketStyle,
       language: manualLanguage ? value.language as Language : defaults.language,

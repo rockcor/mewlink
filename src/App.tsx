@@ -219,6 +219,7 @@ export default function App() {
     '--pet-distance': `${petDistance(preferences.petDistancePercent)}px`,
     '--gather-ms': `${gatherMs}ms`,
     '--pair-ms': `${Math.max(gatherMs, 180)}ms`,
+    '--pet-opacity': String(1 - preferences.petTransparencyPercent / 100),
     '--self-pet-skin-filter': petSkinFilters[preferences.selfPetSkin],
     '--partner-pet-skin-filter': petSkinFilters[partnerSkin],
     '--pet-breathe-duration': `${Math.round(3_600 * durationScale)}ms`,
@@ -230,7 +231,7 @@ export default function App() {
     '--pet-idle-duration': `${Math.round(3_800 * durationScale)}ms`,
     '--interaction-duration': `${Math.round(3_200 * durationScale)}ms`,
     '--activity-transition-duration': `${Math.round(ACTIVITY_TRANSITION_MS * durationScale)}ms`
-  }) as CSSProperties, [durationScale, gatherMs, partnerScale, partnerSkin, preferences.petDistancePercent, preferences.selfPetSkin, selfScale]);
+  }) as CSSProperties, [durationScale, gatherMs, partnerScale, partnerSkin, preferences.petDistancePercent, preferences.petTransparencyPercent, preferences.selfPetSkin, selfScale]);
 
   const installAvailableUpdate = useCallback(async (update: Update) => {
     setUpdateState({ kind: 'downloading', message: text.updateDownloading(), canInstall: true });
@@ -519,6 +520,13 @@ export default function App() {
     return () => window.clearInterval(retryTimer);
   }, [connected, pairing?.relationshipId, preferences.selfPetSkin, publishPetSkin]);
   // The window widens when the companions sit further apart than fits the default width.
+  // Above or below other windows; a panel always opens on top so it can be used.
+  const windowLayer = settingsOpen || statisticsOpen ? 'top' : preferences.windowLayer;
+  useEffect(() => {
+    if (!isTauriWindow) return;
+    void queueDesktopWindow(() => invoke('set_pet_layer', { bottom: windowLayer === 'bottom' })).catch(() => undefined);
+  }, [windowLayer]);
+
   // Alone, one companion always fits the default width.
   const windowWidth = connected ? petWindowWidth(preferences.petDistancePercent, selfScale, partnerScale) : PET_WINDOW_MIN_WIDTH;
   useEffect(() => {
@@ -1100,7 +1108,7 @@ export default function App() {
             onReplay={() => { dismissPetMenu(); void history.start(history.playing || !history.unseen ? {} : { unseen: true }); }} />
         </div>
 
-        <div className={`pet-pair ${connected ? 'paired' : 'solo'} ${displayedGesture ? `interacting target-${displayedGesture.target} interaction-${displayedGesture.variant.startsWith('hug') ? 'hug' : 'water'}` : ''}`}>
+        <div className={`pet-pair ${connected ? 'paired' : 'solo'} ${petMenuOpen ? 'menu-open' : ''} ${displayedGesture ? `interacting target-${displayedGesture.target} interaction-${displayedGesture.variant.startsWith('hug') ? 'hug' : 'water'}` : ''}`}>
           <button
             className="pet-avatar self-pet"
             type="button"

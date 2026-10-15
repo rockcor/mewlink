@@ -271,6 +271,21 @@ pub fn set_pet_width(
     window.set_max_size(Some(size)).map_err(|e| e.to_string())
 }
 
+/// Keeps the pet window above other windows, or below them like a desktop
+/// widget. While a panel is open the app asks for the top, so it stays visible.
+#[tauri::command]
+pub fn set_pet_layer(window: WebviewWindow, bottom: bool) -> Result<(), String> {
+    if bottom {
+        window.set_always_on_top(false).map_err(|e| e.to_string())?;
+        window.set_always_on_bottom(true).map_err(|e| e.to_string())
+    } else {
+        window
+            .set_always_on_bottom(false)
+            .map_err(|e| e.to_string())?;
+        window.set_always_on_top(true).map_err(|e| e.to_string())
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

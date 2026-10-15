@@ -9,7 +9,7 @@ import { blanketStyles, cupStyles, petSkins, type CupStyle, type PetSkin } from 
 import type { AnimationSpeed, Preferences } from '../settings/preferences';
 import { pairingInviteSecondsLeft, type PairingState } from '../pairing/pairing';
 import type { LivePhase } from '../live/liveChannel';
-import { animationSpeeds, formatUtcOffset, replayRetentionOptions } from '../settings/preferences';
+import { animationSpeeds, formatUtcOffset, replayRetentionOptions, windowLayers } from '../settings/preferences';
 
 export interface UpdateViewState {
   kind: 'idle' | 'checking' | 'current' | 'available' | 'downloading' | 'installing' | 'error';
@@ -68,7 +68,7 @@ const copy = {
     petSize: '宠物大小和距离', petSizeNote: '两只宠物可分别调整，距离越远窗口越宽', selfPet: '我的宠物', partnerPet: 'TA 的宠物', petSizeAria: '宠物大小', petDistance: '距离', petDistanceAria: '两只宠物之间的距离', growth: '随忙碌长大', growthNote: '今天越忙，宠物就慢慢变大，按你平时的节奏衡量，每天 0 点恢复原大小。TA 能看到你的宠物大小，看不到具体统计',
     petColor: '宠物配色', petColorNote: '选择自己的颜色；连接后会同步显示', petColorAria: '我的宠物配色', skins: { cream: '奶油', peach: '蜜桃', mint: '薄荷', sky: '晴空', lavender: '丁香', luka: 'Luka', sixtySix: '66', shell: '贝壳' },
     props: '互动道具', propsNote: '只有水杯和被子可以更换', cup: '水杯', blanket: '被子', blankets: { blush: '樱粉', night: '星夜', mint: '薄荷' },
-    speed: '动画速度', speedNote: '默认采用更从容的节奏', speedAria: '动画速度', speeds: { calm: '舒缓', natural: '自然', lively: '活泼' },
+    window: '窗口', windowNote: '置于底层时不会挡住其他窗口；鼠标移到宠物上时恢复不透明', layers: { top: '置于顶层', bottom: '置于底层' }, layerAria: '窗口层级', transparency: '透明度', transparencyAria: '宠物透明度', speed: '动画速度', speedNote: '默认采用更从容的节奏', speedAria: '动画速度', speeds: { calm: '舒缓', natural: '自然', lively: '活泼' },
     feedback: '意见反馈', feedbackNote: '会发送到开发者邮箱，不会公开显示', nickname: '昵称', nicknamePlaceholder: '怎么称呼你', nicknameAria: '反馈昵称', feedbackPlaceholder: '写下你的感受或建议…', feedbackAria: '反馈内容', sendFeedback: '发送反馈',
   },
   'zh-Hant': {
@@ -87,7 +87,7 @@ const copy = {
     petSize: '寵物大小和距離', petSizeNote: '兩隻寵物可分別調整，距離越遠視窗越寬', selfPet: '我的寵物', partnerPet: 'TA 的寵物', petSizeAria: '寵物大小', petDistance: '距離', petDistanceAria: '兩隻寵物之間的距離', growth: '隨忙碌長大', growthNote: '今天越忙，寵物就慢慢變大，依你平時的節奏衡量，每天 0 點恢復原大小。TA 能看到你的寵物大小，看不到具體統計',
     petColor: '寵物配色', petColorNote: '選擇自己的顏色；連線後會同步顯示', petColorAria: '我的寵物配色', skins: { cream: '奶油', peach: '蜜桃', mint: '薄荷', sky: '晴空', lavender: '丁香', luka: 'Luka', sixtySix: '66', shell: '貝殼' },
     props: '互動道具', propsNote: '只有水杯和被子可以更換', cup: '水杯', blanket: '被子', blankets: { blush: '櫻粉', night: '星夜', mint: '薄荷' },
-    speed: '動畫速度', speedNote: '預設採用更從容的節奏', speedAria: '動畫速度', speeds: { calm: '舒緩', natural: '自然', lively: '活潑' },
+    window: '視窗', windowNote: '置於底層時不會擋住其他視窗；滑鼠移到寵物上時恢復不透明', layers: { top: '置於頂層', bottom: '置於底層' }, layerAria: '視窗層級', transparency: '透明度', transparencyAria: '寵物透明度', speed: '動畫速度', speedNote: '預設採用更從容的節奏', speedAria: '動畫速度', speeds: { calm: '舒緩', natural: '自然', lively: '活潑' },
     feedback: '意見回饋', feedbackNote: '會傳送到開發者信箱，不會公開顯示', nickname: '暱稱', nicknamePlaceholder: '怎麼稱呼你', nicknameAria: '回饋暱稱', feedbackPlaceholder: '寫下你的感受或建議…', feedbackAria: '回饋內容', sendFeedback: '傳送回饋',
   },
   en: {
@@ -106,7 +106,7 @@ const copy = {
     petSize: 'Size and distance', petSizeNote: 'Adjust each companion; a wider distance widens the window', selfPet: 'Mine', partnerPet: 'Partner', petSizeAria: 'Companion size', petDistance: 'Distance', petDistanceAria: 'Distance between the companions', growth: 'Grow with busyness', growthNote: 'The busier your day, the bigger your companion slowly grows, measured against your usual pace; back to normal size at midnight. Your partner sees the size, never the statistics',
     petColor: 'Companion color', petColorNote: 'Choose yours; it appears for your partner after pairing', petColorAria: 'My companion color', skins: { cream: 'Cream', peach: 'Peach', mint: 'Mint', sky: 'Sky', lavender: 'Lilac', luka: 'Luka', sixtySix: '66', shell: 'Shell' },
     props: 'Interaction props', propsNote: 'Only mugs and blankets can be changed', cup: 'Mug', blanket: 'Blanket', blankets: { blush: 'Blush', night: 'Night', mint: 'Mint' },
-    speed: 'Animation speed', speedNote: 'A calmer pace is selected by default', speedAria: 'Animation speed', speeds: { calm: 'Calm', natural: 'Natural', lively: 'Lively' },
+    window: 'Window', windowNote: 'Below, it never covers other windows; companions turn solid while the pointer is on them', layers: { top: 'Keep on top', bottom: 'Keep below' }, layerAria: 'Window layer', transparency: 'Transparency', transparencyAria: 'Companion transparency', speed: 'Animation speed', speedNote: 'A calmer pace is selected by default', speedAria: 'Animation speed', speeds: { calm: 'Calm', natural: 'Natural', lively: 'Lively' },
     feedback: 'Feedback', feedbackNote: 'Sent privately to the developer by email, never shown publicly', nickname: 'Nickname', nicknamePlaceholder: 'How should we call you?', nicknameAria: 'Feedback nickname', feedbackPlaceholder: 'Share a thought or suggestion…', feedbackAria: 'Feedback message', sendFeedback: 'Send feedback',
   },
 } as const;
@@ -324,6 +324,12 @@ export function SettingsPanel({
           <div className="setting-title"><div><b>{text.props}</b><small>{text.propsNote}</small></div></div>
           <div className="prop-picker"><b>{text.cup}</b><div className="mini-tabs">{cupStyles.map(style => <button key={style} type="button" className={cupStyle === style ? 'selected' : ''} aria-label={appCopy[preferences.language].cups[style].label} aria-pressed={cupStyle === style} onClick={() => onCupStyleChange(style)}><CupIcon style={style} /></button>)}</div></div>
           <div className="prop-picker"><b>{text.blanket}</b><div className="mini-tabs">{blanketStyles.map(style => <button key={style} type="button" className={preferences.blanketStyle === style ? 'selected' : ''} onClick={() => patchPreferences({ blanketStyle: style })}>{text.blankets[style]}</button>)}</div></div>
+        </article>
+
+        <article hidden={page !== 'pet'} className="setting-block window-setting">
+          <div className="setting-title"><div><b>{text.window}</b><small>{text.windowNote}</small></div></div>
+          <div className="speed-options" role="group" aria-label={text.layerAria}>{windowLayers.map(layer => <button key={layer} type="button" className={preferences.windowLayer === layer ? 'selected' : ''} aria-pressed={preferences.windowLayer === layer} onClick={() => patchPreferences({ windowLayer: layer })}>{text.layers[layer]}</button>)}</div>
+          <label className="pet-size-slider named"><span>{text.transparency}</span><input type="range" min="0" max="70" step="10" value={preferences.petTransparencyPercent} onChange={event => patchPreferences({ petTransparencyPercent: Number(event.target.value) })} aria-label={text.transparencyAria}/><output>{preferences.petTransparencyPercent}%</output></label>
         </article>
 
         <article hidden={page !== 'pet'} className="setting-block">

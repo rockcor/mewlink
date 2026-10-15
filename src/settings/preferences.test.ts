@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { petSkins } from '../domain/types';
-import { animationDurationScale, effectiveUtcOffsetMinutes, formatUtcOffset, loadPreferences, normalizePetDistancePercent, normalizePetScalePercent, normalizeReplayRetentionHours, petDistance, petWindowWidth, savePreferences, scalePetWithPinch } from './preferences';
+import { animationDurationScale, effectiveUtcOffsetMinutes, formatUtcOffset, loadPreferences, normalizePetDistancePercent, normalizePetTransparencyPercent, normalizePetScalePercent, normalizeReplayRetentionHours, petDistance, petWindowWidth, savePreferences, scalePetWithPinch } from './preferences';
 
 function memoryStorage(initial?: string) {
   let value = initial ?? null;
@@ -41,7 +41,7 @@ describe('desktop preferences', () => {
 
   it('persists replay, manual timezone, and update preferences', () => {
     const storage = memoryStorage();
-    savePreferences({ autoUpdate: false, replayEnabled: false, liveTyping: true, replaySaveDirectory: '/tmp/mewlink-replays', replayRetentionHours: 36, statisticsVisibility: 'partner', timezoneMode: 'manual', manualUtcOffsetMinutes: 330, animationSpeed: 'natural', selfPetScalePercent: 85, partnerPetScalePercent: 95, petDistancePercent: 130, growWithBusyness: false, selfPetSkin: 'sixtySix', blanketStyle: 'night', language: 'en', languageMode: 'manual' }, storage);
+    savePreferences({ autoUpdate: false, replayEnabled: false, liveTyping: true, replaySaveDirectory: '/tmp/mewlink-replays', replayRetentionHours: 36, statisticsVisibility: 'partner', timezoneMode: 'manual', manualUtcOffsetMinutes: 330, animationSpeed: 'natural', selfPetScalePercent: 85, partnerPetScalePercent: 95, petDistancePercent: 130, growWithBusyness: false, windowLayer: 'bottom', petTransparencyPercent: 40, selfPetSkin: 'sixtySix', blanketStyle: 'night', language: 'en', languageMode: 'manual' }, storage);
     const saved = loadPreferences(storage);
     expect(effectiveUtcOffsetMinutes(saved)).toBe(330);
     expect(saved.autoUpdate).toBe(false);
@@ -54,6 +54,8 @@ describe('desktop preferences', () => {
     expect(saved.partnerPetScalePercent).toBe(95);
     expect(saved.petDistancePercent).toBe(130);
     expect(saved.growWithBusyness).toBe(false);
+    expect(saved.windowLayer).toBe('bottom');
+    expect(saved.petTransparencyPercent).toBe(40);
     expect(saved.selfPetSkin).toBe('sixtySix');
     expect(saved.blanketStyle).toBe('night');
     expect(saved.language).toBe('en');
@@ -70,7 +72,7 @@ describe('desktop preferences', () => {
 
   it('lets people turn automatic timezone detection off', () => {
     const storage = memoryStorage();
-    savePreferences({ autoUpdate: true, replayEnabled: true, liveTyping: false, replaySaveDirectory: '', replayRetentionHours: 24, statisticsVisibility: 'private', timezoneMode: 'off', manualUtcOffsetMinutes: 0, animationSpeed: 'calm', selfPetScalePercent: 100, partnerPetScalePercent: 100, petDistancePercent: 100, growWithBusyness: true, selfPetSkin: 'cream', blanketStyle: 'blush', language: 'zh', languageMode: 'manual' }, storage);
+    savePreferences({ autoUpdate: true, replayEnabled: true, liveTyping: false, replaySaveDirectory: '', replayRetentionHours: 24, statisticsVisibility: 'private', timezoneMode: 'off', manualUtcOffsetMinutes: 0, animationSpeed: 'calm', selfPetScalePercent: 100, partnerPetScalePercent: 100, petDistancePercent: 100, growWithBusyness: true, windowLayer: 'top', petTransparencyPercent: 0, selfPetSkin: 'cream', blanketStyle: 'blush', language: 'zh', languageMode: 'manual' }, storage);
     expect(loadPreferences(storage).timezoneMode).toBe('off');
   });
 
@@ -97,6 +99,17 @@ describe('desktop preferences', () => {
     expect(petWindowWidth(100, 0.8, 0.8)).toBe(440);
     const stored = JSON.stringify({ petDistancePercent: 140 });
     expect(loadPreferences({ getItem: () => stored, setItem: () => undefined }).petDistancePercent).toBe(140);
+  });
+
+  it('keeps the window above by default, with solid companions, and bounds transparency', () => {
+    const fresh = loadPreferences({ getItem: () => '{}', setItem: () => undefined });
+    expect(fresh.windowLayer).toBe('top');
+    expect(fresh.petTransparencyPercent).toBe(0);
+    expect(loadPreferences({ getItem: () => JSON.stringify({ windowLayer: 'sideways', petTransparencyPercent: 95 }), setItem: () => undefined }))
+      .toMatchObject({ windowLayer: 'top', petTransparencyPercent: 70 });
+    expect(normalizePetTransparencyPercent(-5)).toBe(0);
+    expect(normalizePetTransparencyPercent(34)).toBe(30);
+    expect(normalizePetTransparencyPercent(Number.NaN)).toBe(0);
   });
 
   it('scales the pointed companion with a trackpad pinch', () => {
