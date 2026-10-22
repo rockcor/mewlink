@@ -43,11 +43,6 @@
   background-size: 2400% 100%;
   animation: sprite-strip var(--pet-meeting-duration, 2500ms) steps(24, jump-none) infinite;
 }
-.pet-sprite.leisure {
-  background-image: url('/pets/animations/leisure.png');
-  background-size: 2400% 100%;
-  animation: sprite-strip var(--pet-video-duration, 2900ms) steps(24, jump-none) infinite;
-}
 .pet-sprite.idle {
   background-image: url('/pets/animations/idle.png');
   background-size: 2400% 100%;
@@ -79,44 +74,29 @@
   animation: sprite-strip var(--activity-transition-duration, 4800ms) steps(32, jump-none) both;
 }
 .transition-work-meeting { background-image: url('/pets/animations/transition-work-meeting.png'); }
-.transition-work-leisure { background-image: url('/pets/animations/transition-work-leisure.png'); }
 .transition-work-idle { background-image: url('/pets/animations/transition-work-idle.png'); }
 .transition-work-rest { background-image: url('/pets/animations/transition-work-rest.png'); }
 .transition-work-document-meeting { background-image: url('/pets/animations/transition-work-document-meeting.png'); }
-.transition-work-document-leisure { background-image: url('/pets/animations/transition-work-document-leisure.png'); }
 .transition-work-document-idle { background-image: url('/pets/animations/transition-work-document-idle.png'); }
 .transition-work-document-rest { background-image: url('/pets/animations/transition-work-document-rest.png'); }
 .transition-work-web-meeting { background-image: url('/pets/animations/transition-work-web-meeting.png'); }
-.transition-work-web-leisure { background-image: url('/pets/animations/transition-work-web-leisure.png'); }
 .transition-work-web-idle { background-image: url('/pets/animations/transition-work-web-idle.png'); }
 .transition-work-web-rest { background-image: url('/pets/animations/transition-work-web-rest.png'); }
 .transition-work-ai-meeting { background-image: url('/pets/animations/transition-work-ai-meeting.png'); }
-.transition-work-ai-leisure { background-image: url('/pets/animations/transition-work-ai-leisure.png'); }
 .transition-work-ai-idle { background-image: url('/pets/animations/transition-work-ai-idle.png'); }
 .transition-work-ai-rest { background-image: url('/pets/animations/transition-work-ai-rest.png'); }
 .transition-work-mewlink-meeting { background-image: url('/pets/animations/transition-work-mewlink-meeting.png'); }
-.transition-work-mewlink-leisure { background-image: url('/pets/animations/transition-work-mewlink-leisure.png'); }
 .transition-work-mewlink-idle { background-image: url('/pets/animations/transition-work-mewlink-idle.png'); }
 .transition-work-mewlink-rest { background-image: url('/pets/animations/transition-work-mewlink-rest.png'); }
 .transition-meeting-work { background-image: url('/pets/animations/transition-meeting-work.png'); }
-.transition-meeting-leisure { background-image: url('/pets/animations/transition-meeting-leisure.png'); }
 .transition-meeting-idle { background-image: url('/pets/animations/transition-meeting-idle.png'); }
 .transition-meeting-rest { background-image: url('/pets/animations/transition-meeting-rest.png'); }
 .transition-meeting-work-document { background-image: url('/pets/animations/transition-meeting-work-document.png'); }
 .transition-meeting-work-web { background-image: url('/pets/animations/transition-meeting-work-web.png'); }
 .transition-meeting-work-ai { background-image: url('/pets/animations/transition-meeting-work-ai.png'); }
 .transition-meeting-work-mewlink { background-image: url('/pets/animations/transition-meeting-work-mewlink.png'); }
-.transition-leisure-work { background-image: url('/pets/animations/transition-leisure-work.png'); }
-.transition-leisure-meeting { background-image: url('/pets/animations/transition-leisure-meeting.png'); }
-.transition-leisure-idle { background-image: url('/pets/animations/transition-leisure-idle.png'); }
-.transition-leisure-rest { background-image: url('/pets/animations/transition-leisure-rest.png'); }
-.transition-leisure-work-document { background-image: url('/pets/animations/transition-leisure-work-document.png'); }
-.transition-leisure-work-web { background-image: url('/pets/animations/transition-leisure-work-web.png'); }
-.transition-leisure-work-ai { background-image: url('/pets/animations/transition-leisure-work-ai.png'); }
-.transition-leisure-work-mewlink { background-image: url('/pets/animations/transition-leisure-work-mewlink.png'); }
 .transition-idle-work { background-image: url('/pets/animations/transition-idle-work.png'); }
 .transition-idle-meeting { background-image: url('/pets/animations/transition-idle-meeting.png'); }
-.transition-idle-leisure { background-image: url('/pets/animations/transition-idle-leisure.png'); }
 .transition-idle-rest { background-image: url('/pets/animations/transition-idle-rest.png'); }
 .transition-idle-work-document { background-image: url('/pets/animations/transition-idle-work-document.png'); }
 .transition-idle-work-web { background-image: url('/pets/animations/transition-idle-work-web.png'); }
@@ -124,7 +104,6 @@
 .transition-idle-work-mewlink { background-image: url('/pets/animations/transition-idle-work-mewlink.png'); }
 .transition-rest-work { background-image: url('/pets/animations/transition-rest-work.png'); }
 .transition-rest-meeting { background-image: url('/pets/animations/transition-rest-meeting.png'); }
-.transition-rest-leisure { background-image: url('/pets/animations/transition-rest-leisure.png'); }
 .transition-rest-idle { background-image: url('/pets/animations/transition-rest-idle.png'); }
 .transition-rest-work-document { background-image: url('/pets/animations/transition-rest-work-document.png'); }
 .transition-rest-work-web { background-image: url('/pets/animations/transition-rest-work-web.png'); }
@@ -163,26 +142,22 @@
 }
 .interaction-sprite.hug-work { background-image: url('/pets/animations/hug-work.png'); }
 .interaction-sprite.hug-meeting { background-image: url('/pets/animations/hug-meeting.png'); }
-.interaction-sprite.hug-leisure { background-image: url('/pets/animations/hug-leisure.png'); }
 .interaction-sprite.hug-idle { background-image: url('/pets/animations/hug-idle.png'); }
 .interaction-sprite.hug-rest { background-image: url('/pets/animations/hug-rest-blush.png'); }
 .interaction-sprite.hug-rest.blanket-night { background-image: url('/pets/animations/hug-rest-night.png'); }
 .interaction-sprite.hug-rest.blanket-mint { background-image: url('/pets/animations/hug-rest-mint.png'); }
 .interaction-sprite.water-work { background-image: url('/pets/animations/water-work-ceramic.png'); }
 .interaction-sprite.water-meeting { background-image: url('/pets/animations/water-meeting-ceramic.png'); }
-.interaction-sprite.water-leisure { background-image: url('/pets/animations/water-leisure-ceramic.png'); }
 .interaction-sprite.water-idle { background-image: url('/pets/animations/water-idle-ceramic.png'); }
 .interaction-sprite.water-rest { background-image: url('/pets/animations/water-rest-ceramic.png'); }
 .interaction-sprite.water-drink { background-image: url('/pets/animations/water-drink-ceramic.png'); }
 .interaction-sprite.water-work.cup-tumbler { background-image: url('/pets/animations/water-work-tumbler.png'); }
 .interaction-sprite.water-meeting.cup-tumbler { background-image: url('/pets/animations/water-meeting-tumbler.png'); }
-.interaction-sprite.water-leisure.cup-tumbler { background-image: url('/pets/animations/water-leisure-tumbler.png'); }
 .interaction-sprite.water-idle.cup-tumbler { background-image: url('/pets/animations/water-idle-tumbler.png'); }
 .interaction-sprite.water-rest.cup-tumbler { background-image: url('/pets/animations/water-rest-tumbler.png'); }
 .interaction-sprite.water-drink.cup-tumbler { background-image: url('/pets/animations/water-drink-tumbler.png'); }
 .interaction-sprite.water-work.cup-bottle { background-image: url('/pets/animations/water-work-bottle.png'); }
 .interaction-sprite.water-meeting.cup-bottle { background-image: url('/pets/animations/water-meeting-bottle.png'); }
-.interaction-sprite.water-leisure.cup-bottle { background-image: url('/pets/animations/water-leisure-bottle.png'); }
 .interaction-sprite.water-idle.cup-bottle { background-image: url('/pets/animations/water-idle-bottle.png'); }
 .interaction-sprite.water-rest.cup-bottle { background-image: url('/pets/animations/water-rest-bottle.png'); }
 .interaction-sprite.water-drink.cup-bottle { background-image: url('/pets/animations/water-drink-bottle.png'); }
@@ -255,3 +230,5 @@
   transform-origin: 50% 88%;
   filter: drop-shadow(0 4px 3px rgba(86, 45, 67, .2));
 }
+/* Making room for a cup that arrived, it slides over rather than jumping. */
+.pomodoro-timer.counting { transition: left .5s cubic-bezier(.2, .8, .2, 1); }

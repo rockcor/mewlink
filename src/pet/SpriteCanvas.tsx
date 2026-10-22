@@ -63,7 +63,7 @@ export function SpriteCanvas({ skin, senderSkin, paused, className = '', onLoopB
       // Older WKWebView versions retain colors using a small-canvas CSS fallback.
       if (!dualSkin) surface.style.filter = nativeFilter ? 'none' : `${petSkinFilters[skin]} drop-shadow(0 ${shadow[0]}px ${shadow[1]}px rgba(86,45,67,${shadow[2]}))`;
       let previousFrame = -1;
-      const loop = ['idle', 'meeting', 'leisure', 'rest'].includes(asset) && !className.includes('transition-source-frame');
+      const loop = ['idle', 'meeting', 'rest'].includes(asset) && !className.includes('transition-source-frame');
       const finite = className.includes('activity-transition') || className.includes('interaction-sprite');
       const clockKey = `${asset}:${loop ? 'loop' : finite ? 'once' : 'still'}`;
       const paint = () => {

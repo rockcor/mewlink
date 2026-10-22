@@ -41,7 +41,7 @@ export function spriteAssetFor(className: string): string {
   if (interaction) return interaction;
   const work = classes.find(name => name.startsWith('work-'));
   if (work) return `${work}${classes.includes('input-stressed') ? '-stress' : ''}`;
-  return classes.find(name => ['meeting', 'leisure', 'idle', 'rest'].includes(name)) ?? 'idle';
+  return classes.find(name => ['meeting', 'idle', 'rest'].includes(name)) ?? 'idle';
 }
 
 export function frameFromPosition(position: string, count: number): number {

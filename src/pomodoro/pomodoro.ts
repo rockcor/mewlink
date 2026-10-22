@@ -8,8 +8,8 @@ export const POMODORO_MS = 25 * 60_000;
 export const DIAL_MS = 60 * 60_000;
 /** Lifted by the paw and wound up, click by click. */
 export const WIND_MS = 1_800;
-/** Then set down on the desk. */
-export const PLACE_MS = 800;
+/** Then carried over and set down on the desk. */
+export const PLACE_MS = 1_000;
 /** It rings this long once the time is up, then is put away. */
 export const RING_MS = 4_000;
 const MIN_MS = 60_000;

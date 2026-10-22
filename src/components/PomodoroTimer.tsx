@@ -1,16 +1,12 @@
 import { useEffect, useRef, useState, type CSSProperties } from 'react';
 import { dialAngle, dialMinutes, PLACE_MS, pomodoroPhase, WIND_MS, type Pomodoro } from '../pomodoro/pomodoro';
+import { PAW, SPOT } from '../pomodoro/placement';
 
 // The tomato kitchen timer on a pup's desk, drawn in the pets' pixel style:
 // 32x32 art pixels, two frame pixels each, in the 384x256 frame the pet strips
 // use (so it scales, fades and hides with its pup).
 const ART = 32;
 const SCALE = 2;
-/** Where it stands on the desk (frame pixels, centre): right of the mouse, or bottom left when that is taken. */
-const SPOTS = { right: { x: 358, y: 222 }, left: { x: 40, y: 222 } } as const;
-/** Lifted next to the paw on the mouse while it is wound up. */
-const PAW = { x: 318, y: 166 };
-export type PomodoroSpot = keyof typeof SPOTS;
 
 const C = { outline: '#2b0f17', body: '#ec5a5f', shade: '#c8434f', light: '#ff9e95', leaf: '#6cc070', stem: '#3f7f45',
   face: '#fff1d6', wedge: '#f8a7ad', tick: '#7a2f3c' };
@@ -65,8 +61,8 @@ function draw(context: CanvasRenderingContext2D, minutes: number, ringing: boole
 const ease = (t: number) => 1 - (1 - t) ** 3;
 
 /** Where the timer is and how it moves at `now`: lifted and twisted, set down, standing, or ringing. */
-function pose(pomodoro: Pomodoro, now: number, spot: PomodoroSpot, atPaw: boolean) {
-  const home = SPOTS[spot];
+function pose(pomodoro: Pomodoro, now: number, atPaw: boolean, x: number) {
+  const home = { x, y: SPOT.y };
   const lift = atPaw ? PAW : { x: home.x, y: home.y - 26 };
   const elapsed = now - pomodoro.startedAt;
   const phase = pomodoroPhase(pomodoro, now);
@@ -81,7 +77,8 @@ function pose(pomodoro: Pomodoro, now: number, spot: PomodoroSpot, atPaw: boolea
     const t = (elapsed - WIND_MS) / PLACE_MS;
     if (t < 0.75) {
       const p = ease(t / 0.75);
-      return { x: lift.x + (home.x - lift.x) * p, y: lift.y + (home.y - lift.y) * p - Math.sin(Math.PI * p) * 16, transform: 'none' };
+      // Carried across in front of the keyboard in one easy hop.
+      return { x: lift.x + (home.x - lift.x) * p, y: lift.y + (home.y - lift.y) * p - Math.sin(Math.PI * p) * 28, transform: 'none' };
     }
     // Lands with a little squash.
     const s = (t - 0.75) / 0.25;
@@ -96,15 +93,16 @@ function pose(pomodoro: Pomodoro, now: number, spot: PomodoroSpot, atPaw: boolea
 
 interface Props {
   pomodoro: Pomodoro;
-  spot: PomodoroSpot;
   /** Wound next to the paw (at the desk), or just above its spot (other scenes). */
   atPaw: boolean;
+  /** Frame x of its spot, when it has to make room (see clearOfMyCup). */
+  x?: number;
   paused: boolean;
   label: string;
 }
 
 /** A pup's pomodoro, from being wound up to ringing; nothing once it is over. */
-export function PomodoroTimer({ pomodoro, spot, atPaw, paused, label }: Props) {
+export function PomodoroTimer({ pomodoro, atPaw, x = SPOT.x, paused, label }: Props) {
   const canvas = useRef<HTMLCanvasElement>(null);
   const [now, setNow] = useState(() => Date.now());
   const phase = pomodoroPhase(pomodoro, now);
@@ -125,7 +123,7 @@ export function PomodoroTimer({ pomodoro, spot, atPaw, paused, label }: Props) {
     if (context) draw(context, dialMinutes(pomodoro, now), phase === 'ringing', Math.floor(now / 160));
   }, [pomodoro, now, phase]);
   if (phase === 'over') return null;
-  const at = pose(pomodoro, now, spot, atPaw);
+  const at = pose(pomodoro, now, atPaw, x);
   const style = {
     left: `${(at.x - ART) / 384 * 100}%`, top: `${(at.y - ART) / 256 * 100}%`, transform: at.transform,
   } as CSSProperties;

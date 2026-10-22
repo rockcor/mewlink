@@ -6,6 +6,9 @@ import { SettingsPanel } from '../../src/components/SettingsPanel';
 import { StatisticsPanel } from '../../src/components/StatisticsPanel';
 import { defaultPreferences, petDistance, petWindowWidth, type Preferences } from '../../src/settings/preferences';
 import { growthScale } from '../../src/statistics/growth';
+import { PomodoroTimer } from '../../src/components/PomodoroTimer';
+import { clearOfMyCup } from '../../src/pomodoro/placement';
+import { newPomodoro } from '../../src/pomodoro/pomodoro';
 import { SpriteCanvas } from '../../src/pet/SpriteCanvas';
 import { transitionAssetName, useActivityPlayback } from '../../src/pet/activityPlayback';
 import { spriteSheets } from '../../src/pet/spriteAssets';
@@ -15,7 +18,10 @@ import '../../src/pet.css';
 import '../../src/settings-panel.css';
 
 const noop = () => undefined;
-const kinds: ActivityKind[] = ['work', 'meeting', 'leisure', 'rest', 'idle'];
+const kinds: ActivityKind[] = ['work', 'meeting', 'rest', 'idle'];
+const params = new URLSearchParams(location.search);
+// ?pomodoro: one ten minutes in on both pups.
+const pomodoro = params.has('pomodoro') ? newPomodoro('qa', Date.now() - 10 * 60_000) : undefined;
 export function Checks() {
   const [preferences, setPreferences] = useState<Preferences>(() => ({ ...defaultPreferences(), language: 'en',
     petDistancePercent: Number(new URLSearchParams(location.search).get('distance') ?? 100),
@@ -50,8 +56,10 @@ export function Checks() {
           onHug={() => setHug(String(Date.now()))} onWater={noop} onReplay={noop} onPomodoro={noop} pomodoroMinutes={18} />
       </div>
       <div className={`pet-pair paired ${hug ? 'interacting target-partner interaction-hug' : ''}`}>
-        <button className="pet-avatar self-pet" aria-label="Self working"><SpriteCanvas skin="cream" paused={false} className="pet-sprite work work-code input-none" /></button>
+        <button className="pet-avatar self-pet" aria-label="Self working"><SpriteCanvas skin="cream" paused={false} className="pet-sprite work work-code input-none" />
+          {pomodoro && <PomodoroTimer pomodoro={pomodoro} atPaw paused={false} label="pomodoro" />}</button>
         <Playback key={remount} desired={activity} paused={paused} reduced={reduced} />
+        {params.has('cup') && <span className="waiting-cup target-self ceramic"><i /><i /></span>}
         {hug && !gathering && <SpriteCanvas key={hug} skin="mint" senderSkin="cream" paused={paused} className="interaction-sprite hug-idle target-partner" aria-hidden="true" />}
       </div>
     </section>
@@ -83,6 +91,8 @@ export function Playback({ desired, paused, reduced }: { desired: ActivityKind; 
   return <button className="pet-avatar partner-pet" style={style} aria-label={`Rendered partner ${playback.displayedActivity}${playback.transition ? ' transitioning' : ''}`}>
     <SpriteCanvas skin="mint" paused={paused} onLoopBoundary={playback.handleLoopBoundary} style={noCss}
       className={`pet-sprite partner-sprite ${playback.displayedActivity} ${playback.displayedActivity === 'work' ? 'work-web' : ''} input-none ${playback.transition ? 'transition-source-frame' : ''}`} />
+    {pomodoro && <PomodoroTimer pomodoro={pomodoro} atPaw paused={false} label="pomodoro"
+      x={params.has('cup') ? clearOfMyCup(1, 1, petDistance(Number(params.get('distance') ?? 100))) : undefined} />}
     {playback.transition && <SpriteCanvas skin="mint" paused={paused} key={playback.transition.key} style={noCss}
       className={`pet-sprite partner-sprite activity-transition ${transitionAssetName(playback.transition)}`}
       onPlaybackEnd={() => playback.completeTransition(playback.transition!.key)} />}

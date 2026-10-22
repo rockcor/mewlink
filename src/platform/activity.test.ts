@@ -30,6 +30,8 @@ describe('privacy-first activity classification', () => {
     expect(visualInputForActivity('meeting', true, false)).toBe('none');
     expect(visualInputForActivity('work', true, false)).toBe('keyboard');
     expect(visualInputForActivity('work', false, true)).toBe('pointer');
+    // Watching videos is drawn at the desk, hands and all.
+    expect(visualInputForActivity('leisure', false, true)).toBe('pointer');
   });
   it('polls active input quickly and rests slowly', () => {
     expect(nextSampleDelay({ locked: false, idleSeconds: 1, appClass: 'editor' })).toBe(500);

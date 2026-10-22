@@ -27,7 +27,7 @@ from cutout import H, W  # noqa: E402
 
 CUPS = ["ceramic", "tumbler", "bottle"]
 BLANKETS = ["blush", "night", "mint"]
-LOOP_MS = dict(meeting=2500, leisure=2900, idle=3800, rest=4300)
+LOOP_MS = dict(meeting=2500, idle=3800, rest=4300)
 
 
 def animations():
@@ -45,7 +45,7 @@ def animations():
     for cup in CUPS:
         yield f"water-drink-{cup}", False, (lambda c=cup: og.water_drink(f"water_drink_{c}")), step
     hug_step = 3200 / og.N_HUG
-    for state in ("work", "meeting", "leisure", "idle"):
+    for state in ("work", "meeting", "idle"):
         yield f"hug-{state}", False, (lambda st=state: og.hug(f"hug_{st}")), hug_step
     for blanket in BLANKETS:
         yield f"hug-rest-{blanket}", False, (lambda b=blanket: og.hug(f"hug_rest_{b}", counts=(4, 5, 9, 6))), hug_step
@@ -62,7 +62,6 @@ def animations():
                    lambda st=state, v=visual: og.transition("work", st, visual_a=v), step)
             yield (f"transition-{state}-work-{visual}", False,
                    lambda st=state, v=visual: og.transition(st, "work", visual_b=v), step)
-    yield "website-replay", True, og.website_replay, 250
 
 
 def main():

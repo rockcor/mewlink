@@ -25,15 +25,16 @@ N_LOOP, N_TRANSITION, N_INTERACTION = 24, 32, 24
 # A hug: the visitor hops in, the four authored poses, then it hops away.
 HUG_APPROACH, HUG_EXIT = 8, 8
 N_HUG = HUG_APPROACH + N_INTERACTION + HUG_EXIT
-STATES = ["work", "meeting", "leisure", "idle", "rest"]
+# Watching videos is drawn at the desk (the app's sceneFor), so there is no leisure scene.
+STATES = ["work", "meeting", "idle", "rest"]
 WORK_VISUALS = ["code", "document", "web", "ai", "mewlink"]
 LAYERS = ["back", "pet", "front", "fx"]
 
 # Peak frames were authored a few pixels off their base frames; these offsets
 # keep the props still when the pose changes.
-ALIGN = {"peak_meeting": (-11, 0), "peak_video": (7, 1), "peak_rest": (1, 0)}
+ALIGN = {"peak_meeting": (-11, 0), "peak_rest": (1, 0)}
 # Rows below this stay pinned when the pup nods (top edge of the laptop / TV).
-NOD_BELOW = {"meeting": 150, "leisure": 172, "rest": 256, "idle": 256}
+NOD_BELOW = {"meeting": 150, "rest": 256, "idle": 256}
 BACK_PROPS = {"rest", "idle"}
 # Away from the computer the pup simply sleeps: idle shows the rest scene.
 SLEEPS = {"idle": "rest"}
@@ -115,17 +116,6 @@ def loop_frame(state, i, n=N_LOOP):
         dog = _pose_warp(dog_of(pose), sy=sy, lean=2 * math.sin(2 * math.pi * t), nod=nod, nod_below=NOD_BELOW["meeting"])
         fx = [{"k": "wave", "x": 238, "y": 108}] if i % 3 != 2 else []
         return frame(pet=dog, front=props_of(pose), fx=fx_layer(fx))
-    if state == "leisure":
-        laughing = 12 <= i <= 17
-        pose = "peak_video" if laughing else "base_video"
-        nod = (-4 if i % 2 == 0 else 0) if laughing else (2 if i % 2 else 0) if i < 8 else 0
-        dog = _pose_warp(dog_of(pose), sy=0.97 if i == 12 else 1.0, lean=3 * math.sin(2 * math.pi * t),
-                         nod=nod, nod_below=NOD_BELOW["leisure"])
-        fx = []
-        if laughing:
-            fx.append({"k": "note", "x": 60 + (i - 12) * 2, "y": 70 - (i - 12) * 5})
-            fx.append({"k": "sparkle_s", "x": 318, "y": 60 - (i - 12) * 4})
-        return frame(pet=dog, front=props_of(pose), fx=fx_layer(fx))
     if state == "rest":
         pose = "peak_rest" if i in (14, 15) else "base_rest"
         dog = _pose_warp(dog_of(pose), sy=1 + 0.03 * math.sin(2 * math.pi * t))
@@ -160,7 +150,7 @@ def scene_parts(state, visual):
     if state == "work":
         dog, props = split(f"{visual}_input_none")
     else:
-        name = {"meeting": "base_meeting", "leisure": "base_video", "rest": "base_rest"}[state]
+        name = {"meeting": "base_meeting", "rest": "base_rest"}[state]
         dog, props = dog_of(name), props_of(name)
     x0, y0, x1, y1 = bbox(props)
     return dog, props, ((x0 + x1) / 2, y1)
@@ -344,10 +334,6 @@ HUG_CONTOURS = {
              [(195, 0), (204, 61), (200, 105), (190, 141), (198, 153), (198, 168), (175, 184), (186, 256)],
              [(189, 0), (198, 81), (204, 115), (196, 146), (171, 151), (160, 170), (218, 178), (193, 256)],
              [(195, 0), (205, 62), (200, 108), (185, 145), (210, 163), (179, 178), (187, 190), (185, 256)]],
-    "leisure": [[(384, 0), (384, 60), (384, 110), (384, 157), (384, 170), (384, 185), (384, 215), (384, 256)],
-                [(218, 0), (221, 65), (211, 113), (201, 153), (220, 170), (218, 188), (211, 216), (242, 256)],
-                [(203, 0), (207, 64), (201, 113), (200, 156), (253, 165), (250, 188), (245, 215), (268, 256)],
-                [(186, 0), (196, 63), (200, 108), (190, 156), (251, 165), (249, 185), (243, 213), (269, 256)]],
     "rest": [[(384, 0), (384, 110), (384, 144), (384, 158), (384, 177), (384, 199), (384, 221), (384, 256)],
              [(200, 0), (199, 110), (208, 144), (265, 153), (261, 176), (294, 182), (276, 218), (298, 256)],
              [(180, 0), (183, 110), (208, 144), (205, 155), (200, 174), (247, 181), (311, 219), (330, 256)],
@@ -363,7 +349,7 @@ HUG_EXIT_MOVES = [(round(240 * ((k + 1) / HUG_EXIT) ** 2), -round(10 * abs(math.
 def _contour_group(prefix):
     if prefix.startswith("hug_rest"):
         return "rest"
-    return {"hug_idle": "idle", "hug_leisure": "leisure"}.get(prefix, "work")
+    return {"hug_idle": "idle"}.get(prefix, "work")
 
 
 def _visitor_mask(group, pose):
@@ -379,7 +365,7 @@ def _receiver_base(prefix):
     """The receiver's ordinary scene, before anyone arrives (composite, unaligned)."""
     if prefix.startswith("hug_rest"):
         return composite(loop_frame("rest", 0))
-    name = {"hug_work": None, "hug_meeting": "base_meeting", "hug_leisure": "base_video", "hug_idle": "base_idle"}[prefix]
+    name = {"hug_work": None, "hug_meeting": "base_meeting", "hug_idle": "base_idle"}[prefix]
     if name is None:
         return composite(work_frame("none", "code"))
     dog, props = split(name)
@@ -568,13 +554,3 @@ def water_drink(prefix, counts=(5, 5, 8, 6)):
     return frames
 
 
-def website_replay():
-    frames = []
-    for i in range(8):
-        frames.append(work_frame(("keyboard", "none", "both", "pointer")[i % 4], "code"))
-    frames += transition("work", "meeting")[::4]
-    frames += [loop_frame("meeting", i) for i in range(0, 24, 3)]
-    frames += transition("meeting", "leisure")[::4]
-    frames += [loop_frame("leisure", i) for i in range(0, 24, 3)]
-    frames += transition("leisure", "rest")[::4]
-    return frames

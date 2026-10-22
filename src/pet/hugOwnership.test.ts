@@ -11,7 +11,7 @@ describe('hug ownership', () => {
     expect(hugSkins('partner', 'mint', 'sky')).toEqual({ receiver: 'sky', sender: 'mint' });
   });
   it('provides bounded per-frame contours, including interpolated frames', () => {
-    for (const asset of ['hug-work', 'hug-meeting', 'hug-idle', 'hug-leisure', 'hug-rest-blush', 'hug-rest-night', 'hug-rest-mint']) {
+    for (const asset of ['hug-work', 'hug-meeting', 'hug-idle', 'hug-rest-blush', 'hug-rest-night', 'hug-rest-mint']) {
       for (let frame = 0; frame < 40; frame++) {
         for (const [x, y] of hugSenderContour(asset, frame)) {
           expect(x).toBeGreaterThanOrEqual(0); expect(x).toBeLessThanOrEqual(384);

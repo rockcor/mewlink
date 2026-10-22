@@ -1,12 +1,19 @@
 import { describe, expect, it } from 'vitest';
-import { gestureFor, WATER_AUTO_DRINK_MS, waterDrinkDelay } from './interaction';
+import { gestureFor, sceneFor, WATER_AUTO_DRINK_MS, waterDrinkDelay } from './interaction';
 
 describe('state-aware pet interactions', () => {
-  it('chooses a different hug pose for work, leisure, and sleep', () => {
+  it('chooses a different hug pose for work, meetings, and sleep', () => {
     expect(gestureFor('hug', 'work')).toBe('hug-work');
-    expect(gestureFor('hug', 'leisure')).toBe('hug-leisure');
+    expect(gestureFor('hug', 'meeting')).toBe('hug-meeting');
     expect(gestureFor('hug', 'rest')).toBe('hug-rest');
     expect(gestureFor('hug', 'rest', true)).toBe('hug-idle');
+  });
+
+  it('draws watching videos at the desk: there is no leisure scene any more', () => {
+    expect(sceneFor('leisure')).toBe('work');
+    expect(sceneFor('meeting')).toBe('meeting');
+    expect(gestureFor('hug', 'leisure')).toBe('hug-work');
+    expect(gestureFor('water', 'leisure')).toBe('water-work');
   });
 
   it('treats an idle pup as asleep', () => {

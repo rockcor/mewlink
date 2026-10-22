@@ -17,12 +17,6 @@ const idle: readonly Contour[] = [
   [[189, 0], [198, 81], [204, 115], [196, 146], [171, 151], [160, 170], [218, 178], [193, 256]],
   [[195, 0], [205, 62], [200, 108], [185, 145], [210, 163], [179, 178], [187, 190], [185, 256]],
 ];
-const leisure: readonly Contour[] = [
-  [[384, 0], [384, 60], [384, 110], [384, 157], [384, 170], [384, 185], [384, 215], [384, 256]],
-  [[218, 0], [221, 65], [211, 113], [201, 153], [220, 170], [218, 188], [211, 216], [242, 256]],
-  [[203, 0], [207, 64], [201, 113], [200, 156], [253, 165], [250, 188], [245, 215], [268, 256]],
-  [[186, 0], [196, 63], [200, 108], [190, 156], [251, 165], [249, 185], [243, 213], [269, 256]],
-];
 const rest: readonly Contour[] = [
   [[384, 0], [384, 110], [384, 144], [384, 158], [384, 177], [384, 199], [384, 221], [384, 256]],
   [[200, 0], [199, 110], [208, 144], [265, 153], [261, 176], [294, 182], [276, 218], [298, 256]],
@@ -54,7 +48,7 @@ export function hugPoseForFrame(asset: string, frame: number): number {
 export function hugSenderContour(asset: string, frame: number): Point[] {
   const entry = entryFor(asset, frame);
   if ('edge' in entry) return entry.edge.map(([x, y]) => [x, y]);
-  const contours = asset.startsWith('hug-rest') ? rest : asset === 'hug-idle' ? idle : asset === 'hug-leisure' ? leisure : work;
+  const contours = asset.startsWith('hug-rest') ? rest : asset === 'hug-idle' ? idle : work;
   return contours[entry.pose].map(([x, y]) => [x, y]);
 }
 

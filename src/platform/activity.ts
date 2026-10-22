@@ -1,4 +1,5 @@
 import { invoke } from '@tauri-apps/api/core';
+import { sceneFor } from '../pet/interaction';
 import type { ActivityKind, WorkVisual } from '../domain/types';
 
 export type InputKind = 'keyboard' | 'pointer' | 'none';
@@ -45,7 +46,7 @@ export function nextActivity(previous: ActivityKind, signal: PresenceSignal): Ac
 }
 
 export const visualInputForActivity = (activity: ActivityKind, keyboard: boolean, pointer: boolean): InputMotion => {
-  if (activity !== 'work') return 'none';
+  if (sceneFor(activity) !== 'work') return 'none';
   if (keyboard && pointer) return 'both';
   if (keyboard) return 'keyboard';
   if (pointer) return 'pointer';
@@ -121,7 +122,7 @@ const demoActivityClass: Record<ActivityKind, NonNullable<PresenceSignal['appCla
 const demoTransitionPair = (() => {
   if (typeof window === 'undefined' || !import.meta.env.DEV) return undefined;
   const value = new URLSearchParams(window.location.search).get('transitionQa');
-  const match = value?.match(/^(work|meeting|leisure)-(work|meeting|leisure)$/);
+  const match = value?.match(/^(work|meeting)-(work|meeting)$/);
   if (!match || match[1] === match[2]) return undefined;
   return { from: match[1] as ActivityKind, to: match[2] as ActivityKind, startedAt: Date.now() };
 })();

@@ -7,6 +7,7 @@ import { StatisticsPanel } from './components/StatisticsPanel';
 import { PetActions } from './components/PetActions';
 import { ReplayNotice, ReplayScrubber } from './components/ReplayControls';
 import { PomodoroTimer } from './components/PomodoroTimer';
+import { clearOfMyCup } from './pomodoro/placement';
 import { fromPayload, loadPomodoro, minutesLeft, newPomodoro, pomodoroPhase, savePomodoro, toPayload, type Pomodoro } from './pomodoro/pomodoro';
 import { usePomodoroClock, useWindingPaw } from './pomodoro/usePomodoroClock';
 import { dayInstant, formatDuration, partnerClock } from './history/days';
@@ -23,7 +24,7 @@ import {
 import { securePairing, SecureStorageError } from './pairing/secureStore';
 import { initializeRatchet, nativeRatchet, RatchetError, type RatchetStatus } from './crypto/ratchet';
 import { activityProbe, nextActivity, demoInitialActivity, demoInitialWorkVisual, inputBurstReached, inputBurstSampleForSequence, inputChangesForSequence, INPUT_STRESS_HOLD_MS, keyboardEventsForSequence, nextSampleDelay, POINTER_ANIMATION_HOLD_MS, POINTER_EVENTS_PER_ANIMATION, pointerClicksForSequence, pointerEventsForSequence, shouldAnimatePointer, trimInputBurst, visualInputForActivity, workVisualFor, type InputBurstSample, type InputSignal } from './platform/activity';
-import { ACTIVITY_TRANSITION_MS, gestureFor, waterDrinkDelay, type GestureVariant } from './pet/interaction';
+import { ACTIVITY_TRANSITION_MS, gestureFor, waterDrinkDelay, type GestureVariant, sceneFor } from './pet/interaction';
 import { transitionAssetName, useActivityPlayback } from './pet/activityPlayback';
 import { petSkinFilters } from './pet/skins';
 import { SpriteCanvas } from './pet/SpriteCanvas';
@@ -192,17 +193,18 @@ export default function App() {
   const [historyDisplay, setHistoryDisplay] = useState<{ activity: ActivityKind; workVisual: WorkVisual }>();
   // Replay shows the past; otherwise live pulses beat the 30 s presence heartbeat.
   const liveShown = live.active && !historyDisplay;
-  const partnerActivity = historyDisplay?.activity ?? (liveShown ? live.activity : undefined) ?? companions.partner.activity;
+  // What TA's pup shows (watching videos is drawn at the desk).
+  const partnerActivity = sceneFor(historyDisplay?.activity ?? (liveShown ? live.activity : undefined) ?? companions.partner.activity);
   const partnerWorkVisual = historyDisplay?.workVisual ?? (liveShown ? live.workVisual : undefined) ?? companions.partner.workVisual;
   const partnerWinding = partnerPomodoroPhase === 'winding' && partnerActivity === 'work';
   const partnerWindingPaw = useWindingPaw(partnerWinding);
   // Winding the pomodoro, the paw on the mouse presses and lifts.
-  const selfWinding = selfPomodoroPhase === 'winding' && activity === 'work';
+  const selfWinding = selfPomodoroPhase === 'winding' && sceneFor(activity) === 'work';
   const selfWindingPaw = useWindingPaw(selfWinding);
   const visualInputKind = selfWinding ? (selfWindingPaw ? 'pointer' : 'none') : visualInputForActivity(activity, keyboardPressed, pointerPressed);
   const selfPlayback = useActivityPlayback({
     paused: renderPaused,
-    desiredActivity: activity,
+    desiredActivity: sceneFor(activity),
     desiredWorkVisual: workVisual,
     initialActivity: demoInitialActivity ?? 'work',
     initialWorkVisual: demoInitialWorkVisual,
@@ -1185,7 +1187,6 @@ export default function App() {
               onPlaybackEnd={() => selfPlayback.completeTransition(selfPlayback.transition!.key)}
             />}
             {activePomodoro && <PomodoroTimer pomodoro={activePomodoro} paused={renderPaused}
-              spot={pendingCups.self || selfPlayback.displayedActivity === 'leisure' ? 'left' : 'right'}
               atPaw={selfPlayback.displayedActivity === 'work' || selfPlayback.displayedActivity === 'meeting'}
               label={text.pomodoroLeft(minutesLeft(activePomodoro, selfPomodoroNow))} />}
           </button>
@@ -1214,8 +1215,8 @@ export default function App() {
               onPlaybackEnd={() => partnerPlayback.completeTransition(partnerPlayback.transition!.key)}
             />}
             {partnerPomodoro && partnerPomodoroPhase !== 'over' && <PomodoroTimer pomodoro={partnerPomodoro} paused={renderPaused}
-              spot={pendingCups.partner || partnerPlayback.displayedActivity === 'leisure' ? 'left' : 'right'}
               atPaw={partnerPlayback.displayedActivity === 'work' || partnerPlayback.displayedActivity === 'meeting'}
+              x={pendingCups.self ? clearOfMyCup(selfScale, partnerScale, petDistance(preferences.petDistancePercent)) : undefined}
               label={text.partnerPomodoroLeft(minutesLeft(partnerPomodoro, partnerPomodoroNow))} />}
           </button>}
           {displayedGesture && !hugGathering && <SpriteCanvas key={displayedGesture.id} skin={gestureSkins.receiver} senderSkin={displayedGesture.variant.startsWith('hug') ? gestureSkins.sender : undefined} paused={renderPaused} className={`interaction-sprite ${displayedGesture.variant} target-${displayedGesture.target} cup-${displayedGesture.cupStyle ?? 'ceramic'} blanket-${displayedGesture.blanketStyle ?? preferences.blanketStyle}`} aria-hidden="true" />}
