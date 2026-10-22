@@ -1,6 +1,6 @@
 import type { CSSProperties } from 'react';
 
-const icons = ['settings', 'statistics', 'hug', 'replay', 'close', 'ceramic', 'tumbler', 'bottle'] as const;
+const icons = ['settings', 'statistics', 'hug', 'replay', 'close', 'ceramic', 'tumbler', 'bottle', 'tomato'] as const;
 export type PixelIconName = typeof icons[number];
 
 export function PixelIcon({ name, className = '' }: { name: PixelIconName; className?: string }) {

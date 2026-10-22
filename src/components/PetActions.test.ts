@@ -5,12 +5,12 @@ import { PetActions } from './PetActions';
 
 const noop = () => undefined;
 const props = { language: 'en' as const, connected: true, canReplay: true, cupStyle: 'ceramic' as const,
-  onSettings: noop, onStatistics: noop, onHug: noop, onWater: noop, onReplay: noop };
+  onSettings: noop, onStatistics: noop, onHug: noop, onWater: noop, onReplay: noop, onPomodoro: noop };
 
 describe('compact pet menu', () => {
   it('puts Settings first, keeps care actions, and has no mug cycling button', () => {
     const html = renderToStaticMarkup(createElement(PetActions, props));
-    expect(html.match(/<button/g)).toHaveLength(5);
+    expect(html.match(/<button/g)).toHaveLength(6);
     expect(html.indexOf('settings-action')).toBeLessThan(html.indexOf('statistics-action'));
     expect(html).toContain('data-icon="hug"');
     expect(html).toContain('data-icon="ceramic"');
@@ -19,8 +19,18 @@ describe('compact pet menu', () => {
   });
   it('keeps Settings and Statistics accessible when unpaired', () => {
     const html = renderToStaticMarkup(createElement(PetActions, { ...props, connected: false }));
-    expect(html.match(/<button/g)).toHaveLength(2);
+    expect(html.match(/<button/g)).toHaveLength(3);
     expect(html).toContain('settings-action');
     expect(html).not.toContain('replay-action');
+  });
+  it('starts a pomodoro alone or paired, and shows the minutes left while one runs', () => {
+    const idle = renderToStaticMarkup(createElement(PetActions, { ...props, connected: false }));
+    expect(idle).toContain('data-icon="tomato"');
+    expect(idle).toContain('aria-pressed="false"');
+    expect(idle).toContain('Start a 25-minute pomodoro');
+    const running = renderToStaticMarkup(createElement(PetActions, { ...props, pomodoroMinutes: 18 }));
+    expect(running).toContain('Pomodoro 18 min');
+    expect(running).toContain('End pomodoro (18 min left)');
+    expect(running).toContain('aria-pressed="true"');
   });
 });

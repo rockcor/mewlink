@@ -47,7 +47,7 @@ export function Checks() {
       <div className="hover-ui menu-visible">
         <PetActions language={preferences.language} connected canReplay cupStyle={cup}
           onSettings={() => setPanel('settings')} onStatistics={() => setPanel('statistics')}
-          onHug={() => setHug(String(Date.now()))} onWater={noop} onReplay={noop} />
+          onHug={() => setHug(String(Date.now()))} onWater={noop} onReplay={noop} onPomodoro={noop} pomodoroMinutes={18} />
       </div>
       <div className={`pet-pair paired ${hug ? 'interacting target-partner interaction-hug' : ''}`}>
         <button className="pet-avatar self-pet" aria-label="Self working"><SpriteCanvas skin="cream" paused={false} className="pet-sprite work work-code input-none" /></button>

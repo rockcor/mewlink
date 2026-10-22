@@ -26,6 +26,14 @@ describe('encrypted event compatibility', () => {
     const envelope = await encryptEvent(event, 'recipientDevice001', 1, key);
     await expect(decryptEvent(envelope, key)).resolves.toEqual(event);
   });
+  it('carries a running pomodoro in the presence heartbeat, which older versions accept as before', async () => {
+    const key = await newDemoKey();
+    const at = new Date().toISOString();
+    const event: PlainEvent = { id: 'heartbeat-2', version: 1, relationshipId: 'relationshipTest01', senderDeviceId: 'senderDevice000001',
+      createdAt: at, kind: 'activity.segment',
+      payload: { category: 'work', workVisual: 'code', startedAt: at, endedAt: at, pomodoro: { id: 'tomato-1', startedAt: at, durationMs: 25 * 60_000 } } };
+    await expect(decryptEvent(await encryptEvent(event, 'recipientDevice001', 1, key), key)).resolves.toEqual(event);
+  });
   it('decrypts an envelope created by an independent libsodium peer', async () => {
     await sodium.ready;
     const key = await newDemoKey();

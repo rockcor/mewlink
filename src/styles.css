@@ -144,7 +144,8 @@ button { font: inherit; }
   width: 16px;
   height: 16px;
   min-width: 16px;
-  background: url('/ui/pixel-controls.png') var(--icon-position) 0 / 800% 100% no-repeat;
+  /* One 16 px icon per slot: the strip is nine icons wide. */
+  background: url('/ui/pixel-controls.png') var(--icon-position) 0 / 900% 100% no-repeat;
   image-rendering: pixelated;
   pointer-events: none;
 }

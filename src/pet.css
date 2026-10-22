@@ -237,3 +237,21 @@
   .interaction-sprite { animation: none; background-position: 52.173913% 0; }
   .waiting-cup i { animation: none; }
 }
+
+/* The pomodoro stands in its pup's frame (see PomodoroTimer), so it scales and hides with the pup. */
+.pomodoro-frame {
+  position: absolute;
+  z-index: 3;
+  left: -2px;
+  bottom: 6px;
+  width: 230px;
+  height: 153px;
+  pointer-events: none;
+}
+.pomodoro-timer {
+  position: absolute;
+  width: 16.667%;
+  height: 25%;
+  transform-origin: 50% 88%;
+  filter: drop-shadow(0 4px 3px rgba(86, 45, 67, .2));
+}

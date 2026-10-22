@@ -6,6 +6,9 @@ import { SettingsPanel, type UpdateViewState } from './components/SettingsPanel'
 import { StatisticsPanel } from './components/StatisticsPanel';
 import { PetActions } from './components/PetActions';
 import { ReplayNotice, ReplayScrubber } from './components/ReplayControls';
+import { PomodoroTimer } from './components/PomodoroTimer';
+import { fromPayload, loadPomodoro, minutesLeft, newPomodoro, pomodoroPhase, savePomodoro, toPayload, type Pomodoro } from './pomodoro/pomodoro';
+import { usePomodoroClock, useWindingPaw } from './pomodoro/usePomodoroClock';
 import { dayInstant, formatDuration, partnerClock } from './history/days';
 import { consumeCup, restorePendingCups, waterClickAction, type PendingCups, type PetTarget } from './pet/pendingCups';
 import { hugSkins } from './pet/hugOwnership';
@@ -80,6 +83,11 @@ export default function App() {
   const replayingRef = useRef(false);
   const syncStartedAt = useRef(Date.now());
   const [gesture, setGesture] = useState<{ id: string; variant: GestureVariant; target: PetTarget; cupStyle?: CupStyle; blanketStyle?: BlanketStyle }>();
+  // My pomodoro (kept across restarts) and where it is: wound, set down, counting, ringing, over.
+  const [pomodoro, setPomodoro] = useState<Pomodoro | undefined>(() => loadPomodoro());
+  const selfPomodoroNow = usePomodoroClock(pomodoro);
+  const selfPomodoroPhase = pomodoroPhase(pomodoro, selfPomodoroNow);
+  const activePomodoro = selfPomodoroPhase === 'over' ? undefined : pomodoro;
   /** The companions have slid together for the hugs showing now; a run of hugs gathers once. */
   const [hugGathered, setHugGathered] = useState(false);
   const [pendingCups, setPendingCups] = useState(loadPendingCups);
@@ -147,6 +155,14 @@ export default function App() {
     undefined, presenceNow,
   ), [activity, workVisual, preferences.selfPetSkin, partnerEvents, pairing, presenceNow]);
   const partnerSkin = companions.partner.skin;
+  // The partner's pomodoro, from their latest heartbeat: it stands on their pup's desk here too.
+  const partnerPomodoroKey = useMemo(() => {
+    const latest = [...partnerEvents].reverse().find(({ event }) => event.kind === 'activity.segment');
+    return JSON.stringify((latest?.event.payload as ActivitySegment | undefined)?.pomodoro ?? null);
+  }, [partnerEvents]);
+  const partnerPomodoro = useMemo(() => fromPayload(JSON.parse(partnerPomodoroKey)), [partnerPomodoroKey]);
+  const partnerPomodoroNow = usePomodoroClock(partnerPomodoro);
+  const partnerPomodoroPhase = pomodoroPhase(partnerPomodoro, partnerPomodoroNow);
   // How busy the partner is today, from their latest heartbeat (normal size after their midnight).
   const partnerGrowth = useMemo(() => {
     const latest = [...partnerEvents].reverse().find(({ event }) => event.kind === 'activity.segment'
@@ -178,7 +194,12 @@ export default function App() {
   const liveShown = live.active && !historyDisplay;
   const partnerActivity = historyDisplay?.activity ?? (liveShown ? live.activity : undefined) ?? companions.partner.activity;
   const partnerWorkVisual = historyDisplay?.workVisual ?? (liveShown ? live.workVisual : undefined) ?? companions.partner.workVisual;
-  const visualInputKind = visualInputForActivity(activity, keyboardPressed, pointerPressed);
+  const partnerWinding = partnerPomodoroPhase === 'winding' && partnerActivity === 'work';
+  const partnerWindingPaw = useWindingPaw(partnerWinding);
+  // Winding the pomodoro, the paw on the mouse presses and lifts.
+  const selfWinding = selfPomodoroPhase === 'winding' && activity === 'work';
+  const selfWindingPaw = useWindingPaw(selfWinding);
+  const visualInputKind = selfWinding ? (selfWindingPaw ? 'pointer' : 'none') : visualInputForActivity(activity, keyboardPressed, pointerPressed);
   const selfPlayback = useActivityPlayback({
     paused: renderPaused,
     desiredActivity: activity,
@@ -468,6 +489,8 @@ export default function App() {
     const timer = window.setInterval(() => setPresenceNow(Date.now()), 5_000);
     return () => window.clearInterval(timer);
   }, [connected]);
+  // A started, cancelled or finished pomodoro goes out with the next heartbeat at once.
+  const heartbeatPomodoro = useMemo(() => activePomodoro ? toPayload(activePomodoro) : undefined, [activePomodoro]);
   useEffect(() => {
     if (!connected) return;
     let stopped = false;
@@ -482,7 +505,8 @@ export default function App() {
           return { id: uuid(), version: 1, relationshipId: active.relationshipId,
             senderDeviceId: active.deviceId, createdAt: endedAt,
             senderUtcOffsetMinutes: receiverUtcOffsetMinutes, kind: 'activity.segment',
-            payload: { category: activity, workVisual, startedAt, endedAt, ...(growWithBusyness ? { growth: selfGrowth } : {}) } };
+            payload: { category: activity, workVisual, startedAt, endedAt, ...(growWithBusyness ? { growth: selfGrowth } : {}),
+              ...(heartbeatPomodoro ? { pomodoro: heartbeatPomodoro } : {}) } };
         });
         startedAt = new Date().toISOString();
       } catch {
@@ -492,7 +516,7 @@ export default function App() {
     void publish();
     const timer = window.setInterval(() => { void publish(); }, PRESENCE_HEARTBEAT_MS);
     return () => { stopped = true; window.clearInterval(timer); };
-  }, [activity, workVisual, connected, pairing?.relationshipId, receiverUtcOffsetMinutes, enqueueEncryptedEvent, growWithBusyness, selfGrowth]);
+  }, [activity, workVisual, connected, pairing?.relationshipId, receiverUtcOffsetMinutes, enqueueEncryptedEvent, growWithBusyness, selfGrowth, heartbeatPomodoro]);
   useEffect(() => {
     if (!connected) return;
     let delivered = false;
@@ -1082,6 +1106,25 @@ export default function App() {
   } : undefined;
   const displayedGesture = connected ? (gesture ?? replayGesture) : undefined;
   // A hug at another distance waits while the two slide together.
+  // Time's up: say so once per pomodoro, mine or TA's.
+  const ringingPomodoro = selfPomodoroPhase === 'ringing' ? `self:${pomodoro?.id}`
+    : connected && partnerPomodoroPhase === 'ringing' ? `partner:${partnerPomodoro?.id}` : undefined;
+  const pomodoroDoneText = ringingPomodoro?.startsWith('self') ? text.pomodoroDone : text.partnerPomodoroDone;
+  useEffect(() => {
+    if (!ringingPomodoro) return;
+    const show = window.setTimeout(() => {
+      setNotice(pomodoroDoneText);
+      window.clearTimeout(noticeTimer.current);
+      noticeTimer.current = window.setTimeout(() => setNotice(''), 4_500);
+    }, 0);
+    return () => window.clearTimeout(show);
+  }, [ringingPomodoro, pomodoroDoneText]);
+  const startOrStopPomodoro = () => {
+    const next = activePomodoro ? undefined : newPomodoro(uuid());
+    setPomodoro(next);
+    savePomodoro(next);
+    if (next) dismissPetMenu();
+  };
   const hugShown = Boolean(displayedGesture?.variant.startsWith('hug'));
   const hugGathering = Boolean(gatherMs && hugShown && !hugGathered);
   useEffect(() => {
@@ -1107,7 +1150,9 @@ export default function App() {
             onStatistics={() => { void openPanel('statistics'); }}
             onHug={() => { void send('hug'); }}
             onWater={() => { void send('water'); }}
-            onReplay={() => { dismissPetMenu(); void history.start(history.playing || !history.unseen ? {} : { unseen: true }); }} />
+            onReplay={() => { dismissPetMenu(); void history.start(history.playing || !history.unseen ? {} : { unseen: true }); }}
+            pomodoroMinutes={activePomodoro ? minutesLeft(activePomodoro, selfPomodoroNow) : undefined}
+            onPomodoro={startOrStopPomodoro} />
         </div>
 
         <div className={`pet-pair ${connected ? 'paired' : 'solo'} ${petMenuOpen ? 'menu-open' : ''} ${displayedGesture ? `interacting target-${displayedGesture.target} interaction-${displayedGesture.variant.startsWith('hug') ? 'hug' : 'water'}` : ''}`}>
@@ -1139,6 +1184,10 @@ export default function App() {
               aria-hidden="true"
               onPlaybackEnd={() => selfPlayback.completeTransition(selfPlayback.transition!.key)}
             />}
+            {activePomodoro && <PomodoroTimer pomodoro={activePomodoro} paused={renderPaused}
+              spot={pendingCups.self || selfPlayback.displayedActivity === 'leisure' ? 'left' : 'right'}
+              atPaw={selfPlayback.displayedActivity === 'work' || selfPlayback.displayedActivity === 'meeting'}
+              label={text.pomodoroLeft(minutesLeft(activePomodoro, selfPomodoroNow))} />}
           </button>
           {connected && <button
             className="pet-avatar partner-pet"
@@ -1154,7 +1203,7 @@ export default function App() {
             onWheel={event => handlePetPinch(event, 'partner')}
           >
             <SpriteCanvas skin={partnerSkin} paused={renderPaused}
-              className={`pet-sprite partner-sprite ${partnerPlayback.displayedActivity} ${partnerPlayback.displayedActivity === 'work' ? `work-${partnerPlayback.displayedWorkVisual}` : ''} input-${partnerPlayback.transition ? 'none' : playing ? visualInputForActivity(partnerActivity, history.hands.keyboard, history.hands.pointer) : liveShown ? visualInputForActivity(partnerActivity, live.hands.keyboard, live.hands.pointer) : 'none'} ${(playing ? history.hands.stressed : liveShown && live.hands.stressed) && !partnerPlayback.transition ? 'input-stressed' : ''} ${liveShown ? 'live' : ''} ${playing ? 'replaying' : ''} ${partnerPlayback.transition ? 'transition-source-frame' : ''}`}
+              className={`pet-sprite partner-sprite ${partnerPlayback.displayedActivity} ${partnerPlayback.displayedActivity === 'work' ? `work-${partnerPlayback.displayedWorkVisual}` : ''} input-${partnerPlayback.transition ? 'none' : partnerWinding ? (partnerWindingPaw ? 'pointer' : 'none') : playing ? visualInputForActivity(partnerActivity, history.hands.keyboard, history.hands.pointer) : liveShown ? visualInputForActivity(partnerActivity, live.hands.keyboard, live.hands.pointer) : 'none'} ${(playing ? history.hands.stressed : liveShown && live.hands.stressed) && !partnerPlayback.transition ? 'input-stressed' : ''} ${liveShown ? 'live' : ''} ${playing ? 'replaying' : ''} ${partnerPlayback.transition ? 'transition-source-frame' : ''}`}
               aria-hidden="true"
               onLoopBoundary={partnerPlayback.handleLoopBoundary}
             />
@@ -1164,6 +1213,10 @@ export default function App() {
               aria-hidden="true"
               onPlaybackEnd={() => partnerPlayback.completeTransition(partnerPlayback.transition!.key)}
             />}
+            {partnerPomodoro && partnerPomodoroPhase !== 'over' && <PomodoroTimer pomodoro={partnerPomodoro} paused={renderPaused}
+              spot={pendingCups.partner || partnerPlayback.displayedActivity === 'leisure' ? 'left' : 'right'}
+              atPaw={partnerPlayback.displayedActivity === 'work' || partnerPlayback.displayedActivity === 'meeting'}
+              label={text.partnerPomodoroLeft(minutesLeft(partnerPomodoro, partnerPomodoroNow))} />}
           </button>}
           {displayedGesture && !hugGathering && <SpriteCanvas key={displayedGesture.id} skin={gestureSkins.receiver} senderSkin={displayedGesture.variant.startsWith('hug') ? gestureSkins.sender : undefined} paused={renderPaused} className={`interaction-sprite ${displayedGesture.variant} target-${displayedGesture.target} cup-${displayedGesture.cupStyle ?? 'ceramic'} blanket-${displayedGesture.blanketStyle ?? preferences.blanketStyle}`} aria-hidden="true" />}
           {(['self', 'partner'] as const).map(target => pendingCups[target] && !(displayedGesture?.target === target && displayedGesture.variant.startsWith('water')) && <span key={target} className={`waiting-cup target-${target} ${pendingCups[target]!.style}`} aria-label={text.water}><i /><i /></span>)}
