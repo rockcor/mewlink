@@ -22,9 +22,6 @@ from cutout import H, W, bbox, load, over, scale_about, split, warp
 from pixel import Canvas
 
 N_LOOP, N_TRANSITION, N_INTERACTION = 24, 32, 24
-# A hug: the visitor hops in, the four authored poses, then it hops away.
-HUG_APPROACH, HUG_EXIT = 8, 8
-N_HUG = HUG_APPROACH + N_INTERACTION + HUG_EXIT
 # Watching videos is drawn at the desk (the app's sceneFor), so there is no leisure scene.
 STATES = ["work", "meeting", "idle", "rest"]
 WORK_VISUALS = ["code", "document", "web", "ai", "mewlink"]
@@ -323,8 +320,8 @@ def without_hearts(image):
     return out
 
 
-# Ownership contours of the visitor (right of the line) per authored pose, as in
-# src/pet/hugOwnership.ts. Used to lift the visitor out and walk it in and out.
+# Ownership contours of the visitor (right of the line) per authored pose: they
+# split each hug pose into the receiver's and the visitor's layers (visit.py).
 HUG_CONTOURS = {
     "work": [[(217, 0), (217, 65), (244, 78), (279, 112), (277, 137), (253, 148), (304, 145), (240, 158), (229, 166), (230, 179), (245, 189), (256, 205), (272, 232), (304, 256)],
              [(216, 0), (216, 64), (240, 75), (263, 108), (262, 131), (253, 145), (308, 141), (251, 158), (240, 165), (241, 179), (249, 189), (256, 205), (272, 232), (304, 256)],
@@ -339,13 +336,6 @@ HUG_CONTOURS = {
              [(180, 0), (183, 110), (208, 144), (205, 155), (200, 174), (247, 181), (311, 219), (330, 256)],
              [(186, 0), (192, 110), (208, 144), (239, 175), (230, 184), (235, 203), (281, 211), (311, 256)]],
 }
-# Visitor offsets while it hops in and out; mirrored in src/pet/hugOwnership.ts.
-HUG_APPROACH_MOVES = [(round(230 * (1 - k / 7) ** 3), -round(12 * abs(math.sin(2 * math.pi * k / 7))))
-                      for k in range(HUG_APPROACH)]
-HUG_EXIT_MOVES = [(round(240 * ((k + 1) / HUG_EXIT) ** 2), -round(10 * abs(math.sin(2 * math.pi * (k + 1) / HUG_EXIT))))
-                  for k in range(HUG_EXIT)]
-
-
 def _contour_group(prefix):
     if prefix.startswith("hug_rest"):
         return "rest"
@@ -393,99 +383,6 @@ def _align_params(base, target, region):
     have = base[:, :, 3] > 0
     s_, dx, dy = _search(have, want, region, [0.80 + 0.02 * i for i in range(14)], range(-48, 49, 4), range(-16, 17, 4))
     return _search(have, want, region, [s_ - 0.01, s_, s_ + 0.01], range(dx - 3, dx + 4), range(dy - 3, dy + 4))
-
-
-def _place(base, params, t):
-    """`base` moved t of the way (0..1) from where it normally sits to its hug placement."""
-    s_, dx, dy = params
-    k = 1 + (s_ - 1) * t
-    return warp(base, sx=k, sy=k, anchor=(W / 2, H), dx=dx * t, dy=dy * t)
-
-
-def _ease(t):
-    return t * t * (3 - 2 * t)
-
-
-def contact_puff(x, y, stage):
-    size = (0.6, 1.0, 0.7, 0.35)[stage]
-    items = [{"k": "puff", "x": x + ox * size, "y": y + oy * size, "r": r * size}
-             for ox, oy, r in ((0, 0, 12), (-18, 14, 9), (18, 12, 9), (-8, -16, 8), (12, -14, 7))]
-    if stage == 1:
-        items += [{"k": "sparkle", "x": x + 34, "y": y - 30}, {"k": "sparkle_s", "x": x - 30, "y": y - 24}]
-    return items
-
-
-# Per frame of every hug strip, who owns which pixels (read by the app and the
-# promo renderer): {"pose": n} uses that pose's contour; while the visitor walks
-# in or out, {"edge": [[x, y], ...]} traces its left edge row by row and the
-# visitor is everything right of it.
-HUG_TIMELINES = {}
-
-
-def left_edge(layer, step=8):
-    """Polyline of the layer's leftmost opaque pixel every `step` rows (W where the row is empty)."""
-    alpha = layer[:, :, 3] > 0
-    points = []
-    for y in list(range(0, H, step)) + [H]:
-        rows = alpha[max(0, y - step // 2):min(H, y + step // 2 + 1)]
-        xs = np.nonzero(rows.any(0))[0]
-        points.append([int(max(0, xs.min() - 2)) if len(xs) else W, y])
-    return points
-
-
-def hug(prefix, counts=(4, 4, 10, 6)):
-    group = _contour_group(prefix)
-    # A sleeping pup's first authored pose is a close-up with nobody there yet;
-    # the visitor hops straight into the second (tucking-in) pose instead.
-    first_pose = 1 if prefix.startswith("hug_rest") else 0
-    if first_pose:
-        counts = (6, 10, 8)
-    first = without_hearts(load(f"{prefix}_{first_pose + 1}"))
-    region = ~_visitor_mask(group, first_pose)
-    base = _receiver_base(prefix)
-    params = _align_params(base, first, region)
-    # TA's pup, whole, at the size it has in the hug.
-    walker = dog_of("bridge_idle_to_active")
-    vx0, vy0, vx1, vy1 = bbox(np.where(_visitor_mask(group, first_pose)[..., None], first, 0))
-    wx0, wy0, wx1, wy1 = bbox(walker)
-    k = (vy1 - vy0) / max(1, wy1 - wy0) * 0.85
-    walker = warp(walker, sx=k, sy=k, anchor=((wx0 + wx1) / 2, wy1), dx=(vx0 + vx1) / 2 - (wx0 + wx1) / 2, dy=vy1 - wy1)
-    contact = (vx0 + 14, (vy0 + vy1) / 2)
-    timeline = []
-
-    frames = []
-    for k_, (dx, dy) in enumerate(HUG_APPROACH_MOVES):
-        receiver = _place(base, params, _ease(k_ / (HUG_APPROACH - 1)))
-        fx = dust(vx0 + 60 + dx, vy1, 0.8) if k_ in (3, 6) else []
-        if k_ == HUG_APPROACH - 1:
-            fx += contact_puff(*contact, 0)
-        moved = warp(walker, dx=dx, dy=dy)
-        frames.append(frame(back=receiver, pet=moved, fx=fx_layer(fx)))
-        timeline.append({"edge": left_edge(moved)})
-
-    def fx(index, pose, k):
-        if pose == 0 and k < 3:
-            return contact_puff(*contact, k + 1)
-        return [{"k": "sparkle", "x": 280, "y": 30}] if pose == 1 and k < 2 else []
-    if first_pose:
-        frames += _authored_sequence_from(prefix, counts, first_pose=first_pose + 1, nod_below=190, start=HUG_APPROACH,
-                                          fx_fn=lambda index, pose, k: fx(index, pose - first_pose, k), hearts=False)
-    else:
-        frames += _authored_sequence(prefix, counts, nod_below=190, fx_fn=fx, start=HUG_APPROACH)
-    for pose, count in enumerate(counts):
-        timeline += [{"pose": pose + first_pose}] * count
-
-    for k_, (dx, dy) in enumerate(HUG_EXIT_MOVES):
-        receiver = _place(base, params, 1 - _ease((k_ + 1) / HUG_EXIT))
-        fx = contact_puff(*contact, min(3, k_ + 1)) if k_ < 3 else []
-        if k_ in (2, 5):
-            fx += dust(vx0 + 60 + dx, vy1, 0.8)
-        moved = warp(walker, dx=dx, dy=dy)
-        frames.append(frame(back=receiver, pet=moved, fx=fx_layer(fx)))
-        timeline.append({"edge": left_edge(moved)})
-    assert len(frames) == N_HUG == len(timeline), (prefix, len(frames))
-    HUG_TIMELINES[prefix] = timeline
-    return frames
 
 
 def _cup_of(prefix):

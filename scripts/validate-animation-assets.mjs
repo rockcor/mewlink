@@ -1,4 +1,4 @@
-import { stat } from 'node:fs/promises';
+import { readFile, stat } from 'node:fs/promises';
 import path from 'node:path';
 import sharp from 'sharp';
 
@@ -16,9 +16,16 @@ const twentyFourFrame = [
     ['ceramic', 'tumbler', 'bottle'].map(style => `water-${state}-${style}`)),
   ...['ceramic', 'tumbler', 'bottle'].map(style => `water-drink-${style}`),
 ];
-// Hugs: 8 frames of the visitor hopping in, 24 of the hug, 8 hopping away.
-const hugFrames = 40;
-const hugs = ['hug-work', ...['blush', 'night', 'mint'].map(style => `hug-rest-${style}`)];
+// Hugs in place (art/aseprite/build-hug-master.lua): the hug at the receiver's
+// desk with a row per layer (receiver, visitor, blanket), the walker, and each
+// scene's desk without its pup.
+const hugLayout = JSON.parse(await readFile(path.resolve('src/pet/hugVisit.json'), 'utf8'));
+const hugSheets = new Map([
+  ...['work', 'meeting'].map(kind => [`hug-visit-${kind}`, { frames: hugLayout.hugFrames, rows: 2 }]),
+  ...['blush', 'night', 'mint'].map(style => [`hug-visit-rest-${style}`, { frames: hugLayout.hugFrames, rows: 3 }]),
+  ['hug-walker', { frames: hugLayout.walker.frames, rows: 1 }],
+  ...[...workVisuals.map(visual => `work-${visual}`), 'meeting', 'rest'].map(scene => [`desk-${scene}`, { frames: 1, rows: 1 }]),
+]);
 const states = ['work', 'meeting', 'idle', 'rest'];
 const transitionSpecs = states.flatMap(from => states.filter(to => to !== from).map(to => ({
   name: `transition-${from}-${to}`,
@@ -37,7 +44,6 @@ const expected = new Map([
   ...inputFrame.map(name => [name, 4]),
   ...stressedInputFrame.map(name => [name, 4]),
   ...twentyFourFrame.map(name => [name, loopFrames]),
-  ...hugs.map(name => [name, hugFrames]),
   ...transitionSpecs.map(({ name }) => [name, transitionFrames]),
 ]);
 
@@ -53,6 +59,15 @@ for (const [name, frames] of expected) {
   }
   if (!metadata.hasAlpha) throw new Error(`${name}: PNG has no alpha channel`);
   if (info.size < 1024) throw new Error(`${name}: suspiciously small export`);
+}
+
+for (const [name, { frames, rows }] of hugSheets) {
+  const filename = path.join(animationDir, `${name}.png`);
+  const metadata = await sharp(filename).metadata();
+  if (metadata.width !== frameWidth * frames || metadata.height !== frameHeight * rows) {
+    throw new Error(`${name}: expected ${frameWidth * frames}x${frameHeight * rows}, got ${metadata.width}x${metadata.height}`);
+  }
+  if (!metadata.hasAlpha) throw new Error(`${name}: PNG has no alpha channel`);
 }
 
 const decoded = new Map();
@@ -135,4 +150,34 @@ for (const spec of transitionSpecs) {
   }
 }
 
-console.log(`Validated ${expected.size} Aseprite animation strips (${[...expected.values()].reduce((a, b) => a + b, 0)} frames), including exact transition endpoints.`);
+// Each pixel of a hug belongs to one pup (or the blanket), so each keeps its colours.
+for (const [name, { frames, rows }] of hugSheets) {
+  if (rows < 2) continue;
+  const sheet = await decodeRgba(name);
+  for (let y = 0; y < frameHeight; y += 1) {
+    for (let x = 0; x < frameWidth * frames; x += 1) {
+      let owners = 0;
+      for (let row = 0; row < rows; row += 1) if (sheet.pixels[((row * frameHeight + y) * sheet.width + x) * 4 + 3]) owners += 1;
+      if (owners > 1) throw new Error(`${name}: pixel ${x},${y} belongs to more than one layer`);
+    }
+  }
+}
+
+// An empty desk is its scene's desk: where it was not hidden by the pup, it is unchanged.
+for (const scene of [...workVisuals.map(visual => `work-${visual}`), 'meeting', 'rest']) {
+  const desk = await decodeRgba(`desk-${scene}`);
+  const everyday = await decodeRgba(scene);
+  let opaque = 0;
+  let same = 0;
+  for (let offset = 0; offset < frameWidth * frameHeight * 4; offset += 4) {
+    if (!desk.pixels[offset + 3]) continue;
+    opaque += 1;
+    const y = Math.floor(offset / 4 / frameWidth);
+    const x = offset / 4 % frameWidth;
+    const source = (y * everyday.width + x) * 4;
+    if (desk.pixels.subarray(offset, offset + 4).equals(everyday.pixels.subarray(source, source + 4))) same += 1;
+  }
+  if (same < opaque * (scene === 'rest' ? 0.4 : 0.85)) throw new Error(`desk-${scene}: moved away from its everyday desk (${same}/${opaque} pixels)`);
+}
+
+console.log(`Validated ${expected.size} Aseprite animation strips (${[...expected.values()].reduce((a, b) => a + b, 0)} frames), including exact transition endpoints, and ${hugSheets.size} hug sheets.`);

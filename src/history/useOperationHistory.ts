@@ -18,8 +18,8 @@ interface Options {
   /** The partner's UTC offset in minutes: a replay day ends at their midnight. */
   partnerOffset?: number;
   durationScale: number;
-  /** Extra time a hug takes to show (the companions slide together first at another distance). */
-  hugLeadMs?: number;
+  /** How long a recorded hug takes to show, before the animation speed (pet/hugVisit.ts planHug). */
+  hugMs?: number;
   displayReady?: (activity: ActivityKind, visual: WorkVisual) => boolean;
   onRecord: (create: (state: PairingState) => PlainEvent) => Promise<StoredEvent>;
 }
@@ -286,7 +286,8 @@ export function useOperationHistory(options: Options) {
           releaseTimer = setTimeout(() => { if (valid()) setHands({ keyboard: false, pointer: false, stressed: false }); }, 110);
         }
         if (frame.interaction) {
-          await wait(3300 * config.durationScale + (frame.interaction === 'hug' ? latest.current.hugLeadMs ?? 0 : 0));
+          // A hug walks there and back; a cup only slides in.
+          await wait((frame.interaction === 'hug' ? (latest.current.hugMs ?? 10_000) + 100 : 3300) * config.durationScale);
           // The gesture is over: what follows (a long rest, say) shows the pups again.
           if (valid()) setCurrent(value => value === frame ? { ...frame, interaction: undefined } : value);
         }

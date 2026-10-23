@@ -18,6 +18,8 @@
 .canvas-sprite canvas { position: absolute; left: -16.666667%; top: -25%; width: 133.333333%; height: 150%; pointer-events: none; }
 [data-render-paused="true"] .pet-sprite,
 [data-render-paused="true"] .interaction-sprite,
+[data-render-paused="true"] .hug-visit,
+[data-render-paused="true"] .hug-walker,
 [data-render-paused="true"] .waiting-cup i { animation-play-state: paused !important; visibility: hidden; }
 
 /* The body stays fixed. Only the hand-specific source frame changes on real input. */
@@ -127,23 +129,12 @@
     sprite-strip var(--interaction-duration, 3200ms) steps(24, jump-none) both,
     interaction-fade var(--interaction-duration, 3200ms) linear both;
 }
-/* Hugs are 40 frames: the visitor hops in, hugs, and hops away again. */
-.interaction-sprite[class*=" hug-"] {
-  background-size: 4000% 100%;
-  animation:
-    sprite-strip var(--interaction-duration, 3200ms) steps(40, jump-none) both,
-    interaction-fade var(--interaction-duration, 3200ms) linear both;
-}
 .pet-pair.target-self .interaction-sprite {
   filter: var(--self-pet-skin-filter, brightness(1)) drop-shadow(0 14px 12px rgba(86, 45, 67, .18));
 }
 .pet-pair.target-partner .interaction-sprite {
   filter: var(--partner-pet-skin-filter, brightness(1)) drop-shadow(0 14px 12px rgba(86, 45, 67, .18));
 }
-.interaction-sprite.hug-work { background-image: url('/pets/animations/hug-work.png'); }
-.interaction-sprite.hug-rest { background-image: url('/pets/animations/hug-rest-blush.png'); }
-.interaction-sprite.hug-rest.blanket-night { background-image: url('/pets/animations/hug-rest-night.png'); }
-.interaction-sprite.hug-rest.blanket-mint { background-image: url('/pets/animations/hug-rest-mint.png'); }
 .interaction-sprite.water-work { background-image: url('/pets/animations/water-work-ceramic.png'); }
 .interaction-sprite.water-meeting { background-image: url('/pets/animations/water-meeting-ceramic.png'); }
 .interaction-sprite.water-idle { background-image: url('/pets/animations/water-idle-ceramic.png'); }
@@ -159,28 +150,66 @@
 .interaction-sprite.water-idle.cup-bottle { background-image: url('/pets/animations/water-idle-bottle.png'); }
 .interaction-sprite.water-rest.cup-bottle { background-image: url('/pets/animations/water-rest-bottle.png'); }
 .interaction-sprite.water-drink.cup-bottle { background-image: url('/pets/animations/water-drink-bottle.png'); }
-.pet-pair.interaction-hug .pet-avatar,
 .pet-pair.interaction-water.target-self .self-pet,
 .pet-pair.interaction-water.target-partner .partner-pet { opacity: 0; }
-/* At another distance they first slide together (--gather-ms), then the hug strip takes over. */
-.pet-pair.interaction-hug .pet-avatar { transition: transform 180ms cubic-bezier(.2, .8, .2, 1), left 180ms, right 180ms, opacity 0s linear var(--gather-ms, 0ms); }
-/* Interaction strips follow the companions' sizes: a hug sits between the two at their average size, water on its companion. */
-.pet-pair.interaction-hug .interaction-sprite {
-  left: calc(114px * var(--self-s) + var(--pet-gap) / 2);
-  transform: translateX(-50%) scale(calc((var(--self-s) + var(--partner-s)) / 2));
-  transform-origin: 50% 100%;
-}
-/* The strips have the pup being hugged on the left and the visitor coming from
-   the right, which is how TA reaches me. When I hug TA, turn it round, so TA
-   stays on the right and I come from the left. */
-.pet-pair.interaction-hug.target-partner .interaction-sprite {
-  transform: translateX(-50%) scale(calc((var(--self-s) + var(--partner-s)) / -2), calc((var(--self-s) + var(--partner-s)) / 2));
-}
+/* Cup strips follow their companion's size, on its spot. */
 .pet-pair.interaction-water .interaction-sprite {
   left: calc(114px * (var(--self-s) - 1)); bottom: 6px; width: 230px; height: 153px;
   transform: scale(var(--self-s)); transform-origin: 50% 100%;
 }
 .pet-pair.interaction-water.target-partner .interaction-sprite { left: auto; right: calc(114px * (var(--partner-s) - 1)); transform: scale(var(--partner-s)); }
+
+/* A hug in place (pet/hugVisit.ts). The sender's pup leaves its desk, which
+   stays as it was (desk-*); the receiver's pup and its visitor hug at the
+   receiver's desk (hug-visit-*, drawn 64 frame pixels further right, where
+   the visitor stands), with the desk in front, or the cushion behind. */
+.pet-avatar.hug-away > .pet-sprite,
+.pet-avatar.hug-hosting > .pet-sprite { visibility: hidden; }
+.hug-desk,
+.hug-visit {
+  position: absolute;
+  bottom: 6px;
+  display: block;
+  width: 230px;
+  height: 153px;
+  background-repeat: no-repeat;
+  pointer-events: none;
+}
+.hug-desk { left: -2px; background-size: 100% 100%; }
+.self-pet .hug-desk { filter: var(--self-pet-skin-filter, brightness(1)) drop-shadow(0 13px 10px rgba(86, 45, 67, .16)); }
+.partner-pet .hug-desk { filter: var(--partner-pet-skin-filter, brightness(1)) drop-shadow(0 13px 10px rgba(86, 45, 67, .16)); }
+.hug-desk.desk-work-code { background-image: url('/pets/animations/desk-work-code.png'); }
+.hug-desk.desk-work-document { background-image: url('/pets/animations/desk-work-document.png'); }
+.hug-desk.desk-work-web { background-image: url('/pets/animations/desk-work-web.png'); }
+.hug-desk.desk-work-ai { background-image: url('/pets/animations/desk-work-ai.png'); }
+.hug-desk.desk-work-mewlink { background-image: url('/pets/animations/desk-work-mewlink.png'); }
+.hug-desk.desk-meeting { background-image: url('/pets/animations/desk-meeting.png'); }
+.hug-desk.desk-rest { background-image: url('/pets/animations/desk-rest.png'); }
+.hug-visit {
+  left: calc(-2px + 230px * 64 / 384);
+  /* A row per layer: the receiver, the visitor, maybe a blanket (each in its own colours on the canvas). */
+  background-size: 2400% auto;
+  animation: sprite-strip var(--hug-hold-duration, 3000ms) steps(24, jump-none) both;
+}
+.hug-visit-work { background-image: url('/pets/animations/hug-visit-work.png'); }
+.hug-visit-meeting { background-image: url('/pets/animations/hug-visit-meeting.png'); }
+.hug-visit-rest-blush { background-image: url('/pets/animations/hug-visit-rest-blush.png'); }
+.hug-visit-rest-night { background-image: url('/pets/animations/hug-visit-rest-night.png'); }
+.hug-visit-rest-mint { background-image: url('/pets/animations/hug-visit-rest-mint.png'); }
+/* The pup on its way, in everyday frames (its keyframes come from walkerKeyframes). */
+.hug-walker {
+  position: absolute;
+  z-index: 0;
+  left: 0;
+  bottom: 0;
+  display: block;
+  width: 230px;
+  height: 153px;
+  background: url('/pets/animations/hug-walker.png') 0 0 no-repeat;
+  opacity: 0;
+  pointer-events: none;
+  will-change: transform;
+}
 
 @keyframes interaction-fade {
   0%, 98% { opacity: 1; }
@@ -214,6 +243,7 @@
   .pet-sprite { animation: none; background-position: 0 0; }
   .pet-sprite.activity-transition { animation: none; background-position: 100% 0; }
   .interaction-sprite { animation: none; background-position: 52.173913% 0; }
+  .hug-visit { animation: none; background-position: 100% 0; }
   .waiting-cup i { animation: none; }
 }
 

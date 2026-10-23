@@ -18,11 +18,11 @@ describe('local sprite image loading', () => {
     vi.stubGlobal('createImageBitmap', undefined);
     const fetcher = vi.fn(() => { throw new TypeError('Load failed'); });
     vi.stubGlobal('fetch', fetcher);
-    const sheet = await loadSpriteSheet('hug-work');
+    const sheet = await loadSpriteSheet('hug-visit-work');
     expect(fetcher).not.toHaveBeenCalled();
-    expect(DecodedImage.last.src).toBe('/pets/animations/hug-work.png');
+    expect(DecodedImage.last.src).toBe('/pets/animations/hug-visit-work.png');
     expect(DecodedImage.last.decode).toHaveBeenCalledOnce();
-    expect(sheet).toMatchObject({ image: DecodedImage.last, frames: 40, bytes: 384 * 40 * 256 * 4 });
+    expect(sheet).toMatchObject({ image: DecodedImage.last, frames: 40, layers: 1, bytes: 384 * 40 * 256 * 4 });
     sheet.dispose();
     expect(DecodedImage.last.src).toBe('');
   });
@@ -31,7 +31,7 @@ describe('local sprite image loading', () => {
     vi.stubGlobal('Image', DecodedImage);
     const bitmap = { width: 384 * 40, height: 256, close: vi.fn() };
     vi.stubGlobal('createImageBitmap', vi.fn(async () => bitmap));
-    const sheet = await loadSpriteSheet('hug-rest-blush');
+    const sheet = await loadSpriteSheet('hug-visit-rest-blush');
     expect(sheet.image).toBe(bitmap);
     expect(DecodedImage.last.src).toBe('');
     sheet.dispose();
@@ -41,9 +41,9 @@ describe('local sprite image loading', () => {
   it('keeps the decoded image when WebKit rejects createImageBitmap', async () => {
     vi.stubGlobal('Image', DecodedImage);
     vi.stubGlobal('createImageBitmap', vi.fn(async () => { throw new TypeError('Unsupported source'); }));
-    const sheet = await loadSpriteSheet('hug-work');
+    const sheet = await loadSpriteSheet('hug-visit-work');
     expect(sheet.image).toBe(DecodedImage.last);
-    expect(DecodedImage.last.src).toBe('/pets/animations/hug-work.png');
+    expect(DecodedImage.last.src).toBe('/pets/animations/hug-visit-work.png');
   });
 
   it('rejects invalid names before constructing an image', async () => {
@@ -58,14 +58,24 @@ describe('local sprite image loading', () => {
       decode = vi.fn(async () => { throw new TypeError('Load failed'); });
     }
     vi.stubGlobal('Image', FailedImage);
-    await expect(loadSpriteSheet('hug-work')).rejects.toThrow('Load failed');
+    await expect(loadSpriteSheet('hug-visit-work')).rejects.toThrow('Load failed');
     expect(DecodedImage.last.src).toBe('');
   });
 
   it('rejects malformed strips and releases their source', async () => {
     class BadImage extends DecodedImage { width = 383; }
     vi.stubGlobal('Image', BadImage);
-    await expect(loadSpriteSheet('hug-work')).rejects.toThrow('Invalid sprite dimensions');
+    await expect(loadSpriteSheet('hug-visit-work')).rejects.toThrow('Invalid sprite dimensions');
     expect(DecodedImage.last.src).toBe('');
+    class TallImage extends DecodedImage { height = 256 * 4; }
+    vi.stubGlobal('Image', TallImage);
+    await expect(loadSpriteSheet('hug-visit-work')).rejects.toThrow('Invalid sprite dimensions');
+  });
+
+  it('reads a hug sheet\u2019s rows as its layers (receiver, visitor, blanket)', async () => {
+    class LayeredImage extends DecodedImage { width = 384 * 24; height = 256 * 3; }
+    vi.stubGlobal('Image', LayeredImage);
+    vi.stubGlobal('createImageBitmap', undefined);
+    expect(await loadSpriteSheet('hug-visit-rest-mint')).toMatchObject({ frames: 24, layers: 3 });
   });
 });

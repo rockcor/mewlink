@@ -42,7 +42,7 @@ button { font: inherit; }
   z-index: 5;
   /* Keep the menu near the pet, but leave room above it on short displays. */
   bottom: calc(var(--menu-bottom) + var(--tray-height));
-  left: 50%;
+  left: calc(50% - var(--hug-room, 0px) / 2);
   display: grid;
   justify-items: center;
   gap: 7px;
@@ -153,10 +153,12 @@ button { font: inherit; }
 }
 .prop-picker .cup-icon { width: 32px; height: 32px; flex-basis: 32px; }
 
+/* The window keeps --hug-room right of the pair (a pup hugging TA stands at
+   TA's right): the pair, its menu and its tray are centred in the rest. */
 .pet-pair {
   position: absolute;
   z-index: 2;
-  left: 50%;
+  left: calc(50% - var(--hug-room, 0px) / 2);
   bottom: var(--tray-height);
   /* Sizes chosen in settings times today's busyness growth. */
   --self-s: var(--self-pet-scale, 1);
@@ -173,8 +175,6 @@ button { font: inherit; }
 }
 /* See-through companions turn solid while the pointer is on them. */
 .pet-pair.menu-open { opacity: 1; }
-/* Hug strips are drawn at the default distance: the two slide together first. */
-.pet-pair.interaction-hug { --pet-distance: 212px; }
 
 .pet-avatar {
   position: absolute;
@@ -239,7 +239,7 @@ button { font: inherit; }
   --pet-gap: calc(var(--pet-distance, 212px) * (var(--self-s) + var(--partner-s)) / 2);
   position: absolute;
   z-index: 6;
-  left: 50%;
+  left: calc(50% - var(--hug-room, 0px) / 2);
   bottom: 0;
   width: calc(114px * var(--self-s) + var(--pet-gap) + 114px * var(--partner-s));
   height: 50px;

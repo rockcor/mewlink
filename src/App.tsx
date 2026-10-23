@@ -15,7 +15,8 @@ import { allowNotifications, notify } from './platform/notify';
 import { usePomodoroClock, useWindingPaw } from './pomodoro/usePomodoroClock';
 import { dayInstant, formatDuration, partnerClock } from './history/days';
 import { consumeCup, restorePendingCups, waterClickAction, type PendingCups, type PetTarget } from './pet/pendingCups';
-import { hugSkins } from './pet/hugOwnership';
+import { deskAsset, HUG_HOLD_MS, hugAvatarClass, hugRoom, hugScene, hugSkins, planHug, seatOf, visitAsset, visitSpotOf, type HugMoment, type HugWalk as HugWay } from './pet/hugVisit';
+import { HugScenery, HugWalk } from './components/HugWalk';
 import type { ActivityKind, ActivitySegment, BlanketStyle, CupStyle, InteractionKind, InteractionPayload, PetSkin, PlainEvent, StatisticsPayload, StatisticsVisibility, StoredEvent, WorkVisual } from './domain/types';
 import { cupStyles } from './domain/types';
 import {
@@ -92,8 +93,9 @@ export default function App() {
   const selfPomodoroNow = usePomodoroClock(pomodoro);
   const selfPomodoroPhase = pomodoroPhase(pomodoro, selfPomodoroNow);
   const activePomodoro = selfPomodoroPhase === 'over' ? undefined : pomodoro;
-  /** The companions have slid together for the hugs showing now; a run of hugs gathers once. */
-  const [hugGathered, setHugGathered] = useState(false);
+  /** Where the hug showing now is: the sender away from its desk, the receiver hosting the hug. */
+  const [hugMoment, setHugMoment] = useState<HugMoment>();
+  const [reducedMotion] = useState(() => typeof window.matchMedia === 'function' && window.matchMedia('(prefers-reduced-motion: reduce)').matches);
   const [pendingCups, setPendingCups] = useState(loadPendingCups);
   const pendingCupsRef = useRef(pendingCups);
   const drinkInProgress = useRef(false);
@@ -228,8 +230,6 @@ export default function App() {
   useEffect(() => {
     if (!renderPaused) void preloadSprite(`work-${workVisual}-stress`).catch(() => undefined);
   }, [renderPaused, workVisual]);
-  // Hug strips show the pair at the default distance; at any other, they slide there first.
-  const gatherMs = preferences.petDistancePercent === 100 ? 0 : 280;
   // Each companion grows with its person's busyness today (statistics/growth),
   // re-read every minute; the partner's level arrives with their heartbeat.
   const growWithBusyness = preferences.growWithBusyness;
@@ -245,8 +245,7 @@ export default function App() {
     '--self-pet-scale': String(selfScale),
     '--partner-pet-scale': String(partnerScale),
     '--pet-distance': `${petDistance(preferences.petDistancePercent)}px`,
-    '--gather-ms': `${gatherMs}ms`,
-    '--pair-ms': `${Math.max(gatherMs, 180)}ms`,
+    '--hug-room': `${connected ? hugRoom(partnerScale) : 0}px`,
     '--pet-opacity': String(1 - preferences.petTransparencyPercent / 100),
     '--self-pet-skin-filter': petSkinFilters[preferences.selfPetSkin],
     '--partner-pet-skin-filter': petSkinFilters[partnerSkin],
@@ -258,8 +257,9 @@ export default function App() {
     '--pet-rest-duration': `${Math.round(4_300 * durationScale)}ms`,
     '--pet-idle-duration': `${Math.round(3_800 * durationScale)}ms`,
     '--interaction-duration': `${Math.round(3_200 * durationScale)}ms`,
+    '--hug-hold-duration': `${Math.round(HUG_HOLD_MS * durationScale)}ms`,
     '--activity-transition-duration': `${Math.round(ACTIVITY_TRANSITION_MS * durationScale)}ms`
-  }) as CSSProperties, [durationScale, gatherMs, partnerScale, partnerSkin, preferences.petDistancePercent, preferences.petTransparencyPercent, preferences.selfPetSkin, selfScale]);
+  }) as CSSProperties, [connected, durationScale, partnerScale, partnerSkin, preferences.petDistancePercent, preferences.petTransparencyPercent, preferences.selfPetSkin, selfScale]);
 
   const installAvailableUpdate = useCallback(async (update: Update) => {
     setUpdateState({ kind: 'downloading', message: text.updateDownloading(), canInstall: true });
@@ -427,11 +427,25 @@ export default function App() {
     });
   }, [forgetRevokedPair, persistPairing, sessionQueue]);
 
+  // A hug in place: the sender's pup walks over and hugs the receiver at the
+  // receiver's own desk (pet/hugVisit.ts), each scene as it is showing now.
+  const sceneOf = {
+    self: { scene: hugScene(selfPlayback.displayedActivity), visual: selfPlayback.displayedWorkVisual },
+    partner: { scene: hugScene(partnerPlayback.displayedActivity), visual: partnerPlayback.displayedWorkVisual },
+  };
+  const hugWayFor = (target: PetTarget): HugWay => {
+    const sender = target === 'self' ? 'partner' : 'self';
+    return { sender, senderScene: sceneOf[sender].scene, receiverScene: sceneOf[target].scene,
+      seat: seatOf(sceneOf[sender].scene, sceneOf[sender].visual), spot: visitSpotOf(sceneOf[target].scene),
+      geometry: { selfScale, partnerScale, distance: petDistance(preferences.petDistancePercent) } };
+  };
   const history = useOperationHistory({
     pairing, enabled: preferences.replayEnabled, activity, workVisual, paused: renderPaused,
     retentionHours: preferences.replayRetentionHours, receiverOffset: receiverUtcOffsetMinutes,
     showTimezone: preferences.timezoneMode !== 'off', language: preferences.language,
-    revision: historyRevision, partnerOffset: partnerUtcOffsetMinutes, onRecord: enqueueEncryptedEvent, durationScale, hugLeadMs: gatherMs,
+    revision: historyRevision, partnerOffset: partnerUtcOffsetMinutes, onRecord: enqueueEncryptedEvent, durationScale,
+    // A recorded hug is TA's, coming to me.
+    hugMs: planHug(hugWayFor('self'), reducedMotion).duration,
     displayReady: (target, visual) => !partnerPlayback.transition && partnerPlayback.displayedActivity === target
       && (target !== 'work' || partnerPlayback.displayedWorkVisual === visual),
   });
@@ -577,7 +591,8 @@ export default function App() {
   }, [windowLayer]);
 
   // Alone, one companion always fits the default width.
-  const windowWidth = connected ? petWindowWidth(preferences.petDistancePercent, selfScale, partnerScale) : PET_WINDOW_MIN_WIDTH;
+  // When I hug TA, my pup stands at TA's right: the window keeps room for it there.
+  const windowWidth = connected ? petWindowWidth(preferences.petDistancePercent, selfScale, partnerScale) + hugRoom(partnerScale) : PET_WINDOW_MIN_WIDTH;
   useEffect(() => {
     if (!isTauriWindow) return;
     void queueDesktopWindow(async () => {
@@ -887,8 +902,8 @@ export default function App() {
       setPendingCups(pendingCupsRef.current);
     }
     setNotice(message);
-    // A first hug waits while the companions slide together; one following it does not.
-    gestureTimer.current = window.setTimeout(() => setGesture(undefined), Math.round(3_200 * durationScale) + (action === 'hug' && !hugGathered ? gatherMs : 0));
+    const gestureMs = action === 'hug' ? planHug(hugWayFor(target), reducedMotion).duration : 3_200;
+    gestureTimer.current = window.setTimeout(() => setGesture(undefined), Math.round(gestureMs * durationScale));
     noticeTimer.current = window.setTimeout(() => setNotice(''), Math.round(2_800 * durationScale));
   }
 
@@ -1211,16 +1226,23 @@ export default function App() {
       void allowNotifications();
     }
   };
-  // A hug at another distance waits while the two slide together.
-  const hugShown = Boolean(displayedGesture?.variant.startsWith('hug'));
-  const hugGathering = Boolean(gatherMs && hugShown && !hugGathered);
+  const gestureSkins = hugSkins(displayedGesture?.target ?? 'self', companions.self.skin, partnerSkin);
+  const hug = displayedGesture?.variant === 'hug' ? displayedGesture : undefined;
+  const hugNow = hug && hugMoment?.id === hug.id ? hugMoment : undefined;
+  const hugBlanket = hug?.blanketStyle ?? preferences.blanketStyle;
+  const hugReceiverScene = hug ? sceneOf[hug.target].scene : 'work';
+  const hugAssets = hug ? [visitAsset(hugReceiverScene, hugBlanket), deskAsset(sceneOf.self.scene, sceneOf.self.visual),
+    deskAsset(sceneOf.partner.scene, sceneOf.partner.visual)].join(' ') : '';
   useEffect(() => {
-    if (!gatherMs || hugShown === hugGathered) return;
-    // Gathered once the slide is done; apart again once no hug is showing.
-    const timer = window.setTimeout(() => setHugGathered(hugShown), hugShown ? gatherMs : 0);
-    return () => window.clearTimeout(timer);
-  }, [hugShown, hugGathered, gatherMs]);
-  const gestureSkins = hugSkins(displayedGesture?.target ?? 'self', preferences.selfPetSkin, partnerSkin);
+    if (!hugAssets || renderPaused) return;
+    // Loaded before they are needed, so nothing flashes in: the hug, both desks and the walker.
+    const [visit, ...desks] = hugAssets.split(' ');
+    void preloadSprite(visit).catch(() => undefined);
+    for (const name of [...desks, 'hug-walker']) new Image().src = `/pets/animations/${name}.png`;
+  }, [hugAssets, renderPaused]);
+  const hugRole = (side: PetTarget) => hug ? (hug.target === side ? 'receiver' as const : 'sender' as const) : undefined;
+  const hugScenery = (side: PetTarget) => hug && <HugScenery id={hug.id} role={hugRole(side)!} moment={hugNow}
+    scene={sceneOf[side].scene} visual={sceneOf[side].visual} skins={gestureSkins} blanket={hugBlanket} paused={renderPaused} />;
 
   return (
     <main className="desktop-pet" style={motionStyle} data-render-paused={renderPaused}>
@@ -1243,9 +1265,9 @@ export default function App() {
             onPomodoro={startOrStopPomodoro} />
         </div>
 
-        <div className={`pet-pair ${connected ? 'paired' : 'solo'} ${petMenuOpen ? 'menu-open' : ''} ${displayedGesture ? `interacting target-${displayedGesture.target} interaction-${displayedGesture.variant.startsWith('hug') ? 'hug' : 'water'}` : ''}`}>
+        <div className={`pet-pair ${connected ? 'paired' : 'solo'} ${petMenuOpen ? 'menu-open' : ''} ${displayedGesture ? `interacting target-${displayedGesture.target} interaction-${hug ? 'hug' : 'water'}` : ''}`}>
           <button
-            className="pet-avatar self-pet"
+            className={`pet-avatar self-pet ${hugAvatarClass(hugRole('self'), hugNow)}`}
             type="button"
             aria-label={text.myPet(text.status[activity])}
             aria-expanded={petMenuOpen}
@@ -1272,12 +1294,13 @@ export default function App() {
               aria-hidden="true"
               onPlaybackEnd={() => selfPlayback.completeTransition(selfPlayback.transition!.key)}
             />}
+            {hugScenery('self')}
             {activePomodoro && <PomodoroTimer pomodoro={activePomodoro} paused={renderPaused}
               atPaw={selfPlayback.displayedActivity === 'work' || selfPlayback.displayedActivity === 'meeting'}
               label={text.pomodoroLeft(minutesLeft(activePomodoro, selfPomodoroNow))} />}
           </button>
           {connected && <button
-            className="pet-avatar partner-pet"
+            className={`pet-avatar partner-pet ${hugAvatarClass(hugRole('partner'), hugNow)}`}
             type="button"
             aria-label={text.partnerPet(partnerLabel)}
             aria-expanded={petMenuOpen}
@@ -1300,12 +1323,15 @@ export default function App() {
               aria-hidden="true"
               onPlaybackEnd={() => partnerPlayback.completeTransition(partnerPlayback.transition!.key)}
             />}
+            {hugScenery('partner')}
             {partnerPomodoro && partnerPomodoroPhase !== 'over' && <PomodoroTimer pomodoro={partnerPomodoro} paused={renderPaused}
               atPaw={partnerPlayback.displayedActivity === 'work' || partnerPlayback.displayedActivity === 'meeting'}
               x={pendingCups.self ? clearOfMyCup(selfScale, partnerScale, petDistance(preferences.petDistancePercent)) : undefined}
               label={text.partnerPomodoroLeft(minutesLeft(partnerPomodoro, partnerPomodoroNow))} />}
           </button>}
-          {displayedGesture && !hugGathering && <SpriteCanvas key={displayedGesture.id} skin={gestureSkins.receiver} senderSkin={displayedGesture.variant.startsWith('hug') ? gestureSkins.sender : undefined} paused={renderPaused} className={`interaction-sprite ${displayedGesture.variant} target-${displayedGesture.target} cup-${displayedGesture.cupStyle ?? 'ceramic'} blanket-${displayedGesture.blanketStyle ?? preferences.blanketStyle}`} aria-hidden="true" />}
+          {displayedGesture && !hug && <SpriteCanvas key={displayedGesture.id} skin={gestureSkins.receiver} paused={renderPaused} className={`interaction-sprite ${displayedGesture.variant} target-${displayedGesture.target} cup-${displayedGesture.cupStyle ?? 'ceramic'}`} aria-hidden="true" />}
+          {hug && <HugWalk key={hug.id} id={hug.id} skin={gestureSkins.sender} scale={durationScale} paused={renderPaused} reducedMotion={reducedMotion}
+            onMoment={setHugMoment} walk={hugWayFor(hug.target)} />}
           {(['self', 'partner'] as const).map(target => pendingCups[target] && !(displayedGesture?.target === target && displayedGesture.variant.startsWith('water')) && <span key={target} className={`waiting-cup target-${target} ${pendingCups[target]!.style}`} aria-label={text.water}><i /><i /></span>)}
         </div>
         {/* Under the pets, never over them: notices and news under mine, TA's replay under TA's. */}

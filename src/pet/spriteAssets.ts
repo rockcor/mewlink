@@ -2,12 +2,16 @@ import { BitmapCache, type CachedBitmap } from './bitmapCache';
 
 export const SOURCE_FRAME_WIDTH = 384;
 export const SOURCE_FRAME_HEIGHT = 256;
-export interface SpriteSheet extends CachedBitmap { image: CanvasImageSource; frames: number }
+/** A hug sheet (hug-visit-*) has a row per layer: the receiver, the visitor, and when tucking in the blanket. */
+export interface SpriteSheet extends CachedBitmap { image: CanvasImageSource; frames: number; layers: number }
 
 // Decoded bytes, not PNG size. The 24- and 32-frame Aseprite strips decode to
-// 9 MB (loops, interactions) and 12 MB (transitions); both pets mid-transition
-// plus an interaction need about 53 MB. Low-memory mode still drops unused sheets.
-export const SPRITE_CACHE_BUDGET_BYTES = 64 * 1024 * 1024;
+// 9 MB (loops, cups) and 12 MB (transitions); a hug decodes to 19 MB (two
+// layers) or 28 MB (tucking in: three). Both pets mid-transition during a hug
+// need about 72 MB. Low-memory mode still drops unused sheets.
+export const SPRITE_CACHE_BUDGET_BYTES = 76 * 1024 * 1024;
+/** A hug sheet has up to three rows of layers; everything else is one row of frames. */
+const MAX_LAYERS = 3;
 export async function loadSpriteSheet(name: string): Promise<SpriteSheet> {
   if (!/^[a-z0-9-]+$/.test(name)) throw new Error('Invalid sprite name');
   // WKWebView can display tauri:// images but cannot fetch that custom scheme.
@@ -17,7 +21,8 @@ export async function loadSpriteSheet(name: string): Promise<SpriteSheet> {
   try {
     image.src = `/pets/animations/${name}.png`;
     await image.decode();
-    if (!image.width || image.width % SOURCE_FRAME_WIDTH !== 0 || image.height !== SOURCE_FRAME_HEIGHT) {
+    const layers = image.height / SOURCE_FRAME_HEIGHT;
+    if (!image.width || image.width % SOURCE_FRAME_WIDTH !== 0 || !Number.isInteger(layers) || layers < 1 || layers > MAX_LAYERS) {
       throw new Error('Invalid sprite dimensions');
     }
     if (typeof createImageBitmap === 'function') {
@@ -26,10 +31,10 @@ export async function loadSpriteSheet(name: string): Promise<SpriteSheet> {
       try {
         const bitmap = await createImageBitmap(image);
         image.src = '';
-        return { image: bitmap, frames: bitmap.width / SOURCE_FRAME_WIDTH, bytes: bitmap.width * bitmap.height * 4, dispose: () => bitmap.close() };
+        return { image: bitmap, frames: bitmap.width / SOURCE_FRAME_WIDTH, layers, bytes: bitmap.width * bitmap.height * 4, dispose: () => bitmap.close() };
       } catch { /* Keep the decoded image on older WebKit. */ }
     }
-    return { image, frames: image.width / SOURCE_FRAME_WIDTH, bytes: image.width * image.height * 4, dispose: () => { image.src = ''; } };
+    return { image, frames: image.width / SOURCE_FRAME_WIDTH, layers, bytes: image.width * image.height * 4, dispose: () => { image.src = ''; } };
   } catch (error) {
     image.src = '';
     throw error;
@@ -46,10 +51,10 @@ export function spriteAssetFor(className: string): string {
   const classes = className.split(/\s+/);
   const transition = classes.find(name => name.startsWith('transition-') && name !== 'transition-source-frame');
   if (transition) return transition;
-  const interaction = classes.find(name => name.startsWith('water-') || name.startsWith('hug-'));
-  if (interaction?.startsWith('water-')) return `${interaction}-${classes.find(name => name.startsWith('cup-'))?.slice(4) ?? 'ceramic'}`;
-  if (interaction === 'hug-rest') return `${interaction}-${classes.find(name => name.startsWith('blanket-'))?.slice(8) ?? 'blush'}`;
-  if (interaction) return interaction;
+  const visit = classes.find(name => name.startsWith('hug-visit-'));
+  if (visit) return visit;
+  const interaction = classes.find(name => name.startsWith('water-'));
+  if (interaction) return `${interaction}-${classes.find(name => name.startsWith('cup-'))?.slice(4) ?? 'ceramic'}`;
   const work = classes.find(name => name.startsWith('work-'));
   if (work) return `${work}${classes.includes('input-stressed') ? '-stress' : ''}`;
   return classes.find(name => ['meeting', 'idle', 'rest'].includes(name)) ?? 'idle';

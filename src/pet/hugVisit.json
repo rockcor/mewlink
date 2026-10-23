@@ -1,0 +1,63 @@
+{
+ "hugFrames": 24,
+ "window": 64,
+ "overhang": 59,
+ "walker": {
+  "frames": 20,
+  "walk": 8,
+  "leave": {
+   "work": 8,
+   "meeting": 12,
+   "rest": 16
+  },
+  "leaveFrames": 4,
+  "anchor": [
+   192,
+   246
+  ]
+ },
+ "seats": {
+  "work-code": [
+   234,
+   246
+  ],
+  "work-document": [
+   234,
+   246
+  ],
+  "work-web": [
+   234,
+   246
+  ],
+  "work-ai": [
+   234,
+   246
+  ],
+  "work-mewlink": [
+   234,
+   246
+  ],
+  "meeting": [
+   206,
+   246
+  ],
+  "rest": [
+   184,
+   246
+  ]
+ },
+ "visit": {
+  "work": [
+   320,
+   246
+  ],
+  "meeting": [
+   320,
+   246
+  ],
+  "rest-blush": [
+   342,
+   246
+  ]
+ }
+}

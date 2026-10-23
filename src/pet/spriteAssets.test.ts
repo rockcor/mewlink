@@ -7,7 +7,7 @@ describe('current-frame rendering keeps the Aseprite rig', () => {
     expect(spriteAssetFor('pet-sprite work work-web transition-source-frame')).toBe('work-web');
     expect(spriteAssetFor('pet-sprite activity-transition transition-work-ai-rest')).toBe('transition-work-ai-rest');
     expect(spriteAssetFor('interaction-sprite water-work cup-tumbler')).toBe('water-work-tumbler');
-    expect(spriteAssetFor('interaction-sprite hug-rest blanket-night')).toBe('hug-rest-night');
+    expect(spriteAssetFor('pet-sprite hug-visit hug-visit-rest-night')).toBe('hug-visit-rest-night');
     expect(spriteAssetFor('pet-sprite partner-sprite rest')).toBe('rest');
   });
   it('uses exactly the CSS frame, including both transition endpoints', () => {
@@ -17,9 +17,10 @@ describe('current-frame rendering keeps the Aseprite rig', () => {
     expect(frameFromPosition('33.333333%', 4)).toBe(1);
     expect(frameFromPosition('66.666667%', 4)).toBe(2);
   });
-  it('budgets enough decoded memory for both pets mid-transition during an interaction', () => {
+  it('budgets enough decoded memory for both pets mid-transition during a hug', () => {
     const decoded = (frames: number) => frames * SOURCE_FRAME_WIDTH * SOURCE_FRAME_HEIGHT * 4;
-    const peak = 2 * (decoded(24) + decoded(32)) + decoded(24) + decoded(4);
+    // The hug's 24 frames have up to three layers (receiver, visitor and blanket).
+    const peak = 2 * (decoded(24) + decoded(32)) + decoded(3 * 24);
     expect(SPRITE_CACHE_BUDGET_BYTES).toBeGreaterThanOrEqual(peak);
   });
 });
