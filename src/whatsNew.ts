@@ -5,6 +5,11 @@ import { compareVersions } from './services/update';
 // it. Keep each to a sentence that fits two short lines; every release from
 // 0.3.31 on needs one (src/whatsNew.test.ts).
 export const WHATS_NEW: Record<string, Record<Language, string>> = {
+  '0.3.32': {
+    zh: '拥抱保留双方配色和位置，休息时盖被子；对方退出后不再显示工作中',
+    'zh-Hant': '擁抱保留雙方配色和位置，休息時蓋被子；對方退出後不再顯示工作中',
+    en: 'Hugs keep both colors and sides; resting friends get tucked in. Offline companions no longer appear working.',
+  },
   '0.3.31': {
     zh: '提示和回放避开宠物，底边自动改放上方；番茄钟可调时长、到点通知',
     'zh-Hant': '提示和回放避開寵物，底邊自動改放上方；番茄鐘可調時長、到點通知',

@@ -22,8 +22,8 @@ describe('what\'s new', () => {
     expect(whatsNewToShow('0.3.31', updated)).toBeUndefined();
 
     // A later version without news is just remembered.
-    expect(whatsNewToShow('0.3.32', updated)).toBeUndefined();
-    expect(updated.values.get('mewlink.whatsNew.seen')).toBe('0.3.32');
+    expect(whatsNewToShow('0.3.99', updated)).toBeUndefined();
+    expect(updated.values.get('mewlink.whatsNew.seen')).toBe('0.3.99');
     expect(whatsNewToShow('0.3.31', memory({ 'mewlink.whatsNew.seen': '0.3.32' }))).toBeUndefined();
   });
 
