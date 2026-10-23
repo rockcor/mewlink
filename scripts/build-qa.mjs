@@ -13,7 +13,7 @@ import { randomBytes, X509Certificate } from 'node:crypto';
 import { chmodSync, existsSync, readFileSync, writeFileSync } from 'node:fs';
 import { homedir } from 'node:os';
 import { join, resolve } from 'node:path';
-import { SELF_SIGNED_CERTIFICATE, SELF_SIGNED_IDENTITY } from './macos-signing.mjs';
+import { matchesStableCertificate, SELF_SIGNED_CERTIFICATE, SELF_SIGNED_IDENTITY } from './macos-signing.mjs';
 
 const root = resolve(import.meta.dirname, '..');
 const QA_CONFIG = 'src-tauri/tauri.qa.conf.json';
@@ -66,7 +66,7 @@ function verifySignature(app) {
   const leaf = new X509Certificate(readFileSync(join(root, SELF_SIGNED_CERTIFICATE))).fingerprint.replaceAll(':', '').toLowerCase();
   execFileSync('codesign', ['--verify', '--deep', '--strict', app], { stdio: 'inherit' });
   const requirement = execFileSync('codesign', ['-d', '-r-', app], { encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] });
-  if (!requirement.toLowerCase().includes(`certificate leaf = h"${leaf}"`) || !requirement.includes(`"${QA_IDENTIFIER}"`)) {
+  if (!matchesStableCertificate(requirement, leaf, QA_IDENTIFIER)) {
     fail(`MewLink QA is not signed with the stable certificate (expected leaf ${leaf}, identifier ${QA_IDENTIFIER}):\n${requirement}`);
   }
   console.log(`Signed with the stable MewLink certificate (leaf ${leaf}) as ${QA_IDENTIFIER}.`);

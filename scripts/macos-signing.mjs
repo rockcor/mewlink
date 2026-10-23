@@ -8,6 +8,12 @@ import assert from 'node:assert/strict';
 export const SELF_SIGNED_IDENTITY = 'MewLink Self-Signed Code Signing';
 export const SELF_SIGNED_CERTIFICATE = 'src-tauri/macos/mewlink-self-signed.pem';
 
+/** A self-signed leaf is also its root; macOS uses either spelling for the same pin. */
+export function matchesStableCertificate(requirement, fingerprint, identifier) {
+  return ['leaf', 'root'].some(kind => requirement.trim()
+    === `designated => identifier "${identifier}" and certificate ${kind} = H"${fingerprint}"`);
+}
+
 /** Decides how a macOS build is signed: notarized Developer ID, the self-signed certificate, or ad hoc (local builds only). */
 export function macSigning(env, platform = process.platform) {
   if (platform !== 'darwin') return { notarize: false, selfSigned: false };
