@@ -242,10 +242,13 @@ button { font: inherit; }
   left: 50%;
   bottom: 0;
   width: calc(114px * var(--self-s) + var(--pet-gap) + 114px * var(--partner-s));
-  height: var(--tray-height);
+  height: 50px;
   transform: translateX(-50%);
   pointer-events: none;
 }
+/* At the bottom edge, keep the pets anchored and use the extra space above
+   the menu instead of forcing a 50px strip below the screen. */
+.tray-above .pet-tray { top: 0; bottom: auto; }
 .tray-slot {
   position: absolute;
   top: 0;

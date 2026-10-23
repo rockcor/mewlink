@@ -820,6 +820,7 @@ pub fn run() {
             window_layout::pet_window_position,
             window_layout::restore_pet_position,
             window_layout::set_pet_width,
+            window_layout::pet_tray_height,
             window_layout::set_pet_layer
         ])
         .setup(|app| {
@@ -828,7 +829,10 @@ pub fn run() {
             resources::start_input_monitor(app.handle().clone());
             autostart::refresh_autostart(app.handle());
             if let Some(window) = app.get_webview_window("main") {
-                window_layout::position_initial_pet(&window)?;
+                window_layout::position_initial_pet(
+                    &window,
+                    &app.state::<window_layout::DesktopLayout>(),
+                )?;
             }
             Ok(())
         })

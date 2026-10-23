@@ -6,9 +6,9 @@ import { compareVersions } from './services/update';
 // 0.3.31 on needs one (src/whatsNew.test.ts).
 export const WHATS_NEW: Record<string, Record<Language, string>> = {
   '0.3.31': {
-    zh: '提示和回放进度条都挪到了宠物下方，不再挡住它们；番茄钟可调时长，到点会发通知',
-    'zh-Hant': '提示和回放進度條都移到了寵物下方，不再擋住牠們；番茄鐘可調時長，到點會發通知',
-    en: 'Notices and the replay bar now sit below the pets, never over them; pomodoros have a length setting and a notification',
+    zh: '提示和回放避开宠物，底边自动改放上方；番茄钟可调时长、到点通知',
+    'zh-Hant': '提示和回放避開寵物，底邊自動改放上方；番茄鐘可調時長、到點通知',
+    en: 'Clear pet views; edge-aware notices. Adjustable pomodoros with alerts.',
   },
 };
 

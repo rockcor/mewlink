@@ -46,11 +46,36 @@ impl Rect {
     }
 }
 
-#[derive(Default)]
-pub struct DesktopLayout(Mutex<Option<Rect>>);
+pub struct DesktopLayout(Mutex<Option<Rect>>, Mutex<f64>);
 
-fn place_pet(window: &WebviewWindow, rect: Rect, area: Rect) -> Result<(), String> {
+impl Default for DesktopLayout {
+    fn default() -> Self {
+        Self(Mutex::new(None), Mutex::new(50.0))
+    }
+}
+
+// The saved v1 position describes the old 320px content, not the extra tray.
+// If fitting the larger frame lifts it, move the content down by the same amount.
+fn fit_pet(rect: Rect, area: Rect, scale: f64, tray_height: f64) -> (Rect, f64) {
     let fitted = rect.fit(area, 0);
+    let lift = f64::from(rect.y - fitted.y) / scale;
+    (fitted, (tray_height - lift).clamp(0.0, 50.0))
+}
+
+#[tauri::command]
+pub fn pet_tray_height(state: State<'_, DesktopLayout>) -> Result<f64, String> {
+    Ok(*state.1.lock().map_err(|e| e.to_string())?)
+}
+
+fn place_pet(
+    window: &WebviewWindow,
+    rect: Rect,
+    area: Rect,
+    state: &DesktopLayout,
+) -> Result<(), String> {
+    let scale = window.scale_factor().map_err(|e| e.to_string())?;
+    let (fitted, tray_height) = fit_pet(rect, area, scale, 50.0);
+    *state.1.lock().map_err(|e| e.to_string())? = tray_height;
     if fitted.width != rect.width || fitted.height != rect.height {
         // Moving alone still leaves controls outside a smaller work area.
         place(window, fitted, false)
@@ -61,17 +86,19 @@ fn place_pet(window: &WebviewWindow, rect: Rect, area: Rect) -> Result<(), Strin
     }
 }
 
-pub fn position_initial_pet(window: &WebviewWindow) -> Result<(), String> {
+pub fn position_initial_pet(window: &WebviewWindow, state: &DesktopLayout) -> Result<(), String> {
     let rect = bounds(window)?;
-    let (area, _) = monitor_area(window, rect)?;
+    let (area, scale) = monitor_area(window, rect)?;
     place_pet(
         window,
         Rect {
             x: area.x + area.width as i32 - rect.width as i32 - 16,
-            y: area.y + area.height as i32 - rect.height as i32 - 16,
+            y: area.y + area.height as i32 - rect.height as i32 - 16
+                + (50.0 * scale).round() as i32,
             ..rect
         },
         area,
+        state,
     )
 }
 
@@ -197,7 +224,12 @@ pub fn pet_window_position(
         Some(rect) => rect,
         None => bounds(&window)?,
     };
-    Ok(PhysicalPosition::new(rect.x, rect.y))
+    let tray_height = *state.1.lock().map_err(|e| e.to_string())?;
+    let scale = window.scale_factor().map_err(|e| e.to_string())?;
+    Ok(PhysicalPosition::new(
+        rect.x,
+        rect.y + ((50.0 - tray_height) * scale).round() as i32,
+    ))
 }
 
 #[tauri::command]
@@ -217,7 +249,7 @@ pub fn restore_pet_position(
         ..bounds(&window)?
     };
     let (area, _) = monitor_area(&window, rect)?;
-    place_pet(&window, rect, area)
+    place_pet(&window, rect, area, &state)
 }
 
 /// The pet window's width in physical pixels for a logical width, kept within
@@ -254,7 +286,9 @@ pub fn set_pet_width(
         return Ok(());
     }
     let (area, _) = monitor_area(&window, rect)?;
-    let next = Rect { width, ..rect }.fit(area, 0);
+    let mut tray_height = state.1.lock().map_err(|e| e.to_string())?;
+    let (next, next_tray_height) = fit_pet(Rect { width, ..rect }, area, scale, *tray_height);
+    *tray_height = next_tray_height;
     // Resize without taking focus, unlike opening a panel.
     let size = PhysicalSize::new(next.width, next.height);
     window
@@ -289,6 +323,52 @@ pub fn set_pet_layer(window: WebviewWindow, bottom: bool) -> Result<(), String> 
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn taller_frame_keeps_old_pet_baseline_at_bottom_edge() {
+        for scale in [1.0, 1.25, 1.5, 2.0, 3.0] {
+            let area = Rect {
+                x: -1600,
+                y: 24,
+                width: 1600,
+                height: 1200,
+            };
+            let old = Rect {
+                x: -1000,
+                y: area.y + area.height as i32 - (320.0 * scale) as i32 - 16,
+                width: 440,
+                height: (320.0 * scale) as u32,
+            };
+            let desired = Rect {
+                height: (370.0 * scale) as u32,
+                ..old
+            };
+            let (frame, tray) = fit_pet(desired, area, scale, 50.0);
+            let baseline = frame.y as f64 + frame.height as f64 - tray * scale;
+            assert!((baseline - (old.y as f64 + old.height as f64)).abs() < 1.0);
+            // Saving still produces the original v1 anchor; no drift on restart.
+            assert_eq!(frame.y + ((50.0 - tray) * scale).round() as i32, old.y);
+            assert!(tray < 50.0);
+            assert!(frame.y as i64 + frame.height as i64 <= area.y as i64 + area.height as i64);
+        }
+    }
+
+    #[test]
+    fn enough_room_keeps_tray_below_and_saved_anchor_unchanged() {
+        let area = Rect {
+            x: 0,
+            y: 24,
+            width: 1440,
+            height: 1000,
+        };
+        let desired = Rect {
+            x: 400,
+            y: 100,
+            width: 440,
+            height: 370,
+        };
+        assert_eq!(fit_pet(desired, area, 1.0, 50.0), (desired, 50.0));
+    }
+
     #[test]
     fn pet_width_follows_distance_within_bounds() {
         assert_eq!(pet_width(440.0, 1.0), 440);

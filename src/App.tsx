@@ -126,6 +126,7 @@ export default function App() {
     return cupStyles.includes(saved as CupStyle) ? saved as CupStyle : 'ceramic';
   });
   const [notice, setNotice] = useState('');
+  const [trayHeight, setTrayHeight] = useState(50);
   const gestureTimer = useRef<number | undefined>(undefined);
   const noticeTimer = useRef<number | undefined>(undefined);
   const menuCloseTimer = useRef<number | undefined>(undefined);
@@ -578,7 +579,10 @@ export default function App() {
   const windowWidth = connected ? petWindowWidth(preferences.petDistancePercent, selfScale, partnerScale) : PET_WINDOW_MIN_WIDTH;
   useEffect(() => {
     if (!isTauriWindow) return;
-    void queueDesktopWindow(() => invoke('set_pet_width', { width: windowWidth })).catch(() => undefined);
+    void queueDesktopWindow(async () => {
+      await invoke('set_pet_width', { width: windowWidth });
+      setTrayHeight(await invoke<number>('pet_tray_height'));
+    }).catch(() => undefined);
   }, [windowWidth]);
 
   useEffect(() => {
@@ -592,6 +596,7 @@ export default function App() {
         if (saved && typeof saved.x === 'number' && Number.isFinite(saved.x) && typeof saved.y === 'number' && Number.isFinite(saved.y)) {
           await queueDesktopWindow(() => invoke('restore_pet_position', { x: Math.round(saved.x as number), y: Math.round(saved.y as number) }));
         }
+        if (active) setTrayHeight(await invoke<number>('pet_tray_height'));
         const stopListening = await appWindow.onMoved(() => {
           void invoke<{ x: number; y: number }>('pet_window_position').then(position => {
             window.localStorage.setItem(windowPositionKey, JSON.stringify(position));
@@ -1210,7 +1215,7 @@ export default function App() {
 
   return (
     <main className="desktop-pet" style={motionStyle} data-render-paused={renderPaused}>
-      <section className={`pet-zone ${settingsOpen || statisticsOpen ? 'settings-open' : ''}`} aria-label={connected ? text.petZone : text.soloPetZone} lang={languageTags[preferences.language]}>
+      <section style={{ '--tray-height': `${trayHeight}px` } as CSSProperties} className={`pet-zone ${trayHeight < 49.5 ? 'tray-above' : ''} ${settingsOpen || statisticsOpen ? 'settings-open' : ''}`} aria-label={connected ? text.petZone : text.soloPetZone} lang={languageTags[preferences.language]}>
         <div
           id="pet-menu"
           className={`hover-ui ${connected ? 'paired' : 'solo'} ${petMenuOpen ? 'menu-visible' : ''}`}
