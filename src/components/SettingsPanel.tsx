@@ -262,6 +262,13 @@ export function SettingsPanel({
 
         {page === 'general' && <AutostartSetting language={preferences.language} />}
 
+        <article hidden={page !== 'general'} className="setting-row">
+          <div><b>{preferences.language === 'en' ? 'Anonymous usage analytics' : preferences.language === 'zh-Hant' ? '匿名使用統計' : '匿名使用统计'}</b>
+            <small>{preferences.language === 'en' ? 'Optional. Share that the App is running and your country / region for the public dashboard. No screen, input, pairing or interaction details. Turn off anytime.' : preferences.language === 'zh-Hant' ? '自願參與官網彙總，僅傳送 App 活躍與國家／地區，不含螢幕、操作、配對或互動內容。可隨時關閉。' : '自愿参与官网汇总，仅发送 App 活跃与国家／地区，不含屏幕、操作、配对或互动内容。可随时关闭。'}</small>
+          </div>
+          <button type="button" className={`switch ${preferences.anonymousUsage ? 'on' : ''}`} role="switch" aria-label={preferences.language === 'en' ? 'Anonymous usage analytics' : preferences.language === 'zh-Hant' ? '匿名使用統計' : '匿名使用统计'} aria-checked={preferences.anonymousUsage} onClick={() => patchPreferences({ anonymousUsage: !preferences.anonymousUsage })}><span /></button>
+        </article>
+
         <article hidden={page !== 'general'} className="setting-block pomodoro-setting">
           <div className="setting-title"><div><b>{text.pomodoro}</b><small>{text.pomodoroNote}</small></div></div>
           <label className="pet-size-slider named pomodoro-length"><span>{text.pomodoroLength}</span><input type="range" min="5" max="60" step="5" value={preferences.pomodoroMinutes} onChange={event => patchPreferences({ pomodoroMinutes: Number(event.target.value) })} aria-label={text.pomodoroAria}/><output>{text.minutes(preferences.pomodoroMinutes)}</output></label>

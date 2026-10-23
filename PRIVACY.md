@@ -38,7 +38,30 @@ service Resend. It is not published and MewLink's servers keep no copy; only
 anonymous counters (a daily-salted hash of the sender address) limit how often
 feedback can be sent.
 
-Unpairing stops this device's traffic. When the relay confirms the request, both
+Anonymous usage analytics is a separate, optional setting, off by default.
+When enabled, a device sends an anonymous adoption heartbeat at startup and
+every 30 minutes while the App is running, including when the companion is
+resting. It contains only a randomly generated analytics ID, an event ID and
+explicit consent. It never uses pairing identifiers, activity states, input
+counts, screenshots, URLs or interaction contents. The website has a separate
+opt-in for anonymous page-view counts; browser privacy signals are respected.
+Neither population is linked to the other. These adoption counts are not the
+differentially private activity statistics shared with a paired device.
+
+The service sees the connection IP while handling a request, derives only a
+country / region, and does not store the raw IP in the analytics database.
+IDs and short-lived abuse-limit keys are HMAC-hashed with a server secret.
+The public dashboard shows aggregate daily/period visitor and active-device
+counts, not individual records or exact locations. Countries with fewer than
+five participating visitors/devices are combined with unknown regions.
+This threshold is not a claim of differential privacy. Anonymous IDs rotate
+every 30 days. Opting out stops new heartbeats and deletes the local ID;
+existing server records expire after at most 35 days and are pruned on the next
+collector request. Clearing local data or ID rotation can increase distinct
+counts, so they are approximate devices/browsers, not people or accounts.
+QA builds never send usage to the production service.
+
+Unpairing stops this device's pairing traffic. When the relay confirms the request, both
 devices lose access to that relationship's mailbox and its queued ciphertext is
 deleted. Offline requests are retained securely and retried while the app runs.
 Previously downloaded history or copies held by the other person cannot be

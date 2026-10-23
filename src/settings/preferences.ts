@@ -14,6 +14,8 @@ export type ReplayRetentionHours = (typeof replayRetentionOptions)[number];
 
 export interface Preferences {
   autoUpdate: boolean;
+  /** Separate, optional adoption analytics; never pairing/activity statistics. */
+  anonymousUsage: boolean;
   replayEnabled: boolean;
   /** Off by default; both partners must turn it on. */
   liveTyping: boolean;
@@ -45,6 +47,7 @@ const STORAGE_KEY = 'mewlink.preferences.v1';
 export function defaultPreferences(): Preferences {
   return {
     autoUpdate: true,
+    anonymousUsage: false,
     replayEnabled: true,
     liveTyping: false,
     // Replay is offered by the partner's day; 36 h keeps yesterday whole until it is watched.
@@ -129,6 +132,7 @@ export function loadPreferences(storage?: StorageLike): Preferences {
     const manualLanguage = validLanguage && (value.languageMode === 'manual' || value.languageMode === undefined);
     return {
       autoUpdate: typeof value.autoUpdate === 'boolean' ? value.autoUpdate : defaults.autoUpdate,
+      anonymousUsage: value.anonymousUsage === true,
       replayEnabled: typeof value.replayEnabled === 'boolean' ? value.replayEnabled : defaults.replayEnabled,
       liveTyping: typeof value.liveTyping === 'boolean' ? value.liveTyping : defaults.liveTyping,
       replayRetentionHours: typeof value.replayRetentionHours === 'number'

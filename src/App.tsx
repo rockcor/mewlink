@@ -40,6 +40,7 @@ import { joinWithPairingCode, registerPairCreator, RelayError, requestLiveTicket
 import { useLiveTyping } from './live/useLiveTyping';
 import { checkForUpdate, currentVersion, installUpdate } from './services/update';
 import { submitFeedback } from './services/feedback';
+import { watchAnonymousUsage } from './services/usage';
 import type { Update } from '@tauri-apps/plugin-updater';
 import { discardRelationshipHistory, pruneEventsOlderThan, putEvent } from './storage/events';
 import { queueEncryptedEvent } from './history/outbox';
@@ -103,6 +104,7 @@ export default function App() {
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [statisticsOpen, setStatisticsOpen] = useState(false);
   const [preferences, setPreferences] = useState(loadPreferences);
+  useEffect(() => watchAnonymousUsage(preferences.anonymousUsage), [preferences.anonymousUsage]);
   const text = appCopy[preferences.language];
   const textRef = useRef(text);
   textRef.current = text;

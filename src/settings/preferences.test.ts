@@ -41,10 +41,11 @@ describe('desktop preferences', () => {
 
   it('persists replay, manual timezone, and update preferences', () => {
     const storage = memoryStorage();
-    savePreferences({ autoUpdate: false, replayEnabled: false, liveTyping: true, replayRetentionHours: 36, statisticsVisibility: 'partner', timezoneMode: 'manual', manualUtcOffsetMinutes: 330, animationSpeed: 'natural', selfPetScalePercent: 85, partnerPetScalePercent: 95, petDistancePercent: 130, growWithBusyness: false, windowLayer: 'bottom', petTransparencyPercent: 40, pomodoroMinutes: 45, selfPetSkin: 'sixtySix', blanketStyle: 'night', language: 'en', languageMode: 'manual' }, storage);
+    savePreferences({ autoUpdate: false, anonymousUsage: true, replayEnabled: false, liveTyping: true, replayRetentionHours: 36, statisticsVisibility: 'partner', timezoneMode: 'manual', manualUtcOffsetMinutes: 330, animationSpeed: 'natural', selfPetScalePercent: 85, partnerPetScalePercent: 95, petDistancePercent: 130, growWithBusyness: false, windowLayer: 'bottom', petTransparencyPercent: 40, pomodoroMinutes: 45, selfPetSkin: 'sixtySix', blanketStyle: 'night', language: 'en', languageMode: 'manual' }, storage);
     const saved = loadPreferences(storage);
     expect(effectiveUtcOffsetMinutes(saved)).toBe(330);
     expect(saved.autoUpdate).toBe(false);
+    expect(saved.anonymousUsage).toBe(true);
     expect(saved.replayEnabled).toBe(false);
     expect(saved.liveTyping).toBe(true);
     expect(saved.replayRetentionHours).toBe(36);
@@ -68,11 +69,12 @@ describe('desktop preferences', () => {
     expect(saved.statisticsVisibility).toBe('private');
     // Live typing sends input rhythm, so existing installations never get it silently.
     expect(saved.liveTyping).toBe(false);
+    expect(saved.anonymousUsage).toBe(false);
   });
 
   it('lets people turn automatic timezone detection off', () => {
     const storage = memoryStorage();
-    savePreferences({ autoUpdate: true, replayEnabled: true, liveTyping: false, replayRetentionHours: 24, statisticsVisibility: 'private', timezoneMode: 'off', manualUtcOffsetMinutes: 0, animationSpeed: 'calm', selfPetScalePercent: 100, partnerPetScalePercent: 100, petDistancePercent: 100, growWithBusyness: true, windowLayer: 'top', petTransparencyPercent: 0, pomodoroMinutes: 25, selfPetSkin: 'cream', blanketStyle: 'blush', language: 'zh', languageMode: 'manual' }, storage);
+    savePreferences({ autoUpdate: true, anonymousUsage: false, replayEnabled: true, liveTyping: false, replayRetentionHours: 24, statisticsVisibility: 'private', timezoneMode: 'off', manualUtcOffsetMinutes: 0, animationSpeed: 'calm', selfPetScalePercent: 100, partnerPetScalePercent: 100, petDistancePercent: 100, growWithBusyness: true, windowLayer: 'top', petTransparencyPercent: 0, pomodoroMinutes: 25, selfPetSkin: 'cream', blanketStyle: 'blush', language: 'zh', languageMode: 'manual' }, storage);
     expect(loadPreferences(storage).timezoneMode).toBe('off');
   });
 
