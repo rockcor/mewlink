@@ -823,6 +823,8 @@ pub fn run() {
             window_layout::set_pet_layer
         ])
         .setup(|app| {
+            // Before anything touches the keychain: a QA build keeps items of its own.
+            secure_storage::use_identifier(&app.config().identifier);
             resources::start_input_monitor(app.handle().clone());
             autostart::refresh_autostart(app.handle());
             if let Some(window) = app.get_webview_window("main") {

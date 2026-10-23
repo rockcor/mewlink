@@ -11,9 +11,10 @@
     "test:animations": "node scripts/validate-animation-assets.mjs",
     "test:peer": "node scripts/test-peer.mjs",
     "test:relay-server": "cargo build --manifest-path src-tauri/Cargo.toml --example ratchet_peer && vitest run --config tests/relay.config.ts",
-    "test:release": "node --test tests/release-pipeline.test.mjs",
+    "test:release": "node --test tests/release-pipeline.test.mjs tests/qa-build.test.mjs",
     "test:live:production": "cargo build --manifest-path src-tauri/Cargo.toml --example ratchet_peer && VITE_RELAY_ENDPOINT=https://mewlink.jshmhsb.chatgpt.site/api/relay vitest run --config tests/live-production.config.ts",
     "test:live": "cargo build --manifest-path src-tauri/Cargo.toml --example ratchet_peer && vitest run --config tests/live.config.ts",
+    "build:qa": "node scripts/build-qa.mjs",
     "tauri": "tauri"
   },
   "dependencies": {

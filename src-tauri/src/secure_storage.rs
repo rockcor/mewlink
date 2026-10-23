@@ -1,9 +1,29 @@
 // A fixed, app-owned credential only. Never expose arbitrary Keychain queries.
 const MAX_RECORD_BYTES: usize = 2_400;
 #[cfg(any(target_os = "macos", target_os = "windows"))]
-const SERVICE: &str = "app.mewlink.desktop.pairing";
-#[cfg(any(target_os = "macos", target_os = "windows"))]
 const ACCOUNT: &str = "pairing-v2";
+const RELEASE_IDENTIFIER: &str = "app.mewlink.desktop";
+static IDENTIFIER: std::sync::OnceLock<String> = std::sync::OnceLock::new();
+
+/// Keychain items are named after the app's identifier, so MewLink keeps
+/// "app.mewlink.desktop.pairing" and ".ratchet" while a QA build
+/// (app.mewlink.desktop.qa) has items of its own and never reads or advances
+/// the real pairing. Called once at startup.
+pub fn use_identifier(identifier: &str) {
+    let _ = IDENTIFIER.set(identifier.to_owned());
+}
+
+fn service_name(identifier: &str, item: &str) -> String {
+    format!("{identifier}.{item}")
+}
+
+/// The keychain service for one of the app's items ("pairing", "ratchet").
+pub(crate) fn keychain_service(item: &str) -> String {
+    service_name(
+        IDENTIFIER.get().map_or(RELEASE_IDENTIFIER, String::as_str),
+        item,
+    )
+}
 static STORE_LOCK: std::sync::Mutex<()> = std::sync::Mutex::new(());
 
 fn validate_record(value: &str) -> Result<(), String> {
@@ -25,7 +45,8 @@ fn validate_record(value: &str) -> Result<(), String> {
 
 #[cfg(any(target_os = "macos", target_os = "windows"))]
 fn entry() -> Result<keyring::Entry, String> {
-    keyring::Entry::new(SERVICE, ACCOUNT).map_err(|_| "secure_storage_unavailable".into())
+    keyring::Entry::new(&keychain_service("pairing"), ACCOUNT)
+        .map_err(|_| "secure_storage_unavailable".into())
 }
 
 fn read_record() -> Result<Option<String>, String> {
@@ -79,6 +100,22 @@ pub async fn write_pairing_secure(value: String) -> Result<(), String> {
 
 #[cfg(test)]
 mod tests {
+    #[test]
+    fn release_keeps_its_keychain_names_and_qa_gets_its_own() {
+        assert_eq!(
+            super::service_name(super::RELEASE_IDENTIFIER, "pairing"),
+            "app.mewlink.desktop.pairing"
+        );
+        assert_eq!(
+            super::service_name(super::RELEASE_IDENTIFIER, "ratchet"),
+            "app.mewlink.desktop.ratchet"
+        );
+        assert_eq!(
+            super::service_name("app.mewlink.desktop.qa", "pairing"),
+            "app.mewlink.desktop.qa.pairing"
+        );
+    }
+
     use super::*;
 
     #[test]

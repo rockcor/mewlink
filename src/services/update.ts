@@ -6,6 +6,8 @@ export const UPDATE_MANIFEST_URL = import.meta.env.DEV
   ? '/updates/latest.json'
   : 'https://mewlink.jshmhsb.chatgpt.site/updates/latest.json';
 export const FALLBACK_APP_VERSION = appVersion;
+/** "MewLink QA" (scripts/build-qa.mjs): never offered or given a release update, which would replace it. */
+export const QA_BUILD = import.meta.env.VITE_MEWLINK_FLAVOR === 'qa';
 
 interface UpdatePlatform {
   signature: string;
@@ -74,6 +76,10 @@ export async function checkForUpdate(
   fetcher: typeof fetch = fetch,
   version = currentVersion()
 ): Promise<UpdateCheckResult> {
+  if (QA_BUILD) {
+    const current = await version;
+    return { currentVersion: current, manifest: { version: current }, available: false };
+  }
   if (typeof window !== 'undefined' && '__TAURI_INTERNALS__' in window && fetcher === fetch) {
     const [{ check }, current] = await Promise.all([
       import('@tauri-apps/plugin-updater'),
