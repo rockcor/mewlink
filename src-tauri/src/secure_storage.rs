@@ -2,6 +2,7 @@
 const MAX_RECORD_BYTES: usize = 2_400;
 #[cfg(any(target_os = "macos", target_os = "windows"))]
 const ACCOUNT: &str = "pairing-v2";
+#[cfg(any(target_os = "macos", target_os = "windows", test))]
 const RELEASE_IDENTIFIER: &str = "app.mewlink.desktop";
 static IDENTIFIER: std::sync::OnceLock<String> = std::sync::OnceLock::new();
 
@@ -13,11 +14,13 @@ pub fn use_identifier(identifier: &str) {
     let _ = IDENTIFIER.set(identifier.to_owned());
 }
 
+#[cfg(any(target_os = "macos", target_os = "windows", test))]
 fn service_name(identifier: &str, item: &str) -> String {
     format!("{identifier}.{item}")
 }
 
 /// The keychain service for one of the app's items ("pairing", "ratchet").
+#[cfg(any(target_os = "macos", target_os = "windows"))]
 pub(crate) fn keychain_service(item: &str) -> String {
     service_name(
         IDENTIFIER.get().map_or(RELEASE_IDENTIFIER, String::as_str),
