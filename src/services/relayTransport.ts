@@ -192,7 +192,8 @@ export async function syncEncryptedEvents(state: PairingState, fetcher: Fetcher 
     // Drain durable deliveries before fetching another batch. Otherwise a full
     // inbox after a crash could prevent the very acknowledgements that free it.
     const local = await ratchetDeliveries(state, ratchet);
-    if (local.received.length) return { ...local, partnerOnline: false, caughtUp: false };
+    // This is only a local inbox drain, not an observation of peer presence.
+    if (local.received.length) return { ...local, partnerOnline: undefined, caughtUp: false };
     await flushRatchetOutbox(state, fetcher, ratchet);
   }
   const url = new URL(RELAY_ENDPOINT);
@@ -217,7 +218,7 @@ export async function syncEncryptedEvents(state: PairingState, fetcher: Fetcher 
     }));
   }
   const cursor = Number.isSafeInteger(payload.cursor) && (payload.cursor ?? 0) >= state.relayCursor ? payload.cursor as number : state.relayCursor;
-  const partnerOnline = payload.partnerOnline === true;
+  const partnerOnline = typeof payload.partnerOnline === 'boolean' ? payload.partnerOnline : undefined;
   const caughtUp = !Array.isArray(payload.messages) || payload.messages.length < 100;
   if (state.ratchet) {
     for (const message of Array.isArray(payload.messages) ? payload.messages : []) {

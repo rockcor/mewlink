@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { ActivityKind, StoredEvent } from '../domain/types';
-import { companionStates, partnerEventsFor, PRESENCE_STALE_MS } from './companionState';
+import { companionStates, partnerEventsFor, partnerOnlineFor, PRESENCE_STALE_MS } from './companionState';
 import { buildReplay } from './replay';
 
 const now = Date.parse('2026-09-21T18:00:00Z');
@@ -16,6 +16,43 @@ function activity(category: ActivityKind, sender = 'bob', at = now): StoredEvent
 }
 
 describe('independent local and remote companions', () => {
+  it('shows idle after the partner exits even while its last activity heartbeat is fresh', () => {
+    for (const category of ['work', 'meeting', 'leisure', 'rest'] as const) {
+      const result = companionStates(self, [activity(category)], identity, undefined, now, { ...identity, online: false });
+      expect(result.partner.activity).toBe('idle');
+      expect(result.partnerLive).toBe(false);
+      expect(result.self).toEqual(self);
+    }
+  });
+  it('restores the actual activity after reconnecting, and ages it out without a new heartbeat', () => {
+    const events = [activity('work')];
+    const online = { ...identity, online: true };
+    expect(companionStates(self, events, identity, undefined, now, online).partner.activity).toBe('work');
+    expect(companionStates(self, events, identity, undefined, now + PRESENCE_STALE_MS + 1, online).partner.activity).toBe('idle');
+  });
+  it('retains the partner skin while offline', () => {
+    const skin = activity('work');
+    skin.event = { ...skin.event, kind: 'profile.skin', payload: { skin: 'sky' } };
+    expect(companionStates(self, [activity('work'), skin], identity, undefined, now,
+      { ...identity, online: false }).partner).toEqual({ activity: 'idle', workVisual: 'web', skin: 'sky' });
+  });
+  it('keeps replay historical when the partner is offline, then returns to idle', () => {
+    const events = [activity('work', 'bob', now - 300_000)];
+    const replay = { items: buildReplay(events), frame: 0 };
+    const offline = { ...identity, online: false };
+    expect(companionStates(self, events, identity, replay, now, offline).partner.activity).toBe('work');
+    expect(companionStates(self, events, identity, undefined, now, offline).partner.activity).toBe('idle');
+  });
+  it('ignores missing presence and responses for another relationship or device', () => {
+    expect(partnerOnlineFor(identity, undefined)).toBeUndefined();
+    for (const other of [{ ...identity, relationshipId: 'old' }, { ...identity, deviceId: 'other' },
+      { ...identity, partnerDeviceId: 'other' }]) {
+      const presence = { ...other, online: false };
+      expect(partnerOnlineFor(identity, presence)).toBeUndefined();
+      expect(companionStates(self, [activity('work')], identity, undefined, now, presence).partner.activity).toBe('work');
+    }
+    expect(partnerOnlineFor(undefined, { ...identity, online: false })).toBeUndefined();
+  });
   it('shows current partner work without replay, regardless of equal or different time zones', () => {
     for (const offset of [-420, 0, 840]) {
       const event = activity('work');

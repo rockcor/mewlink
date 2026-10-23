@@ -44,7 +44,7 @@ import type { Update } from '@tauri-apps/plugin-updater';
 import { discardRelationshipHistory, pruneEventsOlderThan, putEvent } from './storage/events';
 import { queueEncryptedEvent } from './history/outbox';
 import { useOperationHistory } from './history/useOperationHistory';
-import { companionStates, partnerEventsFor, PRESENCE_HEARTBEAT_MS } from './services/companionState';
+import { companionStates, partnerEventsFor, PRESENCE_HEARTBEAT_MS, type PartnerPresence } from './services/companionState';
 import { createSessionQueue } from './pairing/sessionQueue';
 import { copyPairingInvite } from './pairing/copyInvite';
 import { animationDurationScale, effectiveUtcOffsetMinutes, loadPreferences, PET_WINDOW_MIN_WIDTH, petDistance, petWindowWidth, savePreferences, scalePetWithPinch } from './settings/preferences';
@@ -143,6 +143,7 @@ export default function App() {
   const sessionQueue = useRef(createSessionQueue()).current;
   const panelBusy = useRef(false);
   const [presenceNow, setPresenceNow] = useState(Date.now);
+  const [partnerPresence, setPartnerPresence] = useState<PartnerPresence>();
   const incomingInteractionRef = useRef<(action: InteractionKind, cup?: CupStyle, blanket?: BlanketStyle, cupId?: string) => void>(() => undefined);
   const receiverUtcOffsetMinutes = effectiveUtcOffsetMinutes(preferences);
   const partnerEvents = useMemo(() => partnerEventsFor(events, pairing), [events, pairing]);
@@ -157,8 +158,8 @@ export default function App() {
   }, [partnerEvents]);
   const companions = useMemo(() => companionStates(
     { activity, workVisual, skin: preferences.selfPetSkin }, partnerEvents, pairing,
-    undefined, presenceNow,
-  ), [activity, workVisual, preferences.selfPetSkin, partnerEvents, pairing, presenceNow]);
+    undefined, presenceNow, partnerPresence,
+  ), [activity, workVisual, preferences.selfPetSkin, partnerEvents, pairing, presenceNow, partnerPresence]);
   const partnerSkin = companions.partner.skin;
   // The partner's pomodoro, from their latest heartbeat: it stands on their pup's desk here too.
   const partnerPomodoroKey = useMemo(() => {
@@ -217,9 +218,9 @@ export default function App() {
   });
   const partnerPlayback = useActivityPlayback({
     paused: renderPaused || !connected,
-    desiredActivity: historyDisplay?.activity ?? (companions.partnerLive || liveShown ? partnerActivity : 'work'),
+    desiredActivity: partnerActivity,
     desiredWorkVisual: partnerWorkVisual,
-    initialActivity: 'work',
+    initialActivity: 'idle',
     initialWorkVisual: 'web',
     workHandsSettled: !liveShown || (!live.hands.keyboard && !live.hands.pointer),
     transitionDurationMs: Math.round(ACTIVITY_TRANSITION_MS * durationScale),
@@ -648,6 +649,13 @@ export default function App() {
             throw error;
           });
           if (stopped || pairingBlockedRef.current || pairingRef.current?.relationshipId !== active.relationshipId) return;
+          if (typeof result.partnerOnline === 'boolean') {
+            const online = result.partnerOnline;
+            const { relationshipId, deviceId, partnerDeviceId } = result.state;
+            setPartnerPresence(previous => previous?.relationshipId === relationshipId && previous.deviceId === deviceId
+              && previous.partnerDeviceId === partnerDeviceId && previous.online === online
+              ? previous : { relationshipId, deviceId, partnerDeviceId, online });
+          }
           if (result.state.partnerDeviceId !== active.partnerDeviceId || result.state.relayCursor !== active.relayCursor
             || result.state.inviteExpiresAt !== active.inviteExpiresAt || result.received.length
             || JSON.stringify(result.state.ratchet) !== JSON.stringify(active.ratchet)

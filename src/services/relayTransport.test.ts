@@ -1,4 +1,5 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
+import type { RatchetPort } from '../crypto/ratchet';
 import type { EncryptedEnvelope, PlainEvent } from '../domain/types';
 import { createPairingJoinRequest, createPairingState, openPairingInvite, pairingInviteCode, relayTokenHash } from '../pairing/pairing';
 import { claimPairingJoin, registerPairCreator, registerPairJoiner, requestPairingJoin, sendEncryptedEvent, syncEncryptedEvents } from './relayTransport';
@@ -125,6 +126,39 @@ function interaction(relationshipId: string, senderDeviceId: string, action: 'hu
     payload: action === 'water' ? { action, cupStyle: 'tumbler' } : { action },
   };
 }
+
+describe('relay presence observations', () => {
+  it('preserves online, offline and missing observations from actual relay responses', async () => {
+    const relay = fakeRelay();
+    const { first } = await pairThroughCode(relay);
+    for (const online of [true, false, undefined]) {
+      const fetcher: typeof fetch = async (input, init) => {
+        const response = await relay.fetcher(input, init);
+        return Response.json({ ...await response.json() as object, ...(online === undefined ? {} : { partnerOnline: online }) });
+      };
+      expect((await syncEncryptedEvents(first, fetcher)).partnerOnline).toBe(online);
+    }
+  });
+
+  it('does not invent an offline observation while draining a local ratchet inbox', async () => {
+    const relay = fakeRelay();
+    const { first, second } = await pairThroughCode(relay);
+    const event = interaction(first.relationshipId, second.deviceId, 'hug');
+    const ratchet: RatchetPort = async <T,>(operation: string) => {
+      if (operation === 'status') return { established: true, verified: true, safetyNumber: 'test', peerId: second.deviceId } as T;
+      if (operation === 'pending') return { outgoing: [], incoming: [{ receipt: 'test-receipt', event }] } as T;
+      throw new Error(`Unexpected ratchet operation: ${operation}`);
+    };
+    const fetcher = vi.fn<typeof fetch>();
+    const result = await syncEncryptedEvents({ ...first, ratchet: { protocol: 2,
+      offer: { identity: 'A'.repeat(43), oneTimeKey: 'B'.repeat(43) },
+      established: true, verified: true, safetyNumber: 'test' } }, fetcher, ratchet);
+    expect(result.received).toHaveLength(1);
+    expect(result.partnerOnline).toBeUndefined();
+    expect(result.caughtUp).toBe(false);
+    expect(fetcher).not.toHaveBeenCalled();
+  });
+});
 
 function statistics(relationshipId: string, senderDeviceId: string): PlainEvent {
   const snapshot = (bars: number) => ({
