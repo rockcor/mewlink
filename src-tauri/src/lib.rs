@@ -782,6 +782,16 @@ fn input_signal(state: tauri::State<'_, resources::ResourceState>) -> InputSigna
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
+        // One pet at a time: launching MewLink again (say, after it started at
+        // login) brings the running one forward instead of a second copy with
+        // the same encrypted session.
+        .plugin(tauri_plugin_single_instance::init(|app, _args, _cwd| {
+            if let Some(window) = app.get_webview_window("main") {
+                let _ = window.show();
+                let _ = window.unminimize();
+                let _ = window.set_focus();
+            }
+        }))
         // Register the controls only; enabling is an explicit user action.
         .plugin(tauri_plugin_autostart::init(
             tauri_plugin_autostart::MacosLauncher::LaunchAgent,
@@ -814,6 +824,7 @@ pub fn run() {
         ])
         .setup(|app| {
             resources::start_input_monitor(app.handle().clone());
+            autostart::refresh_autostart(app.handle());
             if let Some(window) = app.get_webview_window("main") {
                 window_layout::position_initial_pet(&window)?;
             }

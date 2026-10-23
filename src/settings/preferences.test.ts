@@ -41,13 +41,12 @@ describe('desktop preferences', () => {
 
   it('persists replay, manual timezone, and update preferences', () => {
     const storage = memoryStorage();
-    savePreferences({ autoUpdate: false, replayEnabled: false, liveTyping: true, replaySaveDirectory: '/tmp/mewlink-replays', replayRetentionHours: 36, statisticsVisibility: 'partner', timezoneMode: 'manual', manualUtcOffsetMinutes: 330, animationSpeed: 'natural', selfPetScalePercent: 85, partnerPetScalePercent: 95, petDistancePercent: 130, growWithBusyness: false, windowLayer: 'bottom', petTransparencyPercent: 40, pomodoroMinutes: 45, selfPetSkin: 'sixtySix', blanketStyle: 'night', language: 'en', languageMode: 'manual' }, storage);
+    savePreferences({ autoUpdate: false, replayEnabled: false, liveTyping: true, replayRetentionHours: 36, statisticsVisibility: 'partner', timezoneMode: 'manual', manualUtcOffsetMinutes: 330, animationSpeed: 'natural', selfPetScalePercent: 85, partnerPetScalePercent: 95, petDistancePercent: 130, growWithBusyness: false, windowLayer: 'bottom', petTransparencyPercent: 40, pomodoroMinutes: 45, selfPetSkin: 'sixtySix', blanketStyle: 'night', language: 'en', languageMode: 'manual' }, storage);
     const saved = loadPreferences(storage);
     expect(effectiveUtcOffsetMinutes(saved)).toBe(330);
     expect(saved.autoUpdate).toBe(false);
     expect(saved.replayEnabled).toBe(false);
     expect(saved.liveTyping).toBe(true);
-    expect(saved.replaySaveDirectory).toBe('/tmp/mewlink-replays');
     expect(saved.replayRetentionHours).toBe(36);
     expect(saved.statisticsVisibility).toBe('partner');
     expect(saved.selfPetScalePercent).toBe(85);
@@ -73,7 +72,7 @@ describe('desktop preferences', () => {
 
   it('lets people turn automatic timezone detection off', () => {
     const storage = memoryStorage();
-    savePreferences({ autoUpdate: true, replayEnabled: true, liveTyping: false, replaySaveDirectory: '', replayRetentionHours: 24, statisticsVisibility: 'private', timezoneMode: 'off', manualUtcOffsetMinutes: 0, animationSpeed: 'calm', selfPetScalePercent: 100, partnerPetScalePercent: 100, petDistancePercent: 100, growWithBusyness: true, windowLayer: 'top', petTransparencyPercent: 0, pomodoroMinutes: 25, selfPetSkin: 'cream', blanketStyle: 'blush', language: 'zh', languageMode: 'manual' }, storage);
+    savePreferences({ autoUpdate: true, replayEnabled: true, liveTyping: false, replayRetentionHours: 24, statisticsVisibility: 'private', timezoneMode: 'off', manualUtcOffsetMinutes: 0, animationSpeed: 'calm', selfPetScalePercent: 100, partnerPetScalePercent: 100, petDistancePercent: 100, growWithBusyness: true, windowLayer: 'top', petTransparencyPercent: 0, pomodoroMinutes: 25, selfPetSkin: 'cream', blanketStyle: 'blush', language: 'zh', languageMode: 'manual' }, storage);
     expect(loadPreferences(storage).timezoneMode).toBe('off');
   });
 
@@ -105,12 +104,13 @@ describe('desktop preferences', () => {
   it('keeps the window above by default, with solid companions, and bounds transparency', () => {
     const fresh = loadPreferences({ getItem: () => '{}', setItem: () => undefined });
     expect(fresh.windowLayer).toBe('top');
-    expect(fresh.petTransparencyPercent).toBe(0);
+    // Half see-through by default; solid while the pointer is on them.
+    expect(fresh.petTransparencyPercent).toBe(50);
     expect(loadPreferences({ getItem: () => JSON.stringify({ windowLayer: 'sideways', petTransparencyPercent: 95 }), setItem: () => undefined }))
       .toMatchObject({ windowLayer: 'top', petTransparencyPercent: 70 });
     expect(normalizePetTransparencyPercent(-5)).toBe(0);
     expect(normalizePetTransparencyPercent(34)).toBe(30);
-    expect(normalizePetTransparencyPercent(Number.NaN)).toBe(0);
+    expect(normalizePetTransparencyPercent(Number.NaN)).toBe(50);
   });
 
   it('runs 25-minute pomodoros by default, adjustable in 5-minute steps up to an hour', () => {

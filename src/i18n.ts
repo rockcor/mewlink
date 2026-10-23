@@ -21,6 +21,7 @@ interface AppCopy {
   updateUnchecked: string;
   updateChecking: string;
   updateAvailable: (version: string) => string;
+  updateWhenAway: (version: string) => string;
   updateCurrent: (version: string) => string;
   updateDownloading: (percent?: number) => string;
   updateInstalling: string;
@@ -62,7 +63,7 @@ interface AppCopy {
   statistics: string;
   settings: string;
   panelError: string;
-  historyError: string;
+  historyErrors: Record<'space' | 'save' | 'read' | 'play', string>;
   myPet: (status: string) => string;
   partnerPet: (status: string) => string;
 }
@@ -74,12 +75,12 @@ export const appCopy: Record<Language, AppCopy> = {
     ratchetUpgrade: '请双方更新后解除旧绑定，重新生成配对码。旧连接的收发已暂停。',
     ratchetVerify: '请通过电话或当面核对双方号码，完全一致后再确认。确认前不分享活动与互动。',
     ratchetStorageError: '安全会话暂不可用，收发已暂停。请重新打开应用；若仍有问题，请双方重新绑定。',
-    historyError: '回放记录未完成，请检查剩余空间后重新打开 MewLink',
+    historyErrors: { space: '电脑存储空间不足，回放暂停记录；清理出空间后会自动继续', save: '有一段回放没能保存，会继续记录后面的', read: '回放暂时读取不了，稍后再试', play: '这段回放暂时播放不了，稍后再试' },
     interactionQueued: '已保存，联网后送出', stopReplay: '结束回放', pomodoro: '番茄钟', pomodoroStart: minutes => `开始 ${minutes} 分钟番茄钟`, pomodoroNotifyTitle: '番茄钟时间到', pomodoroNotifyBody: minutes => `${minutes} 分钟专注完成，休息一下吧`, pomodoroLeft: minutes => `番茄钟 ${minutes} 分`, pomodoroStop: minutes => `结束番茄钟（还剩 ${minutes} 分钟）`, partnerPomodoroLeft: minutes => `TA 的番茄钟还剩 ${minutes} 分钟`, pomodoroDone: '番茄钟时间到，休息一下吧', partnerPomodoroDone: 'TA 的番茄钟时间到了', replayNotice: (duration, days) => days > 1 ? `TA 的回放 · ${days} 天 · 共 ${duration}` : `TA 的回放 · ${duration}`, replayPosition: '回放进度', replayDetail: (work, rest) => `工作 ${work} · 休息 ${rest}`,
     panelError: '窗口未能展开，请重新打开设置',
     cups: { ceramic: { label: '樱粉陶瓷杯', shortLabel: '陶瓷杯' }, tumbler: { label: '天空随行杯', shortLabel: '随行杯' }, bottle: { label: '薄荷运动瓶', shortLabel: '运动瓶' } },
     status: { work: '工作中', meeting: '在开会', leisure: '休闲娱乐', idle: '暂时离开', rest: '休息中' },
-    updateUnchecked: '尚未检查更新', updateChecking: '正在检查…', updateAvailable: version => `发现新版本 ${version}`, updateCurrent: version => `已是最新版 ${version}`, updateDownloading: percent => percent === undefined ? '正在下载新版本…' : `正在下载新版本 ${percent}%`, updateInstalling: '正在安装，完成后会自动重启…', updateInstallError: '更新没有完成，请重新检查后再试', updateError: '暂时无法检查，请稍后再试',
+    updateUnchecked: '尚未检查更新', updateChecking: '正在检查…', updateAvailable: version => `发现新版本 ${version}`, updateWhenAway: version => `新版本 ${version} 会在你离开电脑时自动安装`, updateCurrent: version => `已是最新版 ${version}`, updateDownloading: percent => percent === undefined ? '正在下载新版本…' : `正在下载新版本 ${percent}%`, updateInstalling: '正在安装，完成后会自动重启…', updateInstallError: '更新没有完成，请重新检查后再试', updateError: '暂时无法检查，请稍后再试',
     connected: '已连接，可以互相发送拥抱和喝水', waitingForInvite: '等待对方输入配对码', connectionRetry: '暂时无法连接，稍后会自动重试',
     incomingHug: 'TA 送来一个拥抱', incomingWater: 'TA 提醒你喝水', creatingInvite: '正在生成配对码…', createInviteError: '暂时无法生成，请稍后再试', connecting: '正在用配对码连接…', connectError: '配对码无效、已过期或暂时无法连接',
     inviteCopied: '配对码已复制，请私下发给对方', inviteCopyError: '复制失败，请手动记下配对码', disconnected: '已解除连接', pairFirst: '先连接 TA，才能送出互动', hugSent: '拥抱已送出', cupSent: name => `${name}已送出`, sendError: '暂时没有送出去', cupChanged: name => `已换成${name}`,
@@ -92,12 +93,12 @@ export const appCopy: Record<Language, AppCopy> = {
     ratchetUpgrade: '請雙方更新後解除舊綁定，重新產生配對碼。舊連線的收發已暫停。',
     ratchetVerify: '請透過電話或當面核對雙方號碼，完全一致後再確認。確認前不分享活動與互動。',
     ratchetStorageError: '安全會話暫不可用，收發已暫停。請重新開啟應用程式；若仍有問題，請雙方重新綁定。',
-    historyError: '回放記錄未完成，請檢查剩餘空間後重新開啟 MewLink',
+    historyErrors: { space: '電腦儲存空間不足，回放暫停記錄；清出空間後會自動繼續', save: '有一段回放沒能儲存，會繼續記錄後面的', read: '回放暫時讀取不了，稍後再試', play: '這段回放暫時播放不了，稍後再試' },
     interactionQueued: '已儲存，連線後送出', stopReplay: '結束回放', pomodoro: '番茄鐘', pomodoroStart: minutes => `開始 ${minutes} 分鐘番茄鐘`, pomodoroNotifyTitle: '番茄鐘時間到', pomodoroNotifyBody: minutes => `${minutes} 分鐘專注完成，休息一下吧`, pomodoroLeft: minutes => `番茄鐘 ${minutes} 分`, pomodoroStop: minutes => `結束番茄鐘（還剩 ${minutes} 分鐘）`, partnerPomodoroLeft: minutes => `TA 的番茄鐘還剩 ${minutes} 分鐘`, pomodoroDone: '番茄鐘時間到，休息一下吧', partnerPomodoroDone: 'TA 的番茄鐘時間到了', replayNotice: (duration, days) => days > 1 ? `TA 的回放 · ${days} 天 · 共 ${duration}` : `TA 的回放 · ${duration}`, replayPosition: '回放進度', replayDetail: (work, rest) => `工作 ${work} · 休息 ${rest}`,
     panelError: '視窗未能展開，請重新開啟設定',
     cups: { ceramic: { label: '櫻粉陶瓷杯', shortLabel: '陶瓷杯' }, tumbler: { label: '天空隨行杯', shortLabel: '隨行杯' }, bottle: { label: '薄荷運動瓶', shortLabel: '運動瓶' } },
     status: { work: '工作中', meeting: '在開會', leisure: '休閒娛樂', idle: '暫時離開', rest: '休息中' },
-    updateUnchecked: '尚未檢查更新', updateChecking: '正在檢查…', updateAvailable: version => `發現新版本 ${version}`, updateCurrent: version => `已是最新版 ${version}`, updateDownloading: percent => percent === undefined ? '正在下載新版本…' : `正在下載新版本 ${percent}%`, updateInstalling: '正在安裝，完成後會自動重新啟動…', updateInstallError: '更新未完成，請重新檢查後再試', updateError: '暫時無法檢查，請稍後再試',
+    updateUnchecked: '尚未檢查更新', updateChecking: '正在檢查…', updateAvailable: version => `發現新版本 ${version}`, updateWhenAway: version => `新版本 ${version} 會在你離開電腦時自動安裝`, updateCurrent: version => `已是最新版 ${version}`, updateDownloading: percent => percent === undefined ? '正在下載新版本…' : `正在下載新版本 ${percent}%`, updateInstalling: '正在安裝，完成後會自動重新啟動…', updateInstallError: '更新未完成，請重新檢查後再試', updateError: '暫時無法檢查，請稍後再試',
     connected: '已連線，可以互相傳送擁抱和喝水', waitingForInvite: '等待對方輸入配對碼', connectionRetry: '暫時無法連線，稍後會自動重試',
     incomingHug: 'TA 送來一個擁抱', incomingWater: 'TA 提醒你喝水', creatingInvite: '正在產生配對碼…', createInviteError: '暫時無法產生，請稍後再試', connecting: '正在用配對碼連線…', connectError: '配對碼無效、已過期或暫時無法連線',
     inviteCopied: '配對碼已複製，請私下傳給對方', inviteCopyError: '複製失敗，請手動記下配對碼', disconnected: '已解除連線', pairFirst: '先連線 TA，才能送出互動', hugSent: '擁抱已送出', cupSent: name => `${name}已送出`, sendError: '暫時無法送出', cupChanged: name => `已換成${name}`,
@@ -110,12 +111,12 @@ export const appCopy: Record<Language, AppCopy> = {
     ratchetUpgrade: 'Both people need to update, unpair and create a new code. The old connection is paused.',
     ratchetVerify: 'Compare both numbers in person or on a call. Confirm only if they match exactly. No activity or interactions are shared before confirmation.',
     ratchetStorageError: 'The secure session is unavailable; communication is paused. Reopen the app. If this persists, both people need to pair again.',
-    historyError: 'Replay could not be saved or loaded. Check free space and reopen MewLink.',
+    historyErrors: { space: 'Your disk is full, so replay recording is paused; it resumes once there is space', save: 'A moment of replay could not be saved; recording carries on', read: 'Replays cannot be read right now; try again later', play: 'This replay cannot be played right now; try again later' },
     interactionQueued: 'Saved — will send when connected', stopReplay: 'End replay', pomodoro: 'Pomodoro', pomodoroStart: minutes => `Start a ${minutes}-minute pomodoro`, pomodoroNotifyTitle: 'Pomodoro done', pomodoroNotifyBody: minutes => `${minutes} focused minutes — time for a break`, pomodoroLeft: minutes => `Pomodoro ${minutes} min`, pomodoroStop: minutes => `End pomodoro (${minutes} min left)`, partnerPomodoroLeft: minutes => `Their pomodoro: ${minutes} min left`, pomodoroDone: 'Pomodoro done — time for a break', partnerPomodoroDone: 'Their pomodoro is done', replayNotice: (duration, days) => days > 1 ? `Their replay · ${days} days · ${duration}` : `Their replay · ${duration}`, replayPosition: 'Replay position', replayDetail: (work, rest) => `${work} working · ${rest} resting`,
     panelError: 'The window could not expand. Please reopen settings.',
     cups: { ceramic: { label: 'Blush ceramic mug', shortLabel: 'Ceramic' }, tumbler: { label: 'Sky tumbler', shortLabel: 'Tumbler' }, bottle: { label: 'Mint sports bottle', shortLabel: 'Bottle' } },
     status: { work: 'Working', meeting: 'In a meeting', leisure: 'Taking a break', idle: 'Away for a moment', rest: 'Resting' },
-    updateUnchecked: 'Updates not checked yet', updateChecking: 'Checking…', updateAvailable: version => `Version ${version} is ready`, updateCurrent: version => `Up to date · ${version}`, updateDownloading: percent => percent === undefined ? 'Downloading the update…' : `Downloading the update · ${percent}%`, updateInstalling: 'Installing, then MewLink will restart…', updateInstallError: 'The update did not finish. Check again and retry.', updateError: 'Unable to check right now. Try again later.',
+    updateUnchecked: 'Updates not checked yet', updateChecking: 'Checking…', updateAvailable: version => `Version ${version} is ready`, updateWhenAway: version => `Version ${version} installs by itself when you step away`, updateCurrent: version => `Up to date · ${version}`, updateDownloading: percent => percent === undefined ? 'Downloading the update…' : `Downloading the update · ${percent}%`, updateInstalling: 'Installing, then MewLink will restart…', updateInstallError: 'The update did not finish. Check again and retry.', updateError: 'Unable to check right now. Try again later.',
     connected: 'Connected — you can send hugs and water', waitingForInvite: 'Waiting for the other person to enter the pairing code', connectionRetry: 'Unable to connect right now. Retrying automatically.',
     incomingHug: 'Your friend sent a hug', incomingWater: 'Your friend reminded you to drink water', creatingInvite: 'Creating a pairing code…', createInviteError: 'Unable to create a pairing code. Try again later.', connecting: 'Connecting with the pairing code…', connectError: 'The pairing code is invalid, expired, or unavailable right now',
     inviteCopied: 'Pairing code copied — send it privately', inviteCopyError: 'Copy failed. Note the pairing code manually.', disconnected: 'Disconnected', pairFirst: 'Connect someone before sending an interaction', hugSent: 'Hug sent', cupSent: name => `${name} sent`, sendError: 'Unable to send right now', cupChanged: name => `Changed to ${name}`,

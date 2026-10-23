@@ -1,4 +1,3 @@
-import { open } from '@tauri-apps/plugin-dialog';
 import { useEffect, useRef, useState } from 'react';
 import { PanelFrame } from './PanelFrame';
 import { PixelIcon } from './PixelIcon';
@@ -62,8 +61,8 @@ const copy = {
     replay: '时差重放', replayNote: '有新回放时会提示时长；点开后像看视频一样，可以拖动进度条从任意时刻看',
     liveTyping: '实时打字动画', liveTypingNote: '双方在线时，TA 能实时看到你的小狗在打字。只发送每 0.25 秒的按键和鼠标次数，不发送按了什么键；输入密码时自动暂停。双方都开启才生效。',
     livePhases: { off: '', connecting: '正在连接…', waiting: '已开启，等 TA 上线并开启', live: '实时中', paused: '已暂停', unavailable: '实时通道暂不可用' } as Record<LivePhase, string>,
-    recording: '回放录像', recordingNote: '只保存宠物回放，不录制真实屏幕', saveLocation: '保存位置', chooseFolder: '选择', defaultFolder: '应用默认文件夹', retention: '保留时长', hours: (hours: number) => `${hours} 小时`, chooseFolderTitle: '选择回放录像保存位置',
-    update: '自动更新', updateNote: '点击检查将安装新版本并重启应用', goUpdate: '前往更新', installNow: '立即更新', checkNow: '立即检查',
+    recording: '回放录像', recordingNote: '只保存宠物回放，不录制真实屏幕', saveLocation: '保存位置', savedAutomatically: '自动保存在本机，已加密，无需选择', retention: '保留时长', hours: (hours: number) => `${hours} 小时`,
+    update: '自动更新', updateNote: '每 6 小时检查一次，新版本会在你离开电脑时自动安装并重启', goUpdate: '前往更新', installNow: '立即更新', checkNow: '立即检查',
     timezone: '时区', timezoneNote: '自动识别双方时差，可随时关闭', auto: '自动', manual: '手动', off: '关闭', me: '你', partnerPending: 'TA · 连接后识别', step: '每格 15 分钟', hideClocks: '重放中不显示双方时间', manualAria: '手动时区 UTC 偏移',
     petSize: '宠物大小和距离', petSizeNote: '两只宠物可分别调整，距离越远窗口越宽', selfPet: '我的宠物', partnerPet: 'TA 的宠物', petSizeAria: '宠物大小', petDistance: '距离', petDistanceAria: '两只宠物之间的距离', growth: '随忙碌长大', growthNote: '今天越忙，宠物就慢慢变大，按你平时的节奏衡量，每天 0 点恢复原大小。TA 能看到你的宠物大小，看不到具体统计',
     petColor: '宠物配色', petColorNote: '选择自己的颜色；连接后会同步显示', petColorAria: '我的宠物配色', skins: { cream: '奶油', peach: '蜜桃', mint: '薄荷', sky: '晴空', lavender: '丁香', luka: 'Luka', sixtySix: '66', shell: '贝壳' },
@@ -81,8 +80,8 @@ const copy = {
     replay: '時差重放', replayNote: '有新回放時會提示時長；點開後像看影片一樣，可以拖動進度條從任意時刻看',
     liveTyping: '即時打字動畫', liveTypingNote: '雙方在線時，TA 能即時看到你的小狗在打字。只傳送每 0.25 秒的按鍵和滑鼠次數，不傳送按了哪個鍵；輸入密碼時自動暫停。雙方都開啟才生效。',
     livePhases: { off: '', connecting: '正在連線…', waiting: '已開啟，等 TA 上線並開啟', live: '即時中', paused: '已暫停', unavailable: '即時通道暫不可用' } as Record<LivePhase, string>,
-    recording: '回放錄影', recordingNote: '只儲存寵物回放，不錄製真實螢幕', saveLocation: '儲存位置', chooseFolder: '選擇', defaultFolder: '應用程式預設資料夾', retention: '保留時長', hours: (hours: number) => `${hours} 小時`, chooseFolderTitle: '選擇回放錄影儲存位置',
-    update: '自動更新', updateNote: '點擊檢查將安裝新版本並重新啟動應用程式', goUpdate: '前往更新', installNow: '立即更新', checkNow: '立即檢查',
+    recording: '回放錄影', recordingNote: '只儲存寵物回放，不錄製真實螢幕', saveLocation: '儲存位置', savedAutomatically: '自動儲存在本機，已加密，無需選擇', retention: '保留時長', hours: (hours: number) => `${hours} 小時`,
+    update: '自動更新', updateNote: '每 6 小時檢查一次，新版本會在你離開電腦時自動安裝並重新啟動', goUpdate: '前往更新', installNow: '立即更新', checkNow: '立即檢查',
     timezone: '時區', timezoneNote: '自動識別雙方時差，可隨時關閉', auto: '自動', manual: '手動', off: '關閉', me: '你', partnerPending: 'TA · 連線後識別', step: '每格 15 分鐘', hideClocks: '重放中不顯示雙方時間', manualAria: '手動時區 UTC 偏移',
     petSize: '寵物大小和距離', petSizeNote: '兩隻寵物可分別調整，距離越遠視窗越寬', selfPet: '我的寵物', partnerPet: 'TA 的寵物', petSizeAria: '寵物大小', petDistance: '距離', petDistanceAria: '兩隻寵物之間的距離', growth: '隨忙碌長大', growthNote: '今天越忙，寵物就慢慢變大，依你平時的節奏衡量，每天 0 點恢復原大小。TA 能看到你的寵物大小，看不到具體統計',
     petColor: '寵物配色', petColorNote: '選擇自己的顏色；連線後會同步顯示', petColorAria: '我的寵物配色', skins: { cream: '奶油', peach: '蜜桃', mint: '薄荷', sky: '晴空', lavender: '丁香', luka: 'Luka', sixtySix: '66', shell: '貝殼' },
@@ -100,8 +99,8 @@ const copy = {
     replay: 'Time-zone replay', replayNote: 'A notice says how long a new replay is; like a video, drag the bar to watch from any moment',
     liveTyping: 'Live typing', liveTypingNote: 'While you are both online, they see your pup type in real time. Only key and mouse counts per 0.25 s are sent, never which keys; pauses in password fields. Works when both of you turn it on.',
     livePhases: { off: '', connecting: 'Connecting…', waiting: 'On, waiting for them to come online with it on', live: 'Live', paused: 'Paused', unavailable: 'Live channel unavailable right now' } as Record<LivePhase, string>,
-    recording: 'Replay recordings', recordingNote: 'Saves companion replays, never your real screen', saveLocation: 'Save location', chooseFolder: 'Choose', defaultFolder: 'App default folder', retention: 'Keep for', hours: (hours: number) => `${hours}h`, chooseFolderTitle: 'Choose where to save replay recordings',
-    update: 'Automatic updates', updateNote: 'Check now installs available updates and restarts the app', goUpdate: 'Get update', installNow: 'Install now', checkNow: 'Check now',
+    recording: 'Replay recordings', recordingNote: 'Saves companion replays, never your real screen', saveLocation: 'Saved', savedAutomatically: 'On this computer, encrypted, automatically', retention: 'Keep for', hours: (hours: number) => `${hours}h`,
+    update: 'Automatic updates', updateNote: 'Checks every 6 hours; a new version installs and restarts by itself when you step away', goUpdate: 'Get update', installNow: 'Install now', checkNow: 'Check now',
     timezone: 'Time zone', timezoneNote: 'Detect your time difference automatically or turn it off', auto: 'Auto', manual: 'Manual', off: 'Off', me: 'You', partnerPending: 'Partner · after pairing', step: '15-minute steps', hideClocks: 'Hide both local times during replay', manualAria: 'Manual UTC offset',
     petSize: 'Size and distance', petSizeNote: 'Adjust each companion; a wider distance widens the window', selfPet: 'Mine', partnerPet: 'Partner', petSizeAria: 'Companion size', petDistance: 'Distance', petDistanceAria: 'Distance between the companions', growth: 'Grow with busyness', growthNote: 'The busier your day, the bigger your companion slowly grows, measured against your usual pace; back to normal size at midnight. Your partner sees the size, never the statistics',
     petColor: 'Companion color', petColorNote: 'Choose yours; it appears for your partner after pairing', petColorAria: 'My companion color', skins: { cream: 'Cream', peach: 'Peach', mint: 'Mint', sky: 'Sky', lavender: 'Lilac', luka: 'Luka', sixtySix: '66', shell: 'Shell' },
@@ -192,22 +191,6 @@ export function SettingsPanel({
   const speedLabels: Record<AnimationSpeed, string> = text.speeds;
   const skinLabels: Record<PetSkin, string> = text.skins;
   const patchPreferences = (patch: Partial<Preferences>) => onChange({ ...preferences, ...patch });
-  const directoryLabel = preferences.replaySaveDirectory
-    ? preferences.replaySaveDirectory.split(/[\\/]/).filter(Boolean).pop() ?? preferences.replaySaveDirectory
-    : text.defaultFolder;
-  const chooseReplayDirectory = async () => {
-    try {
-      const selected = await open({
-        directory: true,
-        multiple: false,
-        title: text.chooseFolderTitle,
-        ...(preferences.replaySaveDirectory ? { defaultPath: preferences.replaySaveDirectory } : {})
-      });
-      if (typeof selected === 'string') patchPreferences({ replaySaveDirectory: selected });
-    } catch {
-      // The browser preview cannot open the native folder chooser.
-    }
-  };
 
   return (
     <PanelFrame title={text.settings} closeLabel={text.close} language={preferences.language} onClose={onClose} contentKey={page} navigation={
@@ -267,8 +250,7 @@ export function SettingsPanel({
         <article hidden={page !== 'replay'} className="setting-block recording-setting">
           <div className="setting-title"><div><b>{text.recording}</b><small>{text.recordingNote}</small></div></div>
           <div className="recording-location">
-            <span><small>{text.saveLocation}</small><b title={preferences.replaySaveDirectory || undefined}>{directoryLabel}</b></span>
-            <button type="button" onClick={() => { void chooseReplayDirectory(); }}>{text.chooseFolder}</button>
+            <span><small>{text.saveLocation}</small><b>{text.savedAutomatically}</b></span>
           </div>
           <div className="recording-retention">
             <small>{text.retention}</small>

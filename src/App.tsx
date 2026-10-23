@@ -266,7 +266,14 @@ export default function App() {
     });
   }, [text]);
 
-  const runUpdateCheck = useCallback(async (installWhenAvailable = false) => {
+  // Automatic updates install when it will not interrupt: just after launch, or once I step away.
+  const [justLaunched, setJustLaunched] = useState(true);
+  useEffect(() => {
+    const timer = window.setTimeout(() => setJustLaunched(false), 3 * 60_000);
+    return () => window.clearTimeout(timer);
+  }, []);
+  const [autoInstallVersion, setAutoInstallVersion] = useState<string>();
+  const runUpdateCheck = useCallback(async (installWhenAvailable = false, automatic = false) => {
     if (updateBusyRef.current) return;
     updateBusyRef.current = true;
     let installing = false;
@@ -281,8 +288,10 @@ export default function App() {
         await installAvailableUpdate(result.installable);
         return;
       }
+      if (automatic && result.available && result.installable) setAutoInstallVersion(result.manifest.version);
       setUpdateState(result.available
-        ? { kind: 'available', message: text.updateAvailable(result.manifest.version), downloadUrl: result.manifest.downloadUrl, canInstall: Boolean(result.installable) }
+        ? { kind: 'available', message: automatic && result.installable ? text.updateWhenAway(result.manifest.version) : text.updateAvailable(result.manifest.version),
+          downloadUrl: result.manifest.downloadUrl, canInstall: Boolean(result.installable) }
         : { kind: 'current', message: text.updateCurrent(result.currentVersion) });
     } catch {
       setUpdateState({ kind: 'error', message: installing ? text.updateInstallError : text.updateError });
@@ -806,7 +815,23 @@ export default function App() {
     pendingCupsRef.current = {};
     setPendingCups({});
   }, [connected]);
-  useEffect(() => { if (preferences.autoUpdate) void runUpdateCheck(); }, [preferences.autoUpdate, runUpdateCheck]);
+  // Automatic updates: check at launch and every 6 hours (a desktop pet runs for days).
+  useEffect(() => {
+    if (!preferences.autoUpdate) return;
+    void runUpdateCheck(false, true);
+    const timer = window.setInterval(() => { void runUpdateCheck(false, true); }, 6 * 3_600_000);
+    return () => window.clearInterval(timer);
+  }, [preferences.autoUpdate, runUpdateCheck]);
+  // ...and install once it will not interrupt: within minutes of launch, or when I am away.
+  const quietMoment = justLaunched || activity === 'idle' || activity === 'rest';
+  useEffect(() => {
+    if (!autoInstallVersion || !preferences.autoUpdate || settingsOpen || statisticsOpen || !quietMoment) return;
+    const timer = window.setTimeout(() => {
+      setAutoInstallVersion(undefined);
+      void installPendingUpdate();
+    }, 0);
+    return () => window.clearTimeout(timer);
+  }, [autoInstallVersion, preferences.autoUpdate, settingsOpen, statisticsOpen, quietMoment, installPendingUpdate]);
   useEffect(() => {
     if (renderPaused || gesture) return;
     const timers = (['self', 'partner'] as const).flatMap(target => {
@@ -1108,6 +1133,17 @@ export default function App() {
     blanketStyle: current.blanketStyle
   } : undefined;
   const displayedGesture = connected ? (gesture ?? replayGesture) : undefined;
+  // A replay problem is said once, for a few seconds; recording carries on by itself.
+  const historyProblem = history.error;
+  useEffect(() => {
+    if (!historyProblem) return;
+    const show = window.setTimeout(() => {
+      setNotice(text.historyErrors[historyProblem.kind]);
+      window.clearTimeout(noticeTimer.current);
+      noticeTimer.current = window.setTimeout(() => setNotice(''), 6_000);
+    }, 0);
+    return () => window.clearTimeout(show);
+  }, [historyProblem, text]);
   // Time's up: say so once per pomodoro, mine or TA's.
   const ringingPomodoro = selfPomodoroPhase === 'ringing' ? `self:${pomodoro?.id}`
     : connected && partnerPomodoroPhase === 'ringing' ? `partner:${partnerPomodoro?.id}` : undefined;
@@ -1256,7 +1292,7 @@ export default function App() {
               detail={text.replayDetail(formatDuration(history.unseen.workMs, preferences.language), formatDuration(history.unseen.ms - history.unseen.workMs, preferences.language))}
               onPlay={() => { void history.start({ unseen: true }); }} />}
         </div>}
-        {(notice || history.error) && <div className="pet-toast" aria-live="polite">{notice || text.historyError}</div>}
+        {notice && <div className="pet-toast" aria-live="polite">{notice}</div>}
         {settingsOpen && <SettingsPanel
           preferences={preferences}
           localUtcOffsetMinutes={receiverUtcOffsetMinutes}

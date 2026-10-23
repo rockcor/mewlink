@@ -5,6 +5,7 @@ import type { InputSignal } from '../platform/activity';
 import { inputBurstReached, INPUT_STRESS_HOLD_MS, trimInputBurst, type InputBurstSample } from '../platform/activity';
 import { historySeen, loadHistoryDraft, markHistorySeen, readReplayEvent, replayReferences, saveHistoryDraft } from '../storage/events';
 import { OPERATION_BATCH_MS, OperationRecorder } from './operations';
+import { saveProblem } from './problems';
 import { dayInstant, dayProgress, daySpeed, groupReplayDays, REST_GAP_MS, restingAt, unseenMs, unseenWorkMs, type ReplayDay } from './days';
 import { condensedReplay, replayFrames, type OperationFrame } from './playback';
 import { ACTIVITY_TRANSITION_MS } from '../pet/interaction';
@@ -26,6 +27,13 @@ const DAY_SCAN_INTERVAL_MS = 5_000;
 /** Less than this not yet watched is not worth a notice. */
 const MIN_UNSEEN_MS = 60_000;
 export interface ReplayRequest { day?: string; fraction?: number; unseen?: boolean }
+/**
+ * What went wrong, for a short notice: storage full, a recording that could not
+ * be saved (recording carries on), history that could not be read, or a replay
+ * that could not be played. `at` tells a new problem from one already shown.
+ */
+export type HistoryProblem = { kind: 'space' | 'save' | 'read' | 'play'; at: number };
+
 
 export function useOperationHistory(options: Options) {
   const latest = useRef(options);
@@ -39,22 +47,27 @@ export function useOperationHistory(options: Options) {
   const [current, setCurrent] = useState<OperationFrame>();
   const [display, setDisplay] = useState({ activity: 'idle' as ActivityKind, workVisual: 'web' as WorkVisual });
   const [hands, setHands] = useState({ keyboard: false, pointer: false, stressed: false });
-  const [error, setError] = useState(false);
+  const [error, setError] = useState<HistoryProblem>();
   const generation = useRef(0);
   const session = useRef(false);
   const identityKey = `${options.pairing?.relationshipId}:${options.pairing?.partnerDeviceId}`;
+  // Recording needs a confirmed pairing: until the safety number is checked nothing can be encrypted.
+  const canRecord = Boolean(options.pairing?.partnerDeviceId && options.pairing.ratchet?.verified);
 
   useEffect(() => {
     const identity = options.pairing;
-    if (!identity?.partnerDeviceId || !options.enabled) return;
+    if (!identity?.partnerDeviceId || !canRecord || !options.enabled) return;
     let stopped = false;
-    let failed = false;
     let writes = Promise.resolve();
+    let lastProblem = 0;
+    // One failed save never stops recording: the next batch is tried as usual,
+    // and a notice is shown at most every ten minutes.
     const persist = (job: () => Promise<unknown>) => {
-      writes = writes.then(() => { if (!failed) return job(); }).then(() => undefined).catch(() => {
-        failed = true;
-        recorder.current = undefined;
-        setError(true);
+      writes = writes.then(job).then(() => undefined).catch((reason: unknown) => {
+        const kind = saveProblem(reason);
+        if (stopped || !kind || Date.now() - lastProblem < 10 * 60_000) return;
+        lastProblem = Date.now();
+        setError({ kind, at: lastProblem });
       });
     };
     const emit = (batch: OperationBatch) => persist(async () => {
@@ -80,7 +93,7 @@ export function useOperationHistory(options: Options) {
       recorder.current = next;
       next.push(Date.now(), latest.current.activity, latest.current.workVisual);
     };
-    void start().catch(() => setError(true));
+    void start().catch(() => setError({ kind: 'read', at: Date.now() }));
     const checkpoint = () => {
       const snapshot = recorder.current?.snapshot();
       if (snapshot) persist(() => saveHistoryDraft(identity.relationshipId, snapshot));
@@ -99,7 +112,7 @@ export function useOperationHistory(options: Options) {
     };
   // Identity and recording preference own the recorder; live values are read via latest.
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [identityKey, options.enabled]);
+  }, [identityKey, canRecord, options.enabled]);
 
   useEffect(() => { recorder.current?.push(Date.now(), options.activity, options.workVisual); }, [options.activity, options.workVisual]);
   const recordInput = useCallback((previous: InputSignal, next: InputSignal) => {
@@ -125,7 +138,7 @@ export function useOperationHistory(options: Options) {
         if (!active) return;
         setSeen(seenAt);
         setDays(groupReplayDays(refs, latest.current.partnerOffset ?? latest.current.receiverOffset));
-      }).catch(() => { if (active) setError(true); });
+      }).catch(() => { if (active) setError({ kind: 'read', at: Date.now() }); });
     }, wait);
     return () => { active = false; window.clearTimeout(timer); };
   // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -232,10 +245,11 @@ export function useOperationHistory(options: Options) {
           // Follow its actual completion, not a guessed fixed timer.
           await wait(50);
           let elapsed = 0;
-          while (valid() && !latest.current.displayReady(next, nextVisual)) {
+          // A transition that never finishes (a hidden window, say) just lets the replay go on.
+          while (valid() && !latest.current.displayReady(next, nextVisual)
+            && elapsed <= ACTIVITY_TRANSITION_MS * config.durationScale + 15_000) {
             await wait(50);
             elapsed += 50;
-            if (elapsed > ACTIVITY_TRANSITION_MS * config.durationScale + 15_000) throw new Error('replay transition stalled');
           }
         } else await wait(ACTIVITY_TRANSITION_MS * config.durationScale + 500);
       };
@@ -284,7 +298,7 @@ export function useOperationHistory(options: Options) {
         await markHistorySeen(identity.relationshipId, last);
         if (valid()) setSeen(value => Math.max(value, last));
       }
-    } catch { if (valid()) setError(true); }
+    } catch { if (valid()) setError({ kind: 'play', at: Date.now() }); }
     finally {
       clearTimeout(releaseTimer);
       if (valid()) stop();

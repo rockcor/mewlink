@@ -17,7 +17,6 @@ export interface Preferences {
   replayEnabled: boolean;
   /** Off by default; both partners must turn it on. */
   liveTyping: boolean;
-  replaySaveDirectory: string;
   replayRetentionHours: ReplayRetentionHours;
   statisticsVisibility: StatisticsVisibility;
   timezoneMode: TimezoneMode;
@@ -48,7 +47,6 @@ export function defaultPreferences(): Preferences {
     autoUpdate: true,
     replayEnabled: true,
     liveTyping: false,
-    replaySaveDirectory: '',
     // Replay is offered by the partner's day; 36 h keeps yesterday whole until it is watched.
     replayRetentionHours: 36,
     statisticsVisibility: 'private',
@@ -60,7 +58,8 @@ export function defaultPreferences(): Preferences {
     petDistancePercent: 100,
     growWithBusyness: true,
     windowLayer: 'top',
-    petTransparencyPercent: 0,
+    // Half see-through by default, so the pets never hide what is under them; solid while the pointer is on them.
+    petTransparencyPercent: 50,
     pomodoroMinutes: 25,
     selfPetSkin: 'cream',
     blanketStyle: 'blush',
@@ -86,7 +85,7 @@ export function normalizePomodoroMinutes(value: number): number {
 }
 
 export function normalizePetTransparencyPercent(value: number): number {
-  if (!Number.isFinite(value)) return 0;
+  if (!Number.isFinite(value)) return 50;
   return Math.min(70, Math.max(0, Math.round(value / 10) * 10));
 }
 
@@ -132,7 +131,6 @@ export function loadPreferences(storage?: StorageLike): Preferences {
       autoUpdate: typeof value.autoUpdate === 'boolean' ? value.autoUpdate : defaults.autoUpdate,
       replayEnabled: typeof value.replayEnabled === 'boolean' ? value.replayEnabled : defaults.replayEnabled,
       liveTyping: typeof value.liveTyping === 'boolean' ? value.liveTyping : defaults.liveTyping,
-      replaySaveDirectory: typeof value.replaySaveDirectory === 'string' ? value.replaySaveDirectory : defaults.replaySaveDirectory,
       replayRetentionHours: typeof value.replayRetentionHours === 'number'
         ? normalizeReplayRetentionHours(value.replayRetentionHours)
         : defaults.replayRetentionHours,
