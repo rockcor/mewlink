@@ -15,7 +15,7 @@ interface StatisticsPanelProps {
 
 const copy = {
   zh: {
-    title: '统计', close: '关闭统计', ranges: { day: '日', week: '周', month: '月' },
+    title: '统计', close: '关闭统计', pomodoros: '完成的番茄钟', pomodoroUnit: '个', ranges: { day: '日', week: '周', month: '月' },
     input: '键盘与点击', keyboard: '键盘敲击', pointer: '鼠标 / 触控板点击', times: '次',
     workVisual: '工作画面时间', code: '代码', document: '文档', web: '网页', ai: 'AI 工具', mewlink: 'MewLink',
     activity: '时间分布', work: '工作', meeting: '会议', idle: '空闲',
@@ -24,7 +24,7 @@ const copy = {
     shareAfterPairing: '连接后会自动分享汇总', weekdays: ['日', '一', '二', '三', '四', '五', '六']
   },
   'zh-Hant': {
-    title: '統計', close: '關閉統計', ranges: { day: '日', week: '週', month: '月' },
+    title: '統計', close: '關閉統計', pomodoros: '完成的番茄鐘', pomodoroUnit: '個', ranges: { day: '日', week: '週', month: '月' },
     input: '鍵盤與點擊', keyboard: '鍵盤敲擊', pointer: '滑鼠 / 觸控板點擊', times: '次',
     workVisual: '工作畫面時間', code: '程式碼', document: '文件', web: '網頁', ai: 'AI 工具', mewlink: 'MewLink',
     activity: '時間分布', work: '工作', meeting: '會議', idle: '空閒',
@@ -33,7 +33,7 @@ const copy = {
     shareAfterPairing: '連線後會自動分享彙總', weekdays: ['日', '一', '二', '三', '四', '五', '六']
   },
   en: {
-    title: 'Statistics', close: 'Close statistics', ranges: { day: 'Day', week: 'Week', month: 'Month' },
+    title: 'Statistics', close: 'Close statistics', pomodoros: 'Pomodoros completed', pomodoroUnit: '', ranges: { day: 'Day', week: 'Week', month: 'Month' },
     input: 'Keyboard & clicks', keyboard: 'Keystrokes', pointer: 'Mouse / trackpad clicks', times: '',
     workVisual: 'Work time by view', code: 'Code', document: 'Documents', web: 'Web', ai: 'AI tools', mewlink: 'MewLink',
     activity: 'Time split', work: 'Work', meeting: 'Meetings', idle: 'Free',
@@ -106,7 +106,7 @@ export function StatisticsPanel({ language, connected, visibility, partnerSnapsh
     if (!connected) setOwner('self');
   }, [connected]);
   const snapshot = owner === 'self' ? currentStatistics(range) : partnerSnapshots?.[range] ?? emptySnapshot(range);
-  const hasData = snapshot.input.keyboard + snapshot.input.pointer
+  const hasData = (snapshot.pomodoros ?? 0) + snapshot.input.keyboard + snapshot.input.pointer
     + Object.values(snapshot.workVisual).reduce((sum, value) => sum + value, 0)
     + Object.values(snapshot.activity).reduce((sum, value) => sum + value, 0) > 0;
   const aiTime = snapshot.workVisual.ai ?? 0;
@@ -141,6 +141,11 @@ export function StatisticsPanel({ language, connected, visibility, partnerSnapsh
         <div className="statistics-card-title"><b>{text.input}</b><div className="statistics-legend"><span className="keyboard-dot">{text.keyboard}</span><span className="pointer-dot">{text.pointer}</span></div></div>
         <div className="input-totals"><strong>{snapshot.input.keyboard.toLocaleString()}<small>{text.times}</small></strong><i /><strong>{snapshot.input.pointer.toLocaleString()}<small>{text.times}</small></strong></div>
         <InputBars bars={snapshot.bars} range={range} language={language} />
+      </article>
+
+      <article className="statistics-card pomodoro-card">
+        <b>{text.pomodoros}</b>
+        <div className="input-totals"><strong>{(snapshot.pomodoros ?? 0).toLocaleString()}{text.pomodoroUnit && <small>{text.pomodoroUnit}</small>}</strong></div>
       </article>
 
       <div className="statistics-pie-grid">

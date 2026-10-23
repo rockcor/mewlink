@@ -32,6 +32,8 @@ export interface Preferences {
   windowLayer: WindowLayer;
   /** 0 is solid; the companions turn solid again while the pointer is on them. */
   petTransparencyPercent: number;
+  /** Length of a pomodoro. */
+  pomodoroMinutes: number;
   selfPetSkin: PetSkin;
   blanketStyle: BlanketStyle;
   language: Language;
@@ -59,6 +61,7 @@ export function defaultPreferences(): Preferences {
     growWithBusyness: true,
     windowLayer: 'top',
     petTransparencyPercent: 0,
+    pomodoroMinutes: 25,
     selfPetSkin: 'cream',
     blanketStyle: 'blush',
     language: browserLanguage(),
@@ -76,6 +79,11 @@ export function normalizePetScalePercent(value: number): number {
 export const DEFAULT_PET_DISTANCE = 212;
 export const PET_FRAME_WIDTH = 228;
 export const PET_WINDOW_MIN_WIDTH = 440;
+
+export function normalizePomodoroMinutes(value: number): number {
+  if (!Number.isFinite(value)) return 25;
+  return Math.min(60, Math.max(5, Math.round(value / 5) * 5));
+}
 
 export function normalizePetTransparencyPercent(value: number): number {
   if (!Number.isFinite(value)) return 0;
@@ -149,6 +157,7 @@ export function loadPreferences(storage?: StorageLike): Preferences {
         : defaults.petDistancePercent,
       growWithBusyness: typeof value.growWithBusyness === 'boolean' ? value.growWithBusyness : defaults.growWithBusyness,
       windowLayer: windowLayers.includes(value.windowLayer as WindowLayer) ? value.windowLayer as WindowLayer : defaults.windowLayer,
+      pomodoroMinutes: typeof value.pomodoroMinutes === 'number' ? normalizePomodoroMinutes(value.pomodoroMinutes) : defaults.pomodoroMinutes,
       petTransparencyPercent: typeof value.petTransparencyPercent === 'number'
         ? normalizePetTransparencyPercent(value.petTransparencyPercent)
         : defaults.petTransparencyPercent,

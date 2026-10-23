@@ -17,6 +17,7 @@ function workday(daysAgo: number, hours: number, input = 0) {
     hour: hourAt(daysAgo, 9 + index), keyboard: input, pointer: 0,
     activityMs: { work: hourMs, meeting: 0, leisure: 0, idle: 0, rest: 0 },
     workVisualMs: { code: hourMs, document: 0, web: 0, ai: 0, mewlink: 0 },
+    pomodoros: 0,
   }));
 }
 const data = (...days: ReturnType<typeof workday>[]): StatisticsData => ({ version: 3, buckets: days.flat() });

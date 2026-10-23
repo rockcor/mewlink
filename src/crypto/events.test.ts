@@ -94,6 +94,18 @@ describe('encrypted event compatibility', () => {
     await expect(decryptEvent(envelope, key)).resolves.toEqual(event);
   });
 
+  it('shares completed pomodoros with the statistics, and rejects a bad count', async () => {
+    const key = await newDemoKey();
+    const event: PlainEvent = {
+      id: crypto.randomUUID(), version: 1, relationshipId: 'relationshipTest01', senderDeviceId: 'statisticsDevice1',
+      createdAt: new Date().toISOString(), kind: 'statistics.snapshot',
+      payload: { visibility: 'partner', generatedAt: new Date().toISOString(), snapshots: { ...statisticsSnapshots, day: { ...statisticsSnapshots.day, pomodoros: 4 } } }
+    };
+    await expect(decryptEvent(await encryptEvent(event, 'recipientDevice001', 5, key), key)).resolves.toEqual(event);
+    const bad = { ...event, payload: { ...event.payload, snapshots: { ...statisticsSnapshots, day: { ...statisticsSnapshots.day, pomodoros: -1 } } } } as PlainEvent;
+    await expect(decryptEvent(await encryptEvent(bad, 'recipientDevice001', 6, key), key)).rejects.toThrow('metadata mismatch');
+  });
+
   it('rejects malformed decrypted statistics', async () => {
     const key = await newDemoKey();
     const malformed = {

@@ -8,7 +8,8 @@ import { PetActions } from './components/PetActions';
 import { ReplayNotice, ReplayScrubber } from './components/ReplayControls';
 import { PomodoroTimer } from './components/PomodoroTimer';
 import { clearOfMyCup } from './pomodoro/placement';
-import { fromPayload, loadPomodoro, minutesLeft, newPomodoro, pomodoroPhase, savePomodoro, toPayload, type Pomodoro } from './pomodoro/pomodoro';
+import { finishedWhileAway, fromPayload, loadPomodoro, minutesLeft, newPomodoro, pomodoroEnd, pomodoroPhase, savePomodoro, toPayload, type Pomodoro } from './pomodoro/pomodoro';
+import { allowNotifications, notify } from './platform/notify';
 import { usePomodoroClock, useWindingPaw } from './pomodoro/usePomodoroClock';
 import { dayInstant, formatDuration, partnerClock } from './history/days';
 import { consumeCup, restorePendingCups, waterClickAction, type PendingCups, type PetTarget } from './pet/pendingCups';
@@ -45,7 +46,7 @@ import { companionStates, partnerEventsFor, PRESENCE_HEARTBEAT_MS } from './serv
 import { createSessionQueue } from './pairing/sessionQueue';
 import { copyPairingInvite } from './pairing/copyInvite';
 import { animationDurationScale, effectiveUtcOffsetMinutes, loadPreferences, PET_WINDOW_MIN_WIDTH, petDistance, petWindowWidth, savePreferences, scalePetWithPinch } from './settings/preferences';
-import { currentGrowthLevel, currentStatisticsBundle, flushStatistics, recordActivityStatistics, recordInputStatistics } from './statistics/statistics';
+import { currentGrowthLevel, currentStatisticsBundle, flushStatistics, recordActivityStatistics, recordInputStatistics, recordPomodoroStatistics } from './statistics/statistics';
 import { growthScale, partnerGrowthLevel } from './statistics/growth';
 import { appCopy } from './i18n';
 import { queueDesktopWindow, setDesktopPanel } from './platform/desktopPanel';
@@ -1107,7 +1108,6 @@ export default function App() {
     blanketStyle: current.blanketStyle
   } : undefined;
   const displayedGesture = connected ? (gesture ?? replayGesture) : undefined;
-  // A hug at another distance waits while the two slide together.
   // Time's up: say so once per pomodoro, mine or TA's.
   const ringingPomodoro = selfPomodoroPhase === 'ringing' ? `self:${pomodoro?.id}`
     : connected && partnerPomodoroPhase === 'ringing' ? `partner:${partnerPomodoro?.id}` : undefined;
@@ -1121,12 +1121,36 @@ export default function App() {
     }, 0);
     return () => window.clearTimeout(show);
   }, [ringingPomodoro, pomodoroDoneText]);
+  // Mine ran to the end: count it, and tell me with a system notification
+  // (the pet may be hidden behind other windows). Counted once: it leaves storage.
+  const countedPomodoros = useRef(new Set<string>());
+  const finishedPomodoro = selfPomodoroPhase === 'ringing' ? pomodoro : undefined;
+  useEffect(() => {
+    if (!finishedPomodoro || countedPomodoros.current.has(finishedPomodoro.id)) return;
+    countedPomodoros.current.add(finishedPomodoro.id);
+    recordPomodoroStatistics(pomodoroEnd(finishedPomodoro));
+    savePomodoro(undefined);
+    void notify(text.pomodoroNotifyTitle, text.pomodoroNotifyBody(Math.round(finishedPomodoro.durationMs / 60_000)));
+  }, [finishedPomodoro, text]);
+  // One that ran out while the app was closed still counts.
+  useEffect(() => {
+    const away = finishedWhileAway();
+    if (!away || countedPomodoros.current.has(away.id)) return;
+    countedPomodoros.current.add(away.id);
+    recordPomodoroStatistics(pomodoroEnd(away));
+    savePomodoro(undefined);
+  }, []);
   const startOrStopPomodoro = () => {
-    const next = activePomodoro ? undefined : newPomodoro(uuid());
+    const next = activePomodoro ? undefined : newPomodoro(uuid(), Date.now(), preferences.pomodoroMinutes * 60_000);
     setPomodoro(next);
     savePomodoro(next);
-    if (next) dismissPetMenu();
+    if (next) {
+      dismissPetMenu();
+      // Ask now, from the click, so the reminder can show when it rings.
+      void allowNotifications();
+    }
   };
+  // A hug at another distance waits while the two slide together.
   const hugShown = Boolean(displayedGesture?.variant.startsWith('hug'));
   const hugGathering = Boolean(gatherMs && hugShown && !hugGathered);
   useEffect(() => {
@@ -1153,7 +1177,8 @@ export default function App() {
             onHug={() => { void send('hug'); }}
             onWater={() => { void send('water'); }}
             onReplay={() => { dismissPetMenu(); void history.start(history.playing || !history.unseen ? {} : { unseen: true }); }}
-            pomodoroMinutes={activePomodoro ? minutesLeft(activePomodoro, selfPomodoroNow) : undefined}
+            pomodoroRunning={Boolean(activePomodoro)}
+            pomodoroMinutes={activePomodoro ? minutesLeft(activePomodoro, selfPomodoroNow) : preferences.pomodoroMinutes}
             onPomodoro={startOrStopPomodoro} />
         </div>
 

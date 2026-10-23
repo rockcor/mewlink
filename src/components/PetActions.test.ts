@@ -23,13 +23,15 @@ describe('compact pet menu', () => {
     expect(html).toContain('settings-action');
     expect(html).not.toContain('replay-action');
   });
-  it('starts a pomodoro alone or paired, and shows the minutes left while one runs', () => {
-    const idle = renderToStaticMarkup(createElement(PetActions, { ...props, connected: false }));
+  it('starts a pomodoro alone or paired; the button just says Pomodoro', () => {
+    const idle = renderToStaticMarkup(createElement(PetActions, { ...props, connected: false, pomodoroMinutes: 40 }));
     expect(idle).toContain('data-icon="tomato"');
     expect(idle).toContain('aria-pressed="false"');
-    expect(idle).toContain('Start a 25-minute pomodoro');
-    const running = renderToStaticMarkup(createElement(PetActions, { ...props, pomodoroMinutes: 18 }));
-    expect(running).toContain('Pomodoro 18 min');
+    expect(idle).toContain('Start a 40-minute pomodoro');
+    expect(idle).toMatch(/<\/span>Pomodoro<\/button>/);
+    const running = renderToStaticMarkup(createElement(PetActions, { ...props, pomodoroRunning: true, pomodoroMinutes: 18 }));
+    expect(running).toMatch(/<\/span>Pomodoro<\/button>/);
+    expect(running).not.toContain('18 min</');
     expect(running).toContain('End pomodoro (18 min left)');
     expect(running).toContain('aria-pressed="true"');
   });

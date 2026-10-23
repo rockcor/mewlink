@@ -32,6 +32,8 @@ export interface StatisticsSnapshot {
   workVisual: Record<WorkVisual, number>;
   activity: { work: number; meeting: number; idle: number };
   bars: Array<{ label: string; keyboard: number; pointer: number }>;
+  /** Pomodoros run to the end; older versions omit it. */
+  pomodoros?: number;
 }
 export interface StatisticsPayload {
   visibility: StatisticsVisibility;

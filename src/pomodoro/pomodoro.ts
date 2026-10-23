@@ -93,6 +93,20 @@ export function loadPomodoro(storage: StorageLike | undefined = typeof localStor
   }
 }
 
+/**
+ * A pomodoro that ran out while the app was closed (it is still in storage:
+ * one that rang here, or was ended early, is removed), to count it all the same.
+ */
+export function finishedWhileAway(storage: StorageLike | undefined = typeof localStorage === 'undefined' ? undefined : localStorage, now = Date.now()) {
+  try {
+    const value = JSON.parse(storage?.getItem(STORAGE_KEY) ?? 'null') as Record<string, unknown> | null;
+    const pomodoro = fromPayload(value, value && typeof value.startedAt === 'string' ? Date.parse(value.startedAt) : now);
+    return pomodoro && pomodoroPhase(pomodoro, now) === 'over' ? pomodoro : undefined;
+  } catch {
+    return undefined;
+  }
+}
+
 export function savePomodoro(pomodoro: Pomodoro | undefined, storage: StorageLike | undefined = typeof localStorage === 'undefined' ? undefined : localStorage) {
   try {
     if (pomodoro) storage?.setItem(STORAGE_KEY, JSON.stringify(toPayload(pomodoro)));

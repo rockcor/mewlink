@@ -12,6 +12,8 @@ export interface StatisticsBucket {
   pointer: number;
   activityMs: Record<ActivityKind, number>;
   workVisualMs: Record<WorkVisual, number>;
+  /** Pomodoros that rang in this hour. */
+  pomodoros: number;
 }
 
 export interface StatisticsData {
@@ -38,7 +40,8 @@ function emptyBucket(hour: number): StatisticsBucket {
     keyboard: 0,
     pointer: 0,
     activityMs: { work: 0, meeting: 0, leisure: 0, idle: 0, rest: 0 },
-    workVisualMs: { code: 0, document: 0, web: 0, ai: 0, mewlink: 0 }
+    workVisualMs: { code: 0, document: 0, web: 0, ai: 0, mewlink: 0 },
+    pomodoros: 0
   };
 }
 
@@ -65,7 +68,8 @@ function normalizeBucket(value: unknown, resetPointer = false): StatisticsBucket
     workVisualMs: {
       code: nonNegative(workVisual.code), document: nonNegative(workVisual.document),
       web: nonNegative(workVisual.web), ai: nonNegative(workVisual.ai), mewlink: nonNegative(workVisual.mewlink)
-    }
+    },
+    pomodoros: Math.round(nonNegative(bucket.pomodoros))
   };
 }
 
@@ -135,6 +139,13 @@ export function recordActivityStatistics(activity: ActivityKind, workVisual: Wor
   scheduleFlush();
 }
 
+/** A pomodoro ran to the end at `at` (its own end, even if the app was closed then). */
+export function recordPomodoroStatistics(at = Date.now()) {
+  if (!Number.isFinite(at) || at > Date.now() + 60_000) return;
+  currentBucket(loadStatistics(), at).pomodoros += 1;
+  flushStatistics();
+}
+
 export function flushStatistics() {
   if (!liveData || typeof localStorage === 'undefined') return;
   if (flushTimer !== undefined && typeof window !== 'undefined') window.clearTimeout(flushTimer);
@@ -185,9 +196,11 @@ export function aggregateStatistics(data: StatisticsData, range: StatisticsRange
     input: { keyboard: 0, pointer: 0 },
     workVisual: { code: 0, document: 0, web: 0, ai: 0, mewlink: 0 },
     activity: { work: 0, meeting: 0, idle: 0 },
-    bars
+    bars,
+    pomodoros: 0
   };
 
+  let pomodoros = 0;
   for (const bucket of data.buckets) {
     const timestamp = bucket.hour * hourMs;
     if (timestamp < start || timestamp > now) continue;
@@ -206,7 +219,9 @@ export function aggregateStatistics(data: StatisticsData, range: StatisticsRange
     snapshot.activity.work += bucket.activityMs.work;
     snapshot.activity.meeting += bucket.activityMs.meeting;
     snapshot.activity.idle += bucket.activityMs.idle + bucket.activityMs.leisure + bucket.activityMs.rest;
+    pomodoros += bucket.pomodoros;
   }
+  snapshot.pomodoros = pomodoros;
   return snapshot;
 }
 

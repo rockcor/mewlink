@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { dialAngle, dialMinutes, fromPayload, loadPomodoro, minutesLeft, newPomodoro, nextPhaseChange, PLACE_MS, POMODORO_MS,
+import { dialAngle, dialMinutes, finishedWhileAway, fromPayload, loadPomodoro, minutesLeft, newPomodoro, nextPhaseChange, PLACE_MS, POMODORO_MS,
   pomodoroPhase, RING_MS, savePomodoro, toPayload, WIND_MS } from './pomodoro';
 
 const t0 = Date.UTC(2026, 9, 22, 9, 0);
@@ -59,5 +59,16 @@ describe('pomodoro', () => {
     savePomodoro(undefined, storage);
     expect(loadPomodoro(storage, t0)).toBeUndefined();
     expect(loadPomodoro({ ...memory(), getItem: () => '{broken' }, t0)).toBeUndefined();
+  });
+
+  it('finds one that ran out while the app was closed, to count it', () => {
+    const storage = memory();
+    const pomodoro = newPomodoro('p2', t0, 40 * 60_000);
+    savePomodoro(pomodoro, storage);
+    expect(finishedWhileAway(storage, t0 + 10 * 60_000)).toBeUndefined(); // still running
+    expect(finishedWhileAway(storage, t0 + 3 * 3_600_000)).toEqual(pomodoro);
+    // Ended early or already counted: it is no longer stored.
+    savePomodoro(undefined, storage);
+    expect(finishedWhileAway(storage, t0 + 3 * 3_600_000)).toBeUndefined();
   });
 });

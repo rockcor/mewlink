@@ -122,6 +122,9 @@
 .pixel-panel .pet-color-options small { font-size: var(--panel-label); }
 .pixel-panel .pet-size-slider.named { grid-template-columns: minmax(5.5em, auto) minmax(0, 1fr) 3.25em; gap: 10px; margin-top: 14px; }
 .pixel-panel .pet-size-slider.named > span, .pixel-panel .pet-size-slider.named output { font-size: var(--panel-label); }
+/* "40 分钟" / "40 min" needs a wider value column than a percentage. */
+.pixel-panel .pet-size-slider.named.pomodoro-length { grid-template-columns: minmax(5.5em, auto) minmax(0, 1fr) auto; }
+.pixel-panel .pet-size-slider.pomodoro-length output { white-space: nowrap; }
 .pixel-panel .prop-picker > b, .pixel-panel .recording-location b, .pixel-panel .recording-retention > small { font-size: var(--panel-label); }
 .pixel-panel .pairing-code-input { font-size: var(--panel-body); min-height: 90px; border-radius: 5px; }
 .pixel-panel .pairing-code-input.short-code { min-height: 44px; font-size: 1.25em; letter-spacing: .18em; }

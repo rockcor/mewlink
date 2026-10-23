@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { petSkins } from '../domain/types';
-import { animationDurationScale, effectiveUtcOffsetMinutes, formatUtcOffset, loadPreferences, normalizePetDistancePercent, normalizePetTransparencyPercent, normalizePetScalePercent, normalizeReplayRetentionHours, petDistance, petWindowWidth, savePreferences, scalePetWithPinch } from './preferences';
+import { animationDurationScale, effectiveUtcOffsetMinutes, formatUtcOffset, loadPreferences, normalizePetDistancePercent, normalizePetTransparencyPercent, normalizePomodoroMinutes, normalizePetScalePercent, normalizeReplayRetentionHours, petDistance, petWindowWidth, savePreferences, scalePetWithPinch } from './preferences';
 
 function memoryStorage(initial?: string) {
   let value = initial ?? null;
@@ -41,7 +41,7 @@ describe('desktop preferences', () => {
 
   it('persists replay, manual timezone, and update preferences', () => {
     const storage = memoryStorage();
-    savePreferences({ autoUpdate: false, replayEnabled: false, liveTyping: true, replaySaveDirectory: '/tmp/mewlink-replays', replayRetentionHours: 36, statisticsVisibility: 'partner', timezoneMode: 'manual', manualUtcOffsetMinutes: 330, animationSpeed: 'natural', selfPetScalePercent: 85, partnerPetScalePercent: 95, petDistancePercent: 130, growWithBusyness: false, windowLayer: 'bottom', petTransparencyPercent: 40, selfPetSkin: 'sixtySix', blanketStyle: 'night', language: 'en', languageMode: 'manual' }, storage);
+    savePreferences({ autoUpdate: false, replayEnabled: false, liveTyping: true, replaySaveDirectory: '/tmp/mewlink-replays', replayRetentionHours: 36, statisticsVisibility: 'partner', timezoneMode: 'manual', manualUtcOffsetMinutes: 330, animationSpeed: 'natural', selfPetScalePercent: 85, partnerPetScalePercent: 95, petDistancePercent: 130, growWithBusyness: false, windowLayer: 'bottom', petTransparencyPercent: 40, pomodoroMinutes: 45, selfPetSkin: 'sixtySix', blanketStyle: 'night', language: 'en', languageMode: 'manual' }, storage);
     const saved = loadPreferences(storage);
     expect(effectiveUtcOffsetMinutes(saved)).toBe(330);
     expect(saved.autoUpdate).toBe(false);
@@ -56,6 +56,7 @@ describe('desktop preferences', () => {
     expect(saved.growWithBusyness).toBe(false);
     expect(saved.windowLayer).toBe('bottom');
     expect(saved.petTransparencyPercent).toBe(40);
+    expect(saved.pomodoroMinutes).toBe(45);
     expect(saved.selfPetSkin).toBe('sixtySix');
     expect(saved.blanketStyle).toBe('night');
     expect(saved.language).toBe('en');
@@ -72,7 +73,7 @@ describe('desktop preferences', () => {
 
   it('lets people turn automatic timezone detection off', () => {
     const storage = memoryStorage();
-    savePreferences({ autoUpdate: true, replayEnabled: true, liveTyping: false, replaySaveDirectory: '', replayRetentionHours: 24, statisticsVisibility: 'private', timezoneMode: 'off', manualUtcOffsetMinutes: 0, animationSpeed: 'calm', selfPetScalePercent: 100, partnerPetScalePercent: 100, petDistancePercent: 100, growWithBusyness: true, windowLayer: 'top', petTransparencyPercent: 0, selfPetSkin: 'cream', blanketStyle: 'blush', language: 'zh', languageMode: 'manual' }, storage);
+    savePreferences({ autoUpdate: true, replayEnabled: true, liveTyping: false, replaySaveDirectory: '', replayRetentionHours: 24, statisticsVisibility: 'private', timezoneMode: 'off', manualUtcOffsetMinutes: 0, animationSpeed: 'calm', selfPetScalePercent: 100, partnerPetScalePercent: 100, petDistancePercent: 100, growWithBusyness: true, windowLayer: 'top', petTransparencyPercent: 0, pomodoroMinutes: 25, selfPetSkin: 'cream', blanketStyle: 'blush', language: 'zh', languageMode: 'manual' }, storage);
     expect(loadPreferences(storage).timezoneMode).toBe('off');
   });
 
@@ -110,6 +111,14 @@ describe('desktop preferences', () => {
     expect(normalizePetTransparencyPercent(-5)).toBe(0);
     expect(normalizePetTransparencyPercent(34)).toBe(30);
     expect(normalizePetTransparencyPercent(Number.NaN)).toBe(0);
+  });
+
+  it('runs 25-minute pomodoros by default, adjustable in 5-minute steps up to an hour', () => {
+    expect(loadPreferences({ getItem: () => '{}', setItem: () => undefined }).pomodoroMinutes).toBe(25);
+    expect(normalizePomodoroMinutes(1)).toBe(5);
+    expect(normalizePomodoroMinutes(48)).toBe(50);
+    expect(normalizePomodoroMinutes(500)).toBe(60);
+    expect(normalizePomodoroMinutes(Number.NaN)).toBe(25);
   });
 
   it('scales the pointed companion with a trackpad pinch', () => {

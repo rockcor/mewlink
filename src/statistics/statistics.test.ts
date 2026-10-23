@@ -11,7 +11,8 @@ describe('local statistics aggregation', () => {
       keyboard: 120,
       pointer: 45,
       activityMs: { work: 3_600_000, meeting: 1_800_000, leisure: 600_000, idle: 300_000, rest: 0 },
-      workVisualMs: { code: 1_400_000, document: 800_000, web: 500_000, ai: 500_000, mewlink: 400_000 }
+      workVisualMs: { code: 1_400_000, document: 800_000, web: 500_000, ai: 500_000, mewlink: 400_000 },
+      pomodoros: 2
     });
 
     const result = aggregateStatistics(data, 'day', now);
@@ -19,6 +20,7 @@ describe('local statistics aggregation', () => {
     expect(result.workVisual).toEqual({ code: 1_400_000, document: 800_000, web: 500_000, ai: 500_000, mewlink: 400_000 });
     expect(result.activity).toEqual({ work: 3_600_000, meeting: 1_800_000, idle: 900_000 });
     expect(result.bars.reduce((total, bar) => total + bar.keyboard, 0)).toBe(120);
+    expect(result.pomodoros).toBe(2);
   });
 
   it('excludes buckets outside the requested rolling range', () => {
@@ -29,9 +31,12 @@ describe('local statistics aggregation', () => {
       keyboard: 99,
       pointer: 99,
       activityMs: { work: 1_000, meeting: 0, leisure: 0, idle: 0, rest: 0 },
-      workVisualMs: { code: 1_000, document: 0, web: 0, ai: 0, mewlink: 0 }
+      workVisualMs: { code: 1_000, document: 0, web: 0, ai: 0, mewlink: 0 },
+      pomodoros: 3
     });
     expect(aggregateStatistics(data, 'week', now).input.keyboard).toBe(0);
     expect(aggregateStatistics(data, 'month', now).input.keyboard).toBe(99);
+    expect(aggregateStatistics(data, 'week', now).pomodoros).toBe(0);
+    expect(aggregateStatistics(data, 'month', now).pomodoros).toBe(3);
   });
 });
