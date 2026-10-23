@@ -4,6 +4,7 @@ import type { Language } from './settings/preferences';
 interface AppCopy {
   interactionQueued: string;
   stopReplay: string;
+  whatsNewClose: string;
   pomodoro: string;
   pomodoroStart: (minutes: number) => string;
   pomodoroNotifyTitle: string;
@@ -76,7 +77,7 @@ export const appCopy: Record<Language, AppCopy> = {
     ratchetVerify: '请通过电话或当面核对双方号码，完全一致后再确认。确认前不分享活动与互动。',
     ratchetStorageError: '安全会话暂不可用，收发已暂停。请重新打开应用；若仍有问题，请双方重新绑定。',
     historyErrors: { space: '电脑存储空间不足，回放暂停记录；清理出空间后会自动继续', save: '有一段回放没能保存，会继续记录后面的', read: '回放暂时读取不了，稍后再试', play: '这段回放暂时播放不了，稍后再试' },
-    interactionQueued: '已保存，联网后送出', stopReplay: '结束回放', pomodoro: '番茄钟', pomodoroStart: minutes => `开始 ${minutes} 分钟番茄钟`, pomodoroNotifyTitle: '番茄钟时间到', pomodoroNotifyBody: minutes => `${minutes} 分钟专注完成，休息一下吧`, pomodoroLeft: minutes => `番茄钟 ${minutes} 分`, pomodoroStop: minutes => `结束番茄钟（还剩 ${minutes} 分钟）`, partnerPomodoroLeft: minutes => `TA 的番茄钟还剩 ${minutes} 分钟`, pomodoroDone: '番茄钟时间到，休息一下吧', partnerPomodoroDone: 'TA 的番茄钟时间到了', replayNotice: (duration, days) => days > 1 ? `TA 的回放 · ${days} 天 · 共 ${duration}` : `TA 的回放 · ${duration}`, replayPosition: '回放进度', replayDetail: (work, rest) => `工作 ${work} · 休息 ${rest}`,
+    interactionQueued: '已保存，联网后送出', stopReplay: '结束回放', whatsNewClose: '更新内容，点击关闭', pomodoro: '番茄钟', pomodoroStart: minutes => `开始 ${minutes} 分钟番茄钟`, pomodoroNotifyTitle: '番茄钟时间到', pomodoroNotifyBody: minutes => `${minutes} 分钟专注完成，休息一下吧`, pomodoroLeft: minutes => `番茄钟 ${minutes} 分`, pomodoroStop: minutes => `结束番茄钟（还剩 ${minutes} 分钟）`, partnerPomodoroLeft: minutes => `TA 的番茄钟还剩 ${minutes} 分钟`, pomodoroDone: '番茄钟时间到，休息一下吧', partnerPomodoroDone: 'TA 的番茄钟时间到了', replayNotice: (duration, days) => days > 1 ? `TA 的回放 · ${days} 天 · 共 ${duration}` : `TA 的回放 · ${duration}`, replayPosition: '回放进度', replayDetail: (work, rest) => `工作 ${work} · 休息 ${rest}`,
     panelError: '窗口未能展开，请重新打开设置',
     cups: { ceramic: { label: '樱粉陶瓷杯', shortLabel: '陶瓷杯' }, tumbler: { label: '天空随行杯', shortLabel: '随行杯' }, bottle: { label: '薄荷运动瓶', shortLabel: '运动瓶' } },
     status: { work: '工作中', meeting: '在开会', leisure: '休闲娱乐', idle: '暂时离开', rest: '休息中' },
@@ -94,7 +95,7 @@ export const appCopy: Record<Language, AppCopy> = {
     ratchetVerify: '請透過電話或當面核對雙方號碼，完全一致後再確認。確認前不分享活動與互動。',
     ratchetStorageError: '安全會話暫不可用，收發已暫停。請重新開啟應用程式；若仍有問題，請雙方重新綁定。',
     historyErrors: { space: '電腦儲存空間不足，回放暫停記錄；清出空間後會自動繼續', save: '有一段回放沒能儲存，會繼續記錄後面的', read: '回放暫時讀取不了，稍後再試', play: '這段回放暫時播放不了，稍後再試' },
-    interactionQueued: '已儲存，連線後送出', stopReplay: '結束回放', pomodoro: '番茄鐘', pomodoroStart: minutes => `開始 ${minutes} 分鐘番茄鐘`, pomodoroNotifyTitle: '番茄鐘時間到', pomodoroNotifyBody: minutes => `${minutes} 分鐘專注完成，休息一下吧`, pomodoroLeft: minutes => `番茄鐘 ${minutes} 分`, pomodoroStop: minutes => `結束番茄鐘（還剩 ${minutes} 分鐘）`, partnerPomodoroLeft: minutes => `TA 的番茄鐘還剩 ${minutes} 分鐘`, pomodoroDone: '番茄鐘時間到，休息一下吧', partnerPomodoroDone: 'TA 的番茄鐘時間到了', replayNotice: (duration, days) => days > 1 ? `TA 的回放 · ${days} 天 · 共 ${duration}` : `TA 的回放 · ${duration}`, replayPosition: '回放進度', replayDetail: (work, rest) => `工作 ${work} · 休息 ${rest}`,
+    interactionQueued: '已儲存，連線後送出', stopReplay: '結束回放', whatsNewClose: '更新內容，點擊關閉', pomodoro: '番茄鐘', pomodoroStart: minutes => `開始 ${minutes} 分鐘番茄鐘`, pomodoroNotifyTitle: '番茄鐘時間到', pomodoroNotifyBody: minutes => `${minutes} 分鐘專注完成，休息一下吧`, pomodoroLeft: minutes => `番茄鐘 ${minutes} 分`, pomodoroStop: minutes => `結束番茄鐘（還剩 ${minutes} 分鐘）`, partnerPomodoroLeft: minutes => `TA 的番茄鐘還剩 ${minutes} 分鐘`, pomodoroDone: '番茄鐘時間到，休息一下吧', partnerPomodoroDone: 'TA 的番茄鐘時間到了', replayNotice: (duration, days) => days > 1 ? `TA 的回放 · ${days} 天 · 共 ${duration}` : `TA 的回放 · ${duration}`, replayPosition: '回放進度', replayDetail: (work, rest) => `工作 ${work} · 休息 ${rest}`,
     panelError: '視窗未能展開，請重新開啟設定',
     cups: { ceramic: { label: '櫻粉陶瓷杯', shortLabel: '陶瓷杯' }, tumbler: { label: '天空隨行杯', shortLabel: '隨行杯' }, bottle: { label: '薄荷運動瓶', shortLabel: '運動瓶' } },
     status: { work: '工作中', meeting: '在開會', leisure: '休閒娛樂', idle: '暫時離開', rest: '休息中' },
@@ -112,7 +113,7 @@ export const appCopy: Record<Language, AppCopy> = {
     ratchetVerify: 'Compare both numbers in person or on a call. Confirm only if they match exactly. No activity or interactions are shared before confirmation.',
     ratchetStorageError: 'The secure session is unavailable; communication is paused. Reopen the app. If this persists, both people need to pair again.',
     historyErrors: { space: 'Your disk is full, so replay recording is paused; it resumes once there is space', save: 'A moment of replay could not be saved; recording carries on', read: 'Replays cannot be read right now; try again later', play: 'This replay cannot be played right now; try again later' },
-    interactionQueued: 'Saved — will send when connected', stopReplay: 'End replay', pomodoro: 'Pomodoro', pomodoroStart: minutes => `Start a ${minutes}-minute pomodoro`, pomodoroNotifyTitle: 'Pomodoro done', pomodoroNotifyBody: minutes => `${minutes} focused minutes — time for a break`, pomodoroLeft: minutes => `Pomodoro ${minutes} min`, pomodoroStop: minutes => `End pomodoro (${minutes} min left)`, partnerPomodoroLeft: minutes => `Their pomodoro: ${minutes} min left`, pomodoroDone: 'Pomodoro done — time for a break', partnerPomodoroDone: 'Their pomodoro is done', replayNotice: (duration, days) => days > 1 ? `Their replay · ${days} days · ${duration}` : `Their replay · ${duration}`, replayPosition: 'Replay position', replayDetail: (work, rest) => `${work} working · ${rest} resting`,
+    interactionQueued: 'Saved — will send when connected', stopReplay: 'End replay', whatsNewClose: 'What\'s new — click to close', pomodoro: 'Pomodoro', pomodoroStart: minutes => `Start a ${minutes}-minute pomodoro`, pomodoroNotifyTitle: 'Pomodoro done', pomodoroNotifyBody: minutes => `${minutes} focused minutes — time for a break`, pomodoroLeft: minutes => `Pomodoro ${minutes} min`, pomodoroStop: minutes => `End pomodoro (${minutes} min left)`, partnerPomodoroLeft: minutes => `Their pomodoro: ${minutes} min left`, pomodoroDone: 'Pomodoro done — time for a break', partnerPomodoroDone: 'Their pomodoro is done', replayNotice: (duration, days) => days > 1 ? `Their replay · ${days} days · ${duration}` : `Their replay · ${duration}`, replayPosition: 'Replay position', replayDetail: (work, rest) => `${work} working · ${rest} resting`,
     panelError: 'The window could not expand. Please reopen settings.',
     cups: { ceramic: { label: 'Blush ceramic mug', shortLabel: 'Ceramic' }, tumbler: { label: 'Sky tumbler', shortLabel: 'Tumbler' }, bottle: { label: 'Mint sports bottle', shortLabel: 'Bottle' } },
     status: { work: 'Working', meeting: 'In a meeting', leisure: 'Taking a break', idle: 'Away for a moment', rest: 'Resting' },

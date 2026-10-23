@@ -1,0 +1,41 @@
+import type { Language } from './settings/preferences';
+import { compareVersions } from './services/update';
+
+// What a release brings, said once in a cloud under the pets after updating to
+// it. Keep each to a sentence that fits two short lines; every release from
+// 0.3.31 on needs one (src/whatsNew.test.ts).
+export const WHATS_NEW: Record<string, Record<Language, string>> = {
+  '0.3.31': {
+    zh: '提示和回放进度条都挪到了宠物下方，不再挡住它们；番茄钟可调时长，到点会发通知',
+    'zh-Hant': '提示和回放進度條都移到了寵物下方，不再擋住牠們；番茄鐘可調時長，到點會發通知',
+    en: 'Notices and the replay bar now sit below the pets, never over them; pomodoros have a length setting and a notification',
+  },
+};
+
+type StorageLike = Pick<Storage, 'getItem' | 'setItem'>;
+const SEEN_KEY = 'mewlink.whatsNew.seen';
+// Data any installation that has run before keeps (a fresh one has none yet).
+const EARLIER_RUN_KEYS = ['mewlink.statistics.v3', 'mewlink.preferences.v1'];
+
+/**
+ * The version whose news to show, if any: only after an update (not on a fresh
+ * install) and only once. Versions without news are just marked as seen.
+ */
+export function whatsNewToShow(version: string, storage: StorageLike | undefined): string | undefined {
+  if (!storage) return undefined;
+  try {
+    const seen = storage.getItem(SEEN_KEY);
+    const updated = seen ? compareVersions(version, seen) > 0 : EARLIER_RUN_KEYS.some(key => storage.getItem(key) !== null);
+    if (!updated || !WHATS_NEW[version]) {
+      if (seen !== version && (!seen || compareVersions(version, seen) > 0)) storage.setItem(SEEN_KEY, version);
+      return undefined;
+    }
+    return version;
+  } catch {
+    return undefined;
+  }
+}
+
+export function markWhatsNewSeen(version: string, storage: StorageLike | undefined) {
+  try { storage?.setItem(SEEN_KEY, version); } catch { /* shown again next time, nothing worse */ }
+}

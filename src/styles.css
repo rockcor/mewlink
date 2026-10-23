@@ -28,6 +28,8 @@ button { font: inherit; }
 }
 
 .pet-zone {
+  /* A strip under the pets for notices, news and the replay bar, so nothing covers them. */
+  --tray-height: 50px;
   position: relative;
   width: 100%;
   height: 100%;
@@ -35,17 +37,17 @@ button { font: inherit; }
 }
 
 .hover-ui {
-  --menu-bottom: clamp(6px, calc(100% - 174px), 166px);
+  --menu-bottom: clamp(6px, calc(100% - var(--tray-height) - 174px), 166px);
   position: absolute;
   z-index: 5;
   /* Keep the menu near the pet, but leave room above it on short displays. */
-  bottom: var(--menu-bottom);
+  bottom: calc(var(--menu-bottom) + var(--tray-height));
   left: 50%;
   display: grid;
   justify-items: center;
   gap: 7px;
   width: min(100% - 16px, 430px);
-  max-height: calc(100% - var(--menu-bottom) - 6px);
+  max-height: calc(100% - var(--menu-bottom) - var(--tray-height) - 6px);
   overflow: auto;
   overscroll-behavior: contain;
   padding: 4px;
@@ -155,7 +157,7 @@ button { font: inherit; }
   position: absolute;
   z-index: 2;
   left: 50%;
-  bottom: 0;
+  bottom: var(--tray-height);
   /* Sizes chosen in settings times today's busyness growth. */
   --self-s: var(--self-pet-scale, 1);
   --partner-s: var(--partner-pet-scale, 1);
@@ -219,21 +221,81 @@ button { font: inherit; }
 .pet-pair.interacting .pet-avatar { filter: saturate(1.08) brightness(1.03); }
 
 .pet-toast {
+  max-width: 100%;
+  padding: 5px 10px;
+  border-radius: 12px;
+  color: #8a6878;
+  font-size: 9px;
+  line-height: 1.35;
+  text-align: center;
+  pointer-events: none;
+  animation: tray-in 160ms ease both;
+}
+
+/* The strip under the pets, laid out like .pet-pair so each slot sits under its pup. */
+.pet-tray {
+  --self-s: var(--self-pet-scale, 1);
+  --partner-s: var(--partner-pet-scale, 1);
+  --pet-gap: calc(var(--pet-distance, 212px) * (var(--self-s) + var(--partner-s)) / 2);
   position: absolute;
   z-index: 6;
   left: 50%;
-  bottom: 8px;
-  padding: 5px 9px;
-  border-radius: 999px;
-  color: #8a6878;
-  font-size: 9px;
-  white-space: nowrap;
-  pointer-events: none;
+  bottom: 0;
+  width: calc(114px * var(--self-s) + var(--pet-gap) + 114px * var(--partner-s));
+  height: var(--tray-height);
   transform: translateX(-50%);
-  animation: pet-toast-in 160ms ease both;
+  pointer-events: none;
 }
+.tray-slot {
+  position: absolute;
+  top: 0;
+  bottom: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 220px;
+  transform: translateX(-50%);
+}
+.tray-self { left: calc(114px * var(--self-s)); }
+.tray-partner { left: calc(100% - 114px * var(--partner-s)); }
+.pet-tray.solo .tray-self { left: 50%; }
+.settings-open .pet-tray { visibility: hidden; }
 
-@keyframes pet-toast-in { from { opacity: 0; transform: translate(-50%, 5px); } to { opacity: 1; transform: translate(-50%, 0); } }
+/* What's new: a cloud with two puffs on top, outlined as one shape. */
+.whats-new {
+  position: relative;
+  max-width: 100%;
+  margin-top: 10px;
+  padding: 5px 12px 6px;
+  border: 0;
+  border-radius: 16px;
+  background: #fffaf7;
+  color: #6a485a;
+  font: inherit;
+  font-size: 9.5px;
+  line-height: 1.3;
+  text-align: center;
+  cursor: pointer;
+  pointer-events: auto;
+  filter: drop-shadow(1px 0 0 #ecd0da) drop-shadow(-1px 0 0 #ecd0da) drop-shadow(0 1px 0 #ecd0da) drop-shadow(0 -1px 0 #ecd0da)
+    drop-shadow(0 4px 6px rgba(69, 36, 55, .16));
+  animation: tray-in 220ms ease both;
+}
+.whats-new::before,
+.whats-new::after {
+  content: '';
+  position: absolute;
+  border-radius: 50%;
+  background: inherit;
+}
+.whats-new::before { top: -8px; left: 22%; width: 22px; height: 20px; }
+.whats-new::after { top: -11px; left: 48%; width: 30px; height: 24px; }
+.whats-new > span { position: relative; z-index: 1; }
+.whats-new:hover { background: #fff; }
+.whats-new:focus-visible { outline: 2px solid #d986a5; outline-offset: 3px; }
+
+/* Things in the strip under the pets are placed by their slot, so they only rise in. */
+@keyframes tray-in { from { opacity: 0; transform: translateY(5px); } to { opacity: 1; transform: none; } }
 
 .settings-open .hover-ui,
 .settings-open .pet-toast {
@@ -781,16 +843,7 @@ button { font: inherit; }
 }
 
 /* Replay: a notice with the length on offer, then a video-style bar under the partner's pup. */
-.replay-dock {
-  position: absolute;
-  z-index: 4;
-  right: 10px;
-  bottom: 6px;
-  display: flex;
-  justify-content: flex-end;
-  width: 212px;
-  pointer-events: none;
-}
+.replay-dock { width: 212px; }
 .replay-notice,
 .replay-scrubber {
   pointer-events: auto;
@@ -799,7 +852,7 @@ button { font: inherit; }
   box-shadow: 0 8px 22px rgba(69, 36, 55, .16);
   backdrop-filter: blur(12px);
   -webkit-backdrop-filter: blur(12px);
-  animation: pet-toast-in 160ms ease both;
+  animation: tray-in 160ms ease both;
 }
 .replay-notice {
   display: flex;

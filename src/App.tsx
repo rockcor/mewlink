@@ -6,6 +6,8 @@ import { SettingsPanel, type UpdateViewState } from './components/SettingsPanel'
 import { StatisticsPanel } from './components/StatisticsPanel';
 import { PetActions } from './components/PetActions';
 import { ReplayNotice, ReplayScrubber } from './components/ReplayControls';
+import { WhatsNewCloud } from './components/WhatsNewCloud';
+import { markWhatsNewSeen, WHATS_NEW, whatsNewToShow } from './whatsNew';
 import { PomodoroTimer } from './components/PomodoroTimer';
 import { clearOfMyCup } from './pomodoro/placement';
 import { finishedWhileAway, fromPayload, loadPomodoro, minutesLeft, newPomodoro, pomodoroEnd, pomodoroPhase, savePomodoro, toPayload, type Pomodoro } from './pomodoro/pomodoro';
@@ -266,6 +268,15 @@ export default function App() {
     });
   }, [text]);
 
+  // After an update: what it brings, once, in a cloud under the pets.
+  const [whatsNew, setWhatsNew] = useState<string>();
+  useEffect(() => {
+    let active = true;
+    void currentVersion().then(version => {
+      if (active) setWhatsNew(whatsNewToShow(version, typeof localStorage === 'undefined' ? undefined : localStorage));
+    }).catch(() => undefined);
+    return () => { active = false; };
+  }, []);
   // Automatic updates install when it will not interrupt: just after launch, or once I step away.
   const [justLaunched, setJustLaunched] = useState(true);
   useEffect(() => {
@@ -1283,7 +1294,14 @@ export default function App() {
           {displayedGesture && !hugGathering && <SpriteCanvas key={displayedGesture.id} skin={gestureSkins.receiver} senderSkin={displayedGesture.variant.startsWith('hug') ? gestureSkins.sender : undefined} paused={renderPaused} className={`interaction-sprite ${displayedGesture.variant} target-${displayedGesture.target} cup-${displayedGesture.cupStyle ?? 'ceramic'} blanket-${displayedGesture.blanketStyle ?? preferences.blanketStyle}`} aria-hidden="true" />}
           {(['self', 'partner'] as const).map(target => pendingCups[target] && !(displayedGesture?.target === target && displayedGesture.variant.startsWith('water')) && <span key={target} className={`waiting-cup target-${target} ${pendingCups[target]!.style}`} aria-label={text.water}><i /><i /></span>)}
         </div>
-        {connected && !settingsOpen && !statisticsOpen && (playing || history.unseen) && <div className="replay-dock">
+        {/* Under the pets, never over them: notices and news under mine, TA's replay under TA's. */}
+        <div className={`pet-tray ${connected ? 'paired' : 'solo'}`}>
+          <div className="tray-slot tray-self">
+            {notice ? <div className="pet-toast" aria-live="polite">{notice}</div>
+              : whatsNew && <WhatsNewCloud text={WHATS_NEW[whatsNew][preferences.language]} label={text.whatsNewClose}
+                onClose={() => { markWhatsNewSeen(whatsNew, localStorage); setWhatsNew(undefined); }} />}
+          </div>
+        {connected && !settingsOpen && !statisticsOpen && (playing || history.unseen) && <div className="tray-slot tray-partner replay-dock">
           {playing && history.playingDay
             ? <ReplayScrubber day={history.playingDay} progress={history.progress}
               timeLabel={partnerClock(dayInstant(history.playingDay, history.progress), history.playingDay.offset)}
@@ -1292,7 +1310,7 @@ export default function App() {
               detail={text.replayDetail(formatDuration(history.unseen.workMs, preferences.language), formatDuration(history.unseen.ms - history.unseen.workMs, preferences.language))}
               onPlay={() => { void history.start({ unseen: true }); }} />}
         </div>}
-        {notice && <div className="pet-toast" aria-live="polite">{notice}</div>}
+        </div>
         {settingsOpen && <SettingsPanel
           preferences={preferences}
           localUtcOffsetMinutes={receiverUtcOffsetMinutes}

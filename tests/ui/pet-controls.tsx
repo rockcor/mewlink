@@ -7,6 +7,10 @@ import { StatisticsPanel } from '../../src/components/StatisticsPanel';
 import { defaultPreferences, petDistance, petWindowWidth, type Preferences } from '../../src/settings/preferences';
 import { growthScale } from '../../src/statistics/growth';
 import { PomodoroTimer } from '../../src/components/PomodoroTimer';
+import { ReplayNotice, ReplayScrubber } from '../../src/components/ReplayControls';
+import { WhatsNewCloud } from '../../src/components/WhatsNewCloud';
+import { WHATS_NEW } from '../../src/whatsNew';
+import { groupReplayDays } from '../../src/history/days';
 import { clearOfMyCup } from '../../src/pomodoro/placement';
 import { newPomodoro } from '../../src/pomodoro/pomodoro';
 import { SpriteCanvas } from '../../src/pet/SpriteCanvas';
@@ -20,6 +24,8 @@ import '../../src/settings-panel.css';
 const noop = () => undefined;
 const kinds: ActivityKind[] = ['work', 'meeting', 'rest', 'idle'];
 const params = new URLSearchParams(location.search);
+const qaDay = groupReplayDays([0, 40, 200, 230].map(minute => ({ id: String(minute), kind: 'operation.batch' as const,
+  at: new Date(Date.UTC(2026, 9, 22, 1) + minute * 60_000).toISOString() })), 480)[0];
 // ?pomodoro: one ten minutes in on both pups.
 const pomodoro = params.has('pomodoro') ? newPomodoro('qa', Date.now() - 10 * 60_000) : undefined;
 export function Checks() {
@@ -62,6 +68,18 @@ export function Checks() {
         {params.has('cup') && <span className="waiting-cup target-self ceramic"><i /><i /></span>}
         {hug && !gathering && <SpriteCanvas key={hug} skin="mint" senderSkin="cream" paused={paused} className="interaction-sprite hug-idle target-partner" aria-hidden="true" />}
       </div>
+      {/* ?tray=notice|bar|news|toast: the strip under the pets, as in the app. */}
+      {params.has('tray') && <div className="pet-tray paired">
+        <div className="tray-slot tray-self">
+          {params.get('tray') === 'toast' ? <div className="pet-toast">有一段回放没能保存，会继续记录后面的</div>
+            : params.get('tray') === 'news' ? <WhatsNewCloud text={WHATS_NEW['0.3.31'].zh} label="更新内容，点击关闭" onClose={noop} /> : null}
+        </div>
+        <div className="tray-slot tray-partner replay-dock">
+          {params.get('tray') === 'bar'
+            ? <ReplayScrubber day={qaDay} progress={0.4} timeLabel="10/22 13:10" positionLabel="回放进度" closeLabel="结束回放" onSeek={noop} onClose={noop} />
+            : <ReplayNotice label="TA 的回放 · 8 小时 40 分" detail="" onPlay={noop} />}
+        </div>
+      </div>}
     </section>
   </main>
   <details style={{ position: 'fixed', top: 0, left: 0, zIndex: 9, background: '#fff8e9', fontSize: 12 }}>
