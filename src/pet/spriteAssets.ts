@@ -8,23 +8,34 @@ export interface SpriteSheet extends CachedBitmap { image: CanvasImageSource; fr
 // 9 MB (loops, interactions) and 12 MB (transitions); both pets mid-transition
 // plus an interaction need about 53 MB. Low-memory mode still drops unused sheets.
 export const SPRITE_CACHE_BUDGET_BYTES = 64 * 1024 * 1024;
-export const spriteSheets = new BitmapCache<SpriteSheet>(SPRITE_CACHE_BUDGET_BYTES, async name => {
+export async function loadSpriteSheet(name: string): Promise<SpriteSheet> {
   if (!/^[a-z0-9-]+$/.test(name)) throw new Error('Invalid sprite name');
-  const response = await fetch(`/pets/animations/${name}.png`);
-  if (!response.ok) throw new Error('Sprite unavailable');
-  const blob = await response.blob();
-  if (typeof createImageBitmap === 'function') {
-    const image = await createImageBitmap(blob);
-    return { image, frames: image.width / SOURCE_FRAME_WIDTH, bytes: image.width * image.height * 4, dispose: () => image.close() };
-  }
+  // WKWebView can display tauri:// images but cannot fetch that custom scheme.
+  // Loading the image directly keeps the per-pet canvas masks working on macOS
+  // instead of silently falling back to a single, whole-strip CSS skin.
   const image = new Image();
-  const url = URL.createObjectURL(blob);
   try {
-    image.src = url;
+    image.src = `/pets/animations/${name}.png`;
     await image.decode();
+    if (!image.width || image.width % SOURCE_FRAME_WIDTH !== 0 || image.height !== SOURCE_FRAME_HEIGHT) {
+      throw new Error('Invalid sprite dimensions');
+    }
+    if (typeof createImageBitmap === 'function') {
+      // Some WebKit versions expose the API but reject an otherwise usable
+      // image source. The decoded image itself is still a CanvasImageSource.
+      try {
+        const bitmap = await createImageBitmap(image);
+        image.src = '';
+        return { image: bitmap, frames: bitmap.width / SOURCE_FRAME_WIDTH, bytes: bitmap.width * bitmap.height * 4, dispose: () => bitmap.close() };
+      } catch { /* Keep the decoded image on older WebKit. */ }
+    }
     return { image, frames: image.width / SOURCE_FRAME_WIDTH, bytes: image.width * image.height * 4, dispose: () => { image.src = ''; } };
-  } finally { URL.revokeObjectURL(url); }
-});
+  } catch (error) {
+    image.src = '';
+    throw error;
+  }
+}
+export const spriteSheets = new BitmapCache<SpriteSheet>(SPRITE_CACHE_BUDGET_BYTES, loadSpriteSheet);
 
 export async function preloadSprite(name: string) {
   const lease = spriteSheets.acquire(name);
