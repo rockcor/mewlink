@@ -5,6 +5,9 @@ Use `pnpm build:qa` for local native acceptance testing. Open the resulting
 
 - QA uses `app.mewlink.desktop.qa`, its own data and Keychain items, and cannot
   install a production update. Keep it separate from the installed MewLink.
+- Quit QA before rebuilding its app bundle, then launch the completed build.
+  Replacing a running bundle makes macOS reject notifications because the code
+  on disk no longer matches the running process.
 - Do not use `tauri dev` or a normal `tauri build` to test against a real
   production pairing. Do not reset, unbind or reuse a production pairing for QA.
 - If the QA build requests certificate trust, stop and give the printed
