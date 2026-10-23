@@ -45,7 +45,8 @@ def animations():
     for cup in CUPS:
         yield f"water-drink-{cup}", False, (lambda c=cup: og.water_drink(f"water_drink_{c}")), step
     hug_step = 3200 / og.N_HUG
-    for state in ("work", "meeting", "idle"):
+    # Both at the computer, or the receiver away and tucked in (hug-rest-*): never both away.
+    for state in ("work",):
         yield f"hug-{state}", False, (lambda st=state: og.hug(f"hug_{st}")), hug_step
     for blanket in BLANKETS:
         yield f"hug-rest-{blanket}", False, (lambda b=blanket: og.hug(f"hug_rest_{b}", counts=(4, 5, 9, 6))), hug_step

@@ -863,13 +863,13 @@ export default function App() {
     window.clearTimeout(drinkLockTimer.current);
   }, []);
 
-  function showGesture(action: InteractionKind, message: string, target: PetTarget, options?: { cupStyle?: CupStyle; blanketStyle?: BlanketStyle; receiverActivity?: ActivityKind; replaying?: boolean; cupId?: string }) {
+  function showGesture(action: InteractionKind, message: string, target: PetTarget, options?: { cupStyle?: CupStyle; blanketStyle?: BlanketStyle; receiverActivity?: ActivityKind; cupId?: string }) {
     window.clearTimeout(gestureTimer.current);
     window.clearTimeout(noticeTimer.current);
     const receiverActivity = options?.receiverActivity ?? (target === 'self' ? activity : partnerActivity);
     setGesture({
       id: uuid(),
-      variant: gestureFor(action, receiverActivity, options?.replaying),
+      variant: gestureFor(action, receiverActivity),
       target,
       cupStyle: options?.cupStyle,
       blanketStyle: options?.blanketStyle
@@ -1143,7 +1143,8 @@ export default function App() {
 
   const replayGesture = current?.interaction ? {
     id: current.id,
-    variant: gestureFor(current.interaction, partnerActivity, true),
+    // TA's recorded hug or cup lands on me, watching now: my activity picks the strip.
+    variant: gestureFor(current.interaction, activity),
     target: 'self' as const,
     cupStyle: current.cupStyle,
     blanketStyle: current.blanketStyle

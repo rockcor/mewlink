@@ -3,7 +3,6 @@ import type { PetSkin } from '../domain/types';
 import { petSkinFilters } from './skins';
 import { frameFromPosition, SOURCE_FRAME_HEIGHT as H, SOURCE_FRAME_WIDTH as W, spriteAssetFor, spriteSheets } from './spriteAssets';
 import { hugFrameSamples, hugSenderContour } from './hugOwnership';
-import { normalizeHugSenderPalette } from './hugPalette';
 import { spriteClock } from './frameClock';
 
 interface Props extends HTMLAttributes<HTMLSpanElement> {
@@ -51,7 +50,7 @@ export function SpriteCanvas({ skin, senderSkin, paused, className = '', onLoopB
       const filter = `${petSkinFilters[skin]} drop-shadow(0 ${shadow[0] * ratio}px ${shadow[1] * ratio}px rgba(86,45,67,${shadow[2]}))`;
       const nativeFilter = 'filter' in context;
       const dualSkin = Boolean(senderSkin && senderSurface && asset.startsWith('hug-'));
-      const senderContext = dualSkin ? senderSurface!.getContext('2d', { willReadFrequently: asset === 'hug-idle' }) : null;
+      const senderContext = dualSkin ? senderSurface!.getContext('2d') : null;
       if (dualSkin && !senderContext) throw new Error('Secondary canvas unavailable');
       if (dualSkin) {
         senderSurface!.width = surface.width;
@@ -118,11 +117,6 @@ export function SpriteCanvas({ skin, senderSkin, paused, className = '', onLoopB
               senderContext.clip(path);
               senderContext.drawImage(sheet.image, sample.frame * W, 0, W, H, PAD, PAD, W, H);
               senderContext.restore();
-            }
-            if (asset === 'hug-idle') {
-              const pixels = senderContext.getImageData(PAD, PAD, W, H);
-              normalizeHugSenderPalette(pixels.data);
-              senderContext.putImageData(pixels, PAD, PAD);
             }
           } else {
             if (nativeFilter) context.filter = filter;

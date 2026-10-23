@@ -5,8 +5,6 @@ export const ACTIVITY_TRANSITION_MS = 4_800;
 
 export type GestureVariant =
   | 'hug-work'
-  | 'hug-meeting'
-  | 'hug-idle'
   | 'hug-rest'
   | 'water-work'
   | 'water-meeting'
@@ -21,13 +19,18 @@ export type GestureVariant =
  */
 export const sceneFor = (activity: ActivityKind): Exclude<ActivityKind, 'leisure'> => activity === 'leisure' ? 'work' : activity;
 
-export function gestureFor(action: InteractionKind, receiverActivity: ActivityKind, replaying = false): GestureVariant {
+/**
+ * The gesture strip for the receiver's activity. The sender is always at the
+ * computer (they just pressed the button), so a hug is either both working
+ * (the receiver at its desk, meetings included) or the receiver away and
+ * asleep (tucked in); never both away.
+ */
+export function gestureFor(action: InteractionKind, receiverActivity: ActivityKind): GestureVariant {
   // Away from the computer the pup sleeps, so idle gets the sleeping interactions.
   const scene = sceneFor(receiverActivity);
   const receiver = scene === 'idle' ? 'rest' : scene;
   if (action === 'water') return `water-${receiver}` as GestureVariant;
-  if (receiver === 'rest' && replaying) return 'hug-idle';
-  return `hug-${receiver}` as GestureVariant;
+  return receiver === 'rest' ? 'hug-rest' : 'hug-work';
 }
 
 export function waterDrinkDelay(placedAt: number, now = Date.now()): number {

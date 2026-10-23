@@ -141,8 +141,6 @@
   filter: var(--partner-pet-skin-filter, brightness(1)) drop-shadow(0 14px 12px rgba(86, 45, 67, .18));
 }
 .interaction-sprite.hug-work { background-image: url('/pets/animations/hug-work.png'); }
-.interaction-sprite.hug-meeting { background-image: url('/pets/animations/hug-meeting.png'); }
-.interaction-sprite.hug-idle { background-image: url('/pets/animations/hug-idle.png'); }
 .interaction-sprite.hug-rest { background-image: url('/pets/animations/hug-rest-blush.png'); }
 .interaction-sprite.hug-rest.blanket-night { background-image: url('/pets/animations/hug-rest-night.png'); }
 .interaction-sprite.hug-rest.blanket-mint { background-image: url('/pets/animations/hug-rest-mint.png'); }
@@ -171,6 +169,12 @@
   left: calc(114px * var(--self-s) + var(--pet-gap) / 2);
   transform: translateX(-50%) scale(calc((var(--self-s) + var(--partner-s)) / 2));
   transform-origin: 50% 100%;
+}
+/* The strips have the pup being hugged on the left and the visitor coming from
+   the right, which is how TA reaches me. When I hug TA, turn it round, so TA
+   stays on the right and I come from the left. */
+.pet-pair.interaction-hug.target-partner .interaction-sprite {
+  transform: translateX(-50%) scale(calc((var(--self-s) + var(--partner-s)) / -2), calc((var(--self-s) + var(--partner-s)) / 2));
 }
 .pet-pair.interaction-water .interaction-sprite {
   left: calc(114px * (var(--self-s) - 1)); bottom: 6px; width: 230px; height: 153px;

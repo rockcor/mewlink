@@ -2,11 +2,11 @@ import { describe, expect, it } from 'vitest';
 import { gestureFor, sceneFor, WATER_AUTO_DRINK_MS, waterDrinkDelay } from './interaction';
 
 describe('state-aware pet interactions', () => {
-  it('chooses a different hug pose for work, meetings, and sleep', () => {
+  it('hugs at the desk when both work, tucks in when the receiver is away; never both away', () => {
     expect(gestureFor('hug', 'work')).toBe('hug-work');
-    expect(gestureFor('hug', 'meeting')).toBe('hug-meeting');
+    // A meeting is work: both are at the computer.
+    expect(gestureFor('hug', 'meeting')).toBe('hug-work');
     expect(gestureFor('hug', 'rest')).toBe('hug-rest');
-    expect(gestureFor('hug', 'rest', true)).toBe('hug-idle');
   });
 
   it('draws watching videos at the desk: there is no leisure scene any more', () => {
@@ -19,7 +19,6 @@ describe('state-aware pet interactions', () => {
   it('treats an idle pup as asleep', () => {
     expect(gestureFor('hug', 'idle')).toBe('hug-rest');
     expect(gestureFor('water', 'idle')).toBe('water-rest');
-    expect(gestureFor('hug', 'idle', true)).toBe('hug-idle');
   });
 
   it('keeps a received cup for fifteen minutes', () => {

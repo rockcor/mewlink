@@ -16,7 +16,7 @@ import { newPomodoro } from '../../src/pomodoro/pomodoro';
 import { SpriteCanvas } from '../../src/pet/SpriteCanvas';
 import { transitionAssetName, useActivityPlayback } from '../../src/pet/activityPlayback';
 import { spriteSheets } from '../../src/pet/spriteAssets';
-import type { ActivityKind, CupStyle } from '../../src/domain/types';
+import type { ActivityKind, CupStyle, PetSkin } from '../../src/domain/types';
 import '../../src/styles.css';
 import '../../src/pet.css';
 import '../../src/settings-panel.css';
@@ -24,6 +24,8 @@ import '../../src/settings-panel.css';
 const noop = () => undefined;
 const kinds: ActivityKind[] = ['work', 'meeting', 'rest', 'idle'];
 const params = new URLSearchParams(location.search);
+const mySkin = (params.get('me') ?? 'cream') as PetSkin;
+const taSkin = (params.get('ta') ?? 'mint') as PetSkin;
 const qaDay = groupReplayDays([0, 40, 200, 230].map(minute => ({ id: String(minute), kind: 'operation.batch' as const,
   at: new Date(Date.UTC(2026, 9, 22, 1) + minute * 60_000).toISOString() })), 480)[0];
 // ?pomodoro: one ten minutes in on both pups.
@@ -62,11 +64,13 @@ export function Checks() {
           onHug={() => setHug(String(Date.now()))} onWater={noop} onReplay={noop} onPomodoro={noop} pomodoroMinutes={18} />
       </div>
       <div className={`pet-pair paired ${hug ? 'interacting target-partner interaction-hug' : ''}`}>
-        <button className="pet-avatar self-pet" aria-label="Self working"><SpriteCanvas skin="cream" paused={false} className="pet-sprite work work-code input-none" />
+        <button className="pet-avatar self-pet" aria-label="Self working"><SpriteCanvas skin={mySkin} paused={false} className="pet-sprite work work-code input-none" />
           {pomodoro && <PomodoroTimer pomodoro={pomodoro} atPaw paused={false} label="pomodoro" />}</button>
         <Playback key={remount} desired={activity} paused={paused} reduced={reduced} />
         {params.has('cup') && <span className="waiting-cup target-self ceramic"><i /><i /></span>}
-        {hug && !gathering && <SpriteCanvas key={hug} skin="mint" senderSkin="cream" paused={paused} className="interaction-sprite hug-idle target-partner" aria-hidden="true" />}
+        {/* ?hug=work|rest|meeting&me=<skin>&ta=<skin>: I hug TA, as the app draws it (receiver TA, sender me). */}
+        {hug && !gathering && <SpriteCanvas key={hug} skin={taSkin} senderSkin={mySkin} paused={paused}
+          className={`interaction-sprite hug-${params.get('hug') ?? 'work'} target-partner blanket-blush`} aria-hidden="true" />}
       </div>
       {/* ?tray=notice|bar|news|toast: the strip under the pets, as in the app. */}
       {params.has('tray') && <div className="pet-tray paired">
@@ -107,11 +111,11 @@ export function Playback({ desired, paused, reduced }: { desired: ActivityKind; 
     '--activity-transition-duration': '480ms' } as CSSProperties;
   const noCss = reduced ? { animation: 'none' } : undefined;
   return <button className="pet-avatar partner-pet" style={style} aria-label={`Rendered partner ${playback.displayedActivity}${playback.transition ? ' transitioning' : ''}`}>
-    <SpriteCanvas skin="mint" paused={paused} onLoopBoundary={playback.handleLoopBoundary} style={noCss}
+    <SpriteCanvas skin={taSkin} paused={paused} onLoopBoundary={playback.handleLoopBoundary} style={noCss}
       className={`pet-sprite partner-sprite ${playback.displayedActivity} ${playback.displayedActivity === 'work' ? 'work-web' : ''} input-none ${playback.transition ? 'transition-source-frame' : ''}`} />
     {pomodoro && <PomodoroTimer pomodoro={pomodoro} atPaw paused={false} label="pomodoro"
       x={params.has('cup') ? clearOfMyCup(1, 1, petDistance(Number(params.get('distance') ?? 100))) : undefined} />}
-    {playback.transition && <SpriteCanvas skin="mint" paused={paused} key={playback.transition.key} style={noCss}
+    {playback.transition && <SpriteCanvas skin={taSkin} paused={paused} key={playback.transition.key} style={noCss}
       className={`pet-sprite partner-sprite activity-transition ${transitionAssetName(playback.transition)}`}
       onPlaybackEnd={() => playback.completeTransition(playback.transition!.key)} />}
   </button>;

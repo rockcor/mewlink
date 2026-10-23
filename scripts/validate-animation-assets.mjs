@@ -18,7 +18,7 @@ const twentyFourFrame = [
 ];
 // Hugs: 8 frames of the visitor hopping in, 24 of the hug, 8 hopping away.
 const hugFrames = 40;
-const hugs = ['hug-work', 'hug-meeting', 'hug-idle', ...['blush', 'night', 'mint'].map(style => `hug-rest-${style}`)];
+const hugs = ['hug-work', ...['blush', 'night', 'mint'].map(style => `hug-rest-${style}`)];
 const states = ['work', 'meeting', 'idle', 'rest'];
 const transitionSpecs = states.flatMap(from => states.filter(to => to !== from).map(to => ({
   name: `transition-${from}-${to}`,
