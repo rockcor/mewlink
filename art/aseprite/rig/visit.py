@@ -21,6 +21,8 @@ exports into public/pets/animations:
   authored hug poses are mapped back onto the receiver's everyday geometry;
   the visitor stands at the receiver's right, so these frames show the base
   frame from x = WINDOW_X to WINDOW_X + 384.
+- rest-tucked-<blanket>.png: the everyday sleeping loop (first row) with the
+  blanket left over the pup after a hug (second row), up to its chin.
 - hug-walker.png: the visiting pup: an eight-frame trot (its feet step in
   turn, its body bobs, its tail wags), then each scene's pup getting up: at a
   desk it ducks down behind it, and the walker comes out from behind it.
@@ -35,6 +37,7 @@ import argparse
 import json
 import math
 import sys
+from functools import lru_cache
 from pathlib import Path
 
 import cv2
@@ -318,11 +321,12 @@ def _blanket_mask(prefix, pose):
     return mask & (a[:, :, 3] > 0)
 
 
-def hug_visit(kind):
-    """Frames of (receiver, visitor[, blanket]) layers, each 384x256, of the
-    hug at the receiver's desk; kind is "work", "meeting" or "rest-<blanket>". In a
-    meeting the receiver keeps its headset and laptop: the visitor of the
-    desk hug puts its arms round the pup as it is."""
+@lru_cache(maxsize=None)
+def _hug_poses(kind):
+    """Each authored pose of a hug as (receiver, visitor[, blanket]) layers on
+    the wide canvas, in the receiver's everyday geometry. In a meeting the
+    receiver keeps its headset and laptop: the visitor of the desk hug puts
+    its arms round the pup as it is."""
     group = "rest" if kind.startswith("rest") else "work"
     prefix = "hug_work" if kind == "meeting" else f"hug_{kind.replace('-', '_')}"
     first = 1 if group == "rest" else 0
@@ -367,6 +371,14 @@ def hug_visit(kind):
             top = int(np.nonzero(desk_props[:, 100, 3] > 0)[0].min())
             receiver = _behind_monitor(receiver, np.where(~side[..., None], mapped, 0).astype(np.uint8), right + 1, top)
         poses.append((receiver, visitor, *extra))
+    return poses
+
+
+def hug_visit(kind):
+    """Frames of (receiver, visitor[, blanket]) layers, each 384x256, of the
+    hug at the receiver's desk; kind is "work", "meeting" or "rest-<blanket>"."""
+    counts = HUG_COUNTS["rest" if kind.startswith("rest") else "work"]
+    poses = _hug_poses(kind)
     frames = []
     index = 0
     for ordinal, (pose_layers, count) in enumerate(zip(poses, counts)):
@@ -577,6 +589,81 @@ def visit_spot(kind):
     return round(min((x0 + x1) / 2, x1 - reach) + WINDOW_X), ANCHOR[1]
 
 
+# --------------------------------------------------------------------------- tucked in
+
+# The blanket left over a sleeping pup after a hug: up to its chin, over its
+# back, down onto the cushion (everyday rest frame pixels, clockwise).
+TUCK = [(150, 199), (158, 189), (176, 183), (204, 182), (230, 175), (244, 146), (258, 126), (276, 114), (297, 110),
+        (316, 117), (327, 135), (331, 160), (330, 186), (325, 205), (314, 214), (280, 217), (232, 215), (190, 213),
+        (162, 209)]
+
+
+def _blanket_colours(blanket):
+    """Fill, hem (lighter), shade (darker) of a blanket, as authored."""
+    layer = _hug_poses(f"rest-{blanket}")[-1][2]
+    pixels = layer[layer[:, :, 3] > 0][:, :3].astype(np.int32)
+    light = pixels @ np.array([30, 59, 11])
+
+    def mode(rows):
+        colours, counts = np.unique(rows, axis=0, return_counts=True)
+        return np.append(colours[counts.argmax()], 255).astype(np.uint8)
+    return mode(pixels), mode(pixels[light >= np.percentile(light, 85)]), mode(pixels[light <= np.percentile(light, 12)])
+
+
+def tucked_blanket(blanket, pose):
+    """The blanket over a sleeping pup in a rest pose, under its ear."""
+    fill, hem, shade = _blanket_colours(blanket)
+    dog = og.dog_of(pose)
+    dark = _dark_mask(dog)
+    colours, counts = np.unique(dog[dark].reshape(-1, 4), axis=0, return_counts=True)
+    outline = colours[counts.argmax()]
+    shape = np.zeros((H, W), np.uint8)
+    cv2.fillPoly(shape, [np.array(TUCK, np.int32)], 1)
+    shape = cv2.GaussianBlur(shape.astype(np.float32), (9, 9), 0) > 0.5
+    # The ear lying on its back stays on top of the blanket.
+    rgb = dog[:, :, :3].astype(np.int32)
+    pink = (dog[:, :, 3] > 0) & (rgb[:, :, 0] > 200) & (rgb[:, :, 0] - rgb[:, :, 1] > 50)
+    pink[:, :195] = False
+    pink[:, 262:] = False
+    pink[175:] = False
+    ear = cv2.dilate(pink.astype(np.uint8), np.ones((9, 9), np.uint8)) > 0
+    ear &= (dog[:, :, 3] > 0) & (pink | dark)
+    inside = shape & ~ear
+    ring = (cv2.dilate(shape.astype(np.uint8), np.ones((5, 5), np.uint8)) > 0) & ~shape & ~ear
+    out = np.zeros((H, W, 4), np.uint8)
+    out[inside] = fill
+    # A turned-down hem along its top edge, and its underside in shadow.
+    top = np.full(W, H)
+    rows = np.nonzero(shape.any(0))[0]
+    for x in rows:
+        top[x] = np.nonzero(shape[:, x])[0].min()
+    yy = np.arange(H)[:, None]
+    out[inside & (yy >= top[None, :] + 4) & (yy < top[None, :] + 7)] = hem
+    below = np.roll(shape, -5, axis=0)
+    out[inside & ~below] = shade
+    # Two soft folds.
+    for (x0, y0), (x1, y1) in (((262, 150), (282, 196)), ((296, 132), (309, 176))):
+        fold = np.zeros((H, W), np.uint8)
+        cv2.line(fold, (x0, y0), (x1, y1), 1, 2)
+        out[(fold > 0) & inside] = shade
+    out[ring] = outline
+    return out
+
+
+def tucked_loop(blanket):
+    """The everyday sleeping loop (row 0, the same frames) with the blanket over
+    it (row 1), breathing with the pup: what a tucked-in pup shows after a hug."""
+    pups, blankets = [], []
+    for i in range(og.N_LOOP):
+        pose = "peak_rest" if i in (14, 15) else "base_rest"
+        dog = og.dog_of(pose)
+        x0, _, x1, y1 = bbox(dog)
+        sy = 1 + 0.03 * math.sin(2 * math.pi * i / og.N_LOOP)
+        pups.append(og.composite(og.loop_frame("rest", i)))
+        blankets.append(warp(tucked_blanket(blanket, pose), sy=sy, sx=1 / math.sqrt(sy), anchor=((x0 + x1) / 2, y1)))
+    return pups, blankets
+
+
 # --------------------------------------------------------------------------- export
 
 SCENES = [f"work-{visual}" for visual in og.WORK_VISUALS] + ["meeting", "rest"]
@@ -606,6 +693,9 @@ def main():
         names = ["receiver", "visitor", "blanket"][:len(frames[0])]
         sheet(f"hug-visit-{kind}", {name: [layers[n] for layers in frames] for n, name in enumerate(names)}, HUG_FRAME_MS)
         overhang = max(overhang, max(bbox(np.maximum.reduce(layers[1:]))[2] for layers in frames) + WINDOW_X - W)
+    for blanket in BLANKETS:
+        pups, blankets = tucked_loop(blanket)
+        sheet(f"rest-tucked-{blanket}", {"pup": pups, "blanket": blankets}, 4300 / og.N_LOOP)
     walk = walk_cycle()
     leaves = {scene: leave_frames(scene) for scene in LEAVES}
     sheet("hug-walker", {"walker": walk + [frame for scene in LEAVES for frame in leaves[scene]]}, WALK_FRAME_MS)

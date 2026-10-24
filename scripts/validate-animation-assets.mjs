@@ -24,6 +24,7 @@ const hugSheets = new Map([
   ...['work', 'meeting'].map(kind => [`hug-visit-${kind}`, { frames: hugLayout.hugFrames, rows: 2 }]),
   ...['blush', 'night', 'mint'].map(style => [`hug-visit-rest-${style}`, { frames: hugLayout.hugFrames, rows: 3 }]),
   ['hug-walker', { frames: hugLayout.walker.frames, rows: 1 }],
+  ...['blush', 'night', 'mint'].map(style => [`rest-tucked-${style}`, { frames: loopFrames, rows: 2 }]),
   ...[...workVisuals.map(visual => `work-${visual}`), 'meeting', 'rest'].map(scene => [`desk-${scene}`, { frames: 1, rows: 1 }]),
 ]);
 const states = ['work', 'meeting', 'idle', 'rest'];
@@ -152,7 +153,7 @@ for (const spec of transitionSpecs) {
 
 // Each pixel of a hug belongs to one pup (or the blanket), so each keeps its colours.
 for (const [name, { frames, rows }] of hugSheets) {
-  if (rows < 2) continue;
+  if (rows < 2 || name.startsWith('rest-tucked-')) continue;
   const sheet = await decodeRgba(name);
   for (let y = 0; y < frameHeight; y += 1) {
     for (let x = 0; x < frameWidth * frames; x += 1) {
@@ -160,6 +161,15 @@ for (const [name, { frames, rows }] of hugSheets) {
       for (let row = 0; row < rows; row += 1) if (sheet.pixels[((row * frameHeight + y) * sheet.width + x) * 4 + 3]) owners += 1;
       if (owners > 1) throw new Error(`${name}: pixel ${x},${y} belongs to more than one layer`);
     }
+  }
+}
+
+// A tucked-in pup is the sleeping loop itself under its blanket, so the blanket goes on without a jump.
+const restLoop = await decodeRgba('rest');
+for (const style of ['blush', 'night', 'mint']) {
+  const tucked = await decodeRgba(`rest-tucked-${style}`);
+  if (!tucked.pixels.subarray(0, restLoop.pixels.length).equals(restLoop.pixels)) {
+    throw new Error(`rest-tucked-${style}: its pup is not the everyday sleeping loop`);
   }
 }
 

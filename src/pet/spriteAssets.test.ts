@@ -9,6 +9,8 @@ describe('current-frame rendering keeps the Aseprite rig', () => {
     expect(spriteAssetFor('interaction-sprite water-work cup-tumbler')).toBe('water-work-tumbler');
     expect(spriteAssetFor('pet-sprite hug-visit hug-visit-rest-night')).toBe('hug-visit-rest-night');
     expect(spriteAssetFor('pet-sprite partner-sprite rest')).toBe('rest');
+    expect(spriteAssetFor('pet-sprite partner-sprite rest tucked-night')).toBe('rest-tucked-night');
+    expect(spriteAssetFor('pet-sprite idle tucked-mint')).toBe('rest-tucked-mint');
   });
   it('uses exactly the CSS frame, including both transition endpoints', () => {
     expect(frameFromPosition('0px', 13)).toBe(0);

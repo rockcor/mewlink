@@ -2,7 +2,7 @@ import { BitmapCache, type CachedBitmap } from './bitmapCache';
 
 export const SOURCE_FRAME_WIDTH = 384;
 export const SOURCE_FRAME_HEIGHT = 256;
-/** A hug sheet (hug-visit-*) has a row per layer: the receiver, the visitor, and when tucking in the blanket. */
+/** A layered sheet has a row per layer: a hug (hug-visit-*) the receiver, the visitor and maybe a blanket; a tucked-in pup (rest-tucked-*) the pup and its blanket. */
 export interface SpriteSheet extends CachedBitmap { image: CanvasImageSource; frames: number; layers: number }
 
 // Decoded bytes, not PNG size. The 24- and 32-frame Aseprite strips decode to
@@ -57,7 +57,10 @@ export function spriteAssetFor(className: string): string {
   if (interaction) return `${interaction}-${classes.find(name => name.startsWith('cup-'))?.slice(4) ?? 'ceramic'}`;
   const work = classes.find(name => name.startsWith('work-'));
   if (work) return `${work}${classes.includes('input-stressed') ? '-stress' : ''}`;
-  return classes.find(name => ['meeting', 'idle', 'rest'].includes(name)) ?? 'idle';
+  const loop = classes.find(name => ['meeting', 'idle', 'rest'].includes(name)) ?? 'idle';
+  // Asleep (idle sleeps too) under the blanket a hug left on it.
+  const tucked = classes.find(name => name.startsWith('tucked-'));
+  return tucked && loop !== 'meeting' ? `rest-${tucked}` : loop;
 }
 
 export function frameFromPosition(position: string, count: number): number {
