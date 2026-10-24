@@ -2,13 +2,18 @@ import type { Language } from './settings/preferences';
 import { compareVersions } from './services/update';
 
 // What a release brings, said once in a cloud under the pets after updating to
-// it. Keep each to a sentence that fits two short lines; every release from
-// 0.3.31 on needs one (src/whatsNew.test.ts).
+// it, under the version's title. Keep each to a sentence that fits two short
+// lines; every release from 0.3.31 on needs one (src/whatsNew.test.ts).
 export const WHATS_NEW: Record<string, Record<Language, string>> = {
+  '0.3.33': {
+    zh: '拥抱改成走过去：小狗起身走到对方桌前抱一抱，再走回来',
+    'zh-Hant': '擁抱改成走過去：小狗起身走到對方桌前抱一抱，再走回來',
+    en: 'Hugs walk over: your pup leaves its desk, hugs at theirs, and walks back.',
+  },
   '0.3.32': {
     zh: '拥抱保留双方配色和位置，休息时盖被子；对方退出后不再显示工作中',
     'zh-Hant': '擁抱保留雙方配色和位置，休息時蓋被子；對方退出後不再顯示工作中',
-    en: 'Hugs keep both colors and sides; resting friends get tucked in. Offline companions no longer appear working.',
+    en: 'Hugs keep both pups\' colors; resting friends get tucked in; offline ones stop working.',
   },
   '0.3.31': {
     zh: '提示和回放避开宠物，底边自动改放上方；番茄钟可调时长、到点通知',

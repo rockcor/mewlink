@@ -33,7 +33,8 @@ describe('what\'s new', () => {
     expect(news, `src/whatsNew.ts needs an entry for ${version}`).toBeDefined();
     for (const language of ['zh', 'zh-Hant', 'en'] as const) {
       expect(news[language]?.trim()).toBeTruthy();
-      expect(news[language].length).toBeLessThanOrEqual(language === 'en' ? 130 : 48);
+      // Two short lines under the version's title (the strip under the pets is 50px tall).
+      expect(news[language].length).toBeLessThanOrEqual(language === 'en' ? 90 : 40);
     }
   });
 });

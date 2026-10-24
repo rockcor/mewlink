@@ -1338,7 +1338,7 @@ export default function App() {
         <div className={`pet-tray ${connected ? 'paired' : 'solo'}`}>
           <div className="tray-slot tray-self">
             {notice ? <div className="pet-toast" aria-live="polite">{notice}</div>
-              : whatsNew && <WhatsNewCloud text={WHATS_NEW[whatsNew][preferences.language]} label={text.whatsNewClose}
+              : whatsNew && <WhatsNewCloud title={text.whatsNewTitle(whatsNew)} text={WHATS_NEW[whatsNew][preferences.language]} label={text.whatsNewClose}
                 onClose={() => { markWhatsNewSeen(whatsNew, localStorage); setWhatsNew(undefined); }} />}
           </div>
         {connected && !settingsOpen && !statisticsOpen && (playing || history.unseen) && <div className="tray-slot tray-partner replay-dock">

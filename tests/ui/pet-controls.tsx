@@ -76,7 +76,8 @@ export function Checks() {
       {params.has('tray') && <div className="pet-tray paired">
         <div className="tray-slot tray-self">
           {params.get('tray') === 'toast' ? <div className="pet-toast">有一段回放没能保存，会继续记录后面的</div>
-            : params.get('tray') === 'news' ? <WhatsNewCloud text={WHATS_NEW['0.3.31'].zh} label="更新内容，点击关闭" onClose={noop} /> : null}
+            : params.get('tray') === 'news' ? <WhatsNewCloud title={`v${params.get('version') ?? '0.3.33'} 更新内容`}
+              text={WHATS_NEW[params.get('version') ?? '0.3.33'][(params.get('lang') ?? 'zh') as 'zh']} label="更新内容，点击关闭" onClose={noop} /> : null}
         </div>
         <div className="tray-slot tray-partner replay-dock">
           {params.get('tray') === 'bar'
