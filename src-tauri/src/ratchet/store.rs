@@ -35,38 +35,10 @@ pub trait AnchorBackend {
 pub struct NativeAnchor;
 impl AnchorBackend for NativeAnchor {
     fn read(&self) -> Result<Option<String>> {
-        #[cfg(any(target_os = "macos", target_os = "windows"))]
-        {
-            let entry = keyring::Entry::new(
-                &crate::secure_storage::keychain_service("ratchet"),
-                "anchor-v1",
-            )
-            .map_err(|_| "secure_storage_unavailable")?;
-            match entry.get_password() {
-                Ok(v) => Ok(Some(v)),
-                Err(keyring::Error::NoEntry) => Ok(None),
-                Err(_) => Err("secure_storage_unavailable".into()),
-            }
-        }
-        #[cfg(not(any(target_os = "macos", target_os = "windows")))]
-        Err("secure_storage_unsupported".into())
+        crate::credentials::read(crate::credentials::Item::Ratchet)
     }
     fn write(&self, value: &str) -> Result<()> {
-        #[cfg(any(target_os = "macos", target_os = "windows"))]
-        {
-            keyring::Entry::new(
-                &crate::secure_storage::keychain_service("ratchet"),
-                "anchor-v1",
-            )
-            .map_err(|_| "secure_storage_unavailable")?
-            .set_password(value)
-            .map_err(|_| "secure_storage_unavailable".into())
-        }
-        #[cfg(not(any(target_os = "macos", target_os = "windows")))]
-        {
-            let _ = value;
-            Err("secure_storage_unsupported".into())
-        }
+        crate::credentials::write(crate::credentials::Item::Ratchet, value)
     }
 }
 

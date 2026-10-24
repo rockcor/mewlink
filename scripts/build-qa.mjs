@@ -5,7 +5,8 @@
 //
 // On macOS it is signed with the same self-signed certificate as releases.
 // Keychain access follows the code signature, so every QA build is "the same
-// app" to the keychain and never asks for the password again. The private key
+// app" to the trusted-app ACL. Self-signed builds still have per-build cdhash
+// partitions, so a rebuilt QA app can require authorization again. The private key
 // stays in ~/.mewlink-signing (never in the repository) and is imported into a
 // keychain used only for signing; macOS has to trust the certificate once.
 import { execFileSync, spawnSync } from 'node:child_process';

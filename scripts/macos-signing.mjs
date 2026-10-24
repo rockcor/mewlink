@@ -2,9 +2,9 @@ import assert from 'node:assert/strict';
 
 // Without an Apple Developer ID, macOS builds are signed with one fixed
 // self-signed certificate (public half: src-tauri/macos/mewlink-self-signed.pem).
-// Keychain access is granted to a code signature, so a stable certificate keeps
-// "Always Allow" valid across updates; an ad-hoc signature changes every build
-// and makes everyone re-enter their password after each update.
+// A stable certificate keeps the trusted-app requirement stable. Unlike Apple
+// Developer ID, a self-signed build has no trusted Team ID: Keychain's separate
+// cdhash partition can still require authorization after the binary changes.
 export const SELF_SIGNED_IDENTITY = 'MewLink Self-Signed Code Signing';
 export const SELF_SIGNED_CERTIFICATE = 'src-tauri/macos/mewlink-self-signed.pem';
 

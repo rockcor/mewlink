@@ -1,7 +1,5 @@
 // A fixed, app-owned credential only. Never expose arbitrary Keychain queries.
 const MAX_RECORD_BYTES: usize = 2_400;
-#[cfg(any(target_os = "macos", target_os = "windows"))]
-const ACCOUNT: &str = "pairing-v2";
 #[cfg(any(target_os = "macos", target_os = "windows", test))]
 const RELEASE_IDENTIFIER: &str = "app.mewlink.desktop";
 static IDENTIFIER: std::sync::OnceLock<String> = std::sync::OnceLock::new();
@@ -46,30 +44,15 @@ fn validate_record(value: &str) -> Result<(), String> {
     Ok(())
 }
 
-#[cfg(any(target_os = "macos", target_os = "windows"))]
-fn entry() -> Result<keyring::Entry, String> {
-    keyring::Entry::new(&keychain_service("pairing"), ACCOUNT)
-        .map_err(|_| "secure_storage_unavailable".into())
-}
-
 fn read_record() -> Result<Option<String>, String> {
     let _guard = STORE_LOCK
         .lock()
         .map_err(|_| "secure_storage_unavailable")?;
-    #[cfg(any(target_os = "macos", target_os = "windows"))]
-    {
-        match entry()?.get_password() {
-            Ok(value) => {
-                validate_record(&value)?;
-                Ok(Some(value))
-            }
-            Err(keyring::Error::NoEntry) => Ok(None),
-            // Do not format backend errors: some variants contain secret bytes.
-            Err(_) => Err("secure_storage_unavailable".into()),
-        }
+    let value = crate::credentials::read(crate::credentials::Item::Pairing)?;
+    if let Some(value) = &value {
+        validate_record(value)?;
     }
-    #[cfg(not(any(target_os = "macos", target_os = "windows")))]
-    Err("secure_storage_unsupported".into())
+    Ok(value)
 }
 
 fn write_record(value: String) -> Result<(), String> {
@@ -77,14 +60,7 @@ fn write_record(value: String) -> Result<(), String> {
     let _guard = STORE_LOCK
         .lock()
         .map_err(|_| "secure_storage_unavailable")?;
-    #[cfg(any(target_os = "macos", target_os = "windows"))]
-    {
-        entry()?
-            .set_password(&value)
-            .map_err(|_| "secure_storage_unavailable".into())
-    }
-    #[cfg(not(any(target_os = "macos", target_os = "windows")))]
-    Err("secure_storage_unsupported".into())
+    crate::credentials::write(crate::credentials::Item::Pairing, &value)
 }
 
 #[tauri::command]
