@@ -32,7 +32,9 @@ export function hugSkins(target: 'self' | 'partner', self: PetSkin, partner: Pet
 }
 
 /** Where a hug is: the sender away from its desk, the receiver hosting the hug. */
-export interface HugMoment { id: string; senderAway: boolean; hosting: boolean; done?: boolean }
+export interface HugMoment { id: string; senderAway: boolean; hosting: boolean; done?: boolean;
+  /** The hug itself is over: a sleeping receiver keeps the blanket (pet/tucked.ts). */
+  tuckedIn?: boolean }
 
 /** The class of a pup's avatar while its own sprite gives way to the hug. */
 export const hugAvatarClass = (role: HugRole | undefined, moment: HugMoment | undefined) =>
@@ -163,7 +165,8 @@ export function planHug(walk: HugWalk, reducedMotion = false): HugPlan {
 /** What each pup shows `elapsed` ms into a hug (already scaled to the animation speed). */
 export function hugPhase(plan: HugPlan, elapsed: number, scale = 1) {
   const within = ([start, end]: [number, number]) => elapsed >= start * scale && elapsed < end * scale;
-  return { senderAway: within(plan.away), hosting: within(plan.host), done: elapsed >= plan.duration * scale };
+  return { senderAway: within(plan.away), hosting: within(plan.host), tuckedIn: elapsed >= plan.host[1] * scale,
+    done: elapsed >= plan.duration * scale };
 }
 
 /** When the phase changes, for timers that re-render only then. */

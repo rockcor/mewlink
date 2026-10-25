@@ -6,9 +6,9 @@ import { compareVersions } from './services/update';
 // lines; every release from 0.3.31 on needs one (src/whatsNew.test.ts).
 export const WHATS_NEW: Record<string, Record<Language, string>> = {
   '0.3.33': {
-    zh: '拥抱改成走过去：小狗起身走到对方桌前抱一抱，再走回来',
-    'zh-Hant': '擁抱改成走過去：小狗起身走到對方桌前抱一抱，再走回來',
-    en: 'Hugs walk over: your pup leaves its desk, hugs at theirs, and walks back.',
+    zh: '拥抱改成走过去：小狗走到对方桌前抱一抱再走回来；盖上的被子会一直留着',
+    'zh-Hant': '擁抱改成走過去：小狗走到對方桌前抱一抱再走回來；蓋上的被子會一直留著',
+    en: 'Hugs walk over to their desk and back; a tucked-in pup keeps its blanket as it sleeps.',
   },
   '0.3.32': {
     zh: '拥抱保留双方配色和位置，休息时盖被子；对方退出后不再显示工作中',

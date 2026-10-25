@@ -51,12 +51,14 @@ export function SpriteCanvas({ skin, senderSkin, paused, className = '', onLoopB
       const shadow = className.includes('interaction-sprite') ? [14, 12, .18] : [13, 10, .16];
       const filter = `${petSkinFilters[skin]} drop-shadow(0 ${shadow[0] * ratio}px ${shadow[1] * ratio}px rgba(86,45,67,${shadow[2]}))`;
       const nativeFilter = 'filter' in context;
-      // A hug sheet has the receiver's layer above the visitor's (and below
-      // them a blanket): each pup keeps its own colours, the blanket its own.
-      const dualSkin = Boolean(senderSkin && senderSurface && sheet.layers >= 2);
+      // A layered sheet has a row per layer: the pup, then in a hug the
+      // visitor (in the sender's colours), then a blanket (in its own).
+      const layered = sheet.layers >= 2;
+      const dualSkin = Boolean(senderSkin && senderSurface && layered);
       const senderContext = dualSkin ? senderSurface!.getContext('2d') : null;
       if (dualSkin && !senderContext) throw new Error('Secondary canvas unavailable');
-      const propContext = dualSkin && sheet.layers === 3 && propSurface ? propSurface.getContext('2d') : null;
+      const plainRow = dualSkin ? 2 : 1;
+      const propContext = layered && sheet.layers > plainRow && propSurface ? propSurface.getContext('2d') : null;
       if (propSurface) {
         propSurface.width = propContext ? surface.width : 1;
         propSurface.height = propContext ? surface.height : 1;
@@ -65,16 +67,18 @@ export function SpriteCanvas({ skin, senderSkin, paused, className = '', onLoopB
       if (dualSkin) {
         senderSurface!.width = surface.width;
         senderSurface!.height = surface.height;
-        // Current-frame canvases also work on WebKit without Canvas.filter.
-        surface.style.filter = `${petSkinFilters[skin]} drop-shadow(0 ${shadow[0]}px ${shadow[1]}px rgba(86,45,67,${shadow[2]}))`;
         senderSurface!.style.filter = `${petSkinFilters[senderSkin!]} drop-shadow(0 ${shadow[0]}px ${shadow[1]}px rgba(86,45,67,${shadow[2]}))`;
       }
+      // Current-frame canvases also work on WebKit without Canvas.filter.
+      if (layered) surface.style.filter = `${petSkinFilters[skin]} drop-shadow(0 ${shadow[0]}px ${shadow[1]}px rgba(86,45,67,${shadow[2]}))`;
       // Older WKWebView versions retain colors using a small-canvas CSS fallback.
-      if (!dualSkin) surface.style.filter = nativeFilter ? 'none' : `${petSkinFilters[skin]} drop-shadow(0 ${shadow[0]}px ${shadow[1]}px rgba(86,45,67,${shadow[2]}))`;
+      if (!layered) surface.style.filter = nativeFilter ? 'none' : `${petSkinFilters[skin]} drop-shadow(0 ${shadow[0]}px ${shadow[1]}px rgba(86,45,67,${shadow[2]}))`;
       let previousFrame = -1;
-      const loop = ['idle', 'meeting', 'rest'].includes(asset) && !className.includes('transition-source-frame');
+      // A tucked-in pup is its sleeping loop with a blanket over it: it breathes on without a restart.
+      const clockAsset = asset.startsWith('rest-tucked-') ? (className.split(/\s+/).includes('idle') ? 'idle' : 'rest') : asset;
+      const loop = ['idle', 'meeting', 'rest'].includes(clockAsset) && !className.includes('transition-source-frame');
       const finite = className.includes('activity-transition') || className.includes('interaction-sprite') || className.includes('hug-visit');
-      const clockKey = `${asset}:${loop ? 'loop' : finite ? 'once' : 'still'}`;
+      const clockKey = `${clockAsset}:${loop ? 'loop' : finite ? 'once' : 'still'}`;
       const paint = () => {
         if (cancelled) return;
         const style = getComputedStyle(node);
@@ -100,14 +104,16 @@ export function SpriteCanvas({ skin, senderSkin, paused, className = '', onLoopB
           : loop || finite ? clock.frame : frameFromPosition(style.backgroundPositionX, sheet.frames);
         if (frame !== previousFrame) {
           context.clearRect(0, 0, surface.width, surface.height);
-          if (dualSkin && senderContext) {
-            senderContext.clearRect(0, 0, surface.width, surface.height);
+          if (layered) {
             if (nativeFilter) context.filter = 'none';
             context.drawImage(sheet.image, frame * W, 0, W, H, PAD, PAD, W, H);
-            senderContext.drawImage(sheet.image, frame * W, H, W, H, PAD, PAD, W, H);
+            if (senderContext) {
+              senderContext.clearRect(0, 0, surface.width, surface.height);
+              senderContext.drawImage(sheet.image, frame * W, H, W, H, PAD, PAD, W, H);
+            }
             if (propContext) {
               propContext.clearRect(0, 0, surface.width, surface.height);
-              propContext.drawImage(sheet.image, frame * W, 2 * H, W, H, PAD, PAD, W, H);
+              propContext.drawImage(sheet.image, frame * W, plainRow * H, W, H, PAD, PAD, W, H);
             }
           } else {
             if (nativeFilter) context.filter = filter;
@@ -136,6 +142,6 @@ export function SpriteCanvas({ skin, senderSkin, paused, className = '', onLoopB
     }}>
     <canvas ref={canvas} aria-hidden="true" style={{ display: failed ? 'none' : undefined }} />
     {senderSkin && <canvas ref={senderCanvas} aria-hidden="true" style={{ display: failed ? 'none' : undefined }} />}
-    {senderSkin && <canvas ref={propCanvas} aria-hidden="true" style={{ display: failed ? 'none' : undefined }} />}
+    {(senderSkin || asset.startsWith('rest-tucked-')) && <canvas ref={propCanvas} aria-hidden="true" style={{ display: failed ? 'none' : undefined }} />}
   </span>;
 }

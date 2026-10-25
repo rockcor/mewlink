@@ -17,6 +17,7 @@ Open `mewlink-pet-animation-master.aseprite` in Aseprite. It holds 2448 frames i
 
 - `hug-walker`: the visiting pup, from the authored `hug_1` pup running in with its arms open. Eight frames of a trot (its feet step in turn, one lifting as the other comes down, its body bobs and its tail wags), then each scene's pup getting up: at a desk it ducks down behind it, at a meeting behind the laptop, on its cushion it stretches. The app moves it a stride per frame, so it walks the whole way, and turns round with a squash.
 - `hug-visit-work`, `hug-visit-meeting`, `hug-visit-rest-<blanket>`: the authored hug poses mapped back onto the receiver's everyday size and place, without their own props. Layers `receiver`, `visitor` and (tucking in) `blanket`, exported as one row each so each pup keeps its own colours and the blanket the one chosen for it. In a meeting the receiver keeps its headset.
+- `rest-tucked-<blanket>`: after a hug at its cushion a pup keeps the blanket while it sleeps on: the everyday sleeping loop (first row, the same frames) with the blanket over it up to its chin, under its ear, breathing with it (second row, in the blanket's own colours).
 - `desk-<scene>`: each scene's desk, laptop or cushion without its pup; where paws hid the keyboard and mouse, their rows of keys and the mouse's other half fill in. It is drawn while its pup is away, and over the hug, so the desk stays in front.
 
 ## How transitions move

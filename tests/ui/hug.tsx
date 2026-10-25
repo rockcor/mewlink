@@ -39,7 +39,8 @@ export function Checks() {
     <section className="pet-zone" style={{ '--tray-height': '50px' } as CSSProperties}>
       <div className="pet-pair paired interacting interaction-hug">
         {(['self', 'partner'] as const).map(side => <button key={side} className={`pet-avatar ${side}-pet ${hugAvatarClass(role(side), now)}`}>
-          <SpriteCanvas skin={skins[side]} paused={false} className={`${spriteClass(scenes[side])} ${side === 'partner' ? 'partner-sprite' : ''}`} />
+          <SpriteCanvas skin={skins[side]} paused={false} className={`${spriteClass(scenes[side])} ${side === 'partner' ? 'partner-sprite' : ''} ${
+            side === target && scenes[side] === 'rest' && now?.tuckedIn ? `tucked-${blanket}` : ''}`} />
           <HugScenery id={id} role={role(side)} moment={now} scene={scenes[side]} visual={visual} skins={pair} blanket={blanket} paused={false} />
         </button>)}
         <HugWalk key={id} id={id} skin={pair.sender} scale={speed} paused={false} reducedMotion={false} onMoment={setMoment}

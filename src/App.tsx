@@ -17,6 +17,7 @@ import { dayInstant, formatDuration, partnerClock } from './history/days';
 import { consumeCup, restorePendingCups, waterClickAction, type PendingCups, type PetTarget } from './pet/pendingCups';
 import { deskAsset, HUG_HOLD_MS, hugAvatarClass, hugRoom, hugScene, hugSkins, planHug, seatOf, visitAsset, visitSpotOf, type HugMoment, type HugWalk as HugWay } from './pet/hugVisit';
 import { HugScenery, HugWalk } from './components/HugWalk';
+import { loadTucked, saveTucked, stillTucked } from './pet/tucked';
 import type { ActivityKind, ActivitySegment, BlanketStyle, CupStyle, InteractionKind, InteractionPayload, PetSkin, PlainEvent, StatisticsPayload, StatisticsVisibility, StoredEvent, WorkVisual } from './domain/types';
 import { cupStyles } from './domain/types';
 import {
@@ -95,6 +96,8 @@ export default function App() {
   const activePomodoro = selfPomodoroPhase === 'over' ? undefined : pomodoro;
   /** Where the hug showing now is: the sender away from its desk, the receiver hosting the hug. */
   const [hugMoment, setHugMoment] = useState<HugMoment>();
+  /** Pups a hug tucked in, with the blanket they keep while they sleep on. */
+  const [tucked, setTucked] = useState(loadTucked);
   const [reducedMotion] = useState(() => typeof window.matchMedia === 'function' && window.matchMedia('(prefers-reduced-motion: reduce)').matches);
   const [pendingCups, setPendingCups] = useState(loadPendingCups);
   const pendingCupsRef = useRef(pendingCups);
@@ -1240,6 +1243,24 @@ export default function App() {
     void preloadSprite(visit).catch(() => undefined);
     for (const name of [...desks, 'hug-walker']) new Image().src = `/pets/animations/${name}.png`;
   }, [hugAssets, renderPaused]);
+  // As a hug at a sleeping pup's cushion ends, it keeps the blanket; it is
+  // gone once the pup gets up (or, for TA's, when TA is no longer paired).
+  const onHugMoment = (moment: HugMoment) => {
+    setHugMoment(moment);
+    if (!moment.tuckedIn || moment.id !== hug?.id || hugReceiverScene !== 'rest') return;
+    const side = hug.target;
+    setTucked(current => current[side] === hugBlanket ? current : saveTucked({ ...current, [side]: hugBlanket }));
+  };
+  const selfAsleep = sceneOf.self.scene === 'rest' && !selfPlayback.transition;
+  const partnerAsleep = connected && sceneOf.partner.scene === 'rest' && !partnerPlayback.transition;
+  const asleep = { self: selfAsleep, partner: partnerAsleep };
+  useEffect(() => {
+    setTucked(current => {
+      const next = stillTucked(current, { self: selfAsleep, partner: partnerAsleep });
+      return next === current ? current : saveTucked(next);
+    });
+  }, [selfAsleep, partnerAsleep]);
+  const tuckedClass = (side: PetTarget) => asleep[side] && tucked[side] ? `tucked-${tucked[side]}` : '';
   const hugRole = (side: PetTarget) => hug ? (hug.target === side ? 'receiver' as const : 'sender' as const) : undefined;
   const hugScenery = (side: PetTarget) => hug && <HugScenery id={hug.id} role={hugRole(side)!} moment={hugNow}
     scene={sceneOf[side].scene} visual={sceneOf[side].visual} skins={gestureSkins} blanket={hugBlanket} paused={renderPaused} />;
@@ -1284,7 +1305,7 @@ export default function App() {
             onWheel={event => handlePetPinch(event, 'self')}
           >
             <SpriteCanvas skin={companions.self.skin} paused={renderPaused}
-              className={`pet-sprite ${selfPlayback.displayedActivity} ${selfPlayback.displayedActivity === 'work' ? `work-${selfPlayback.displayedWorkVisual}` : ''} input-${selfPlayback.transition ? 'none' : visualInputKind} ${inputStressed && !selfPlayback.transition ? 'input-stressed' : ''} ${selfPlayback.transition ? 'transition-source-frame' : ''}`}
+              className={`pet-sprite ${selfPlayback.displayedActivity} ${selfPlayback.displayedActivity === 'work' ? `work-${selfPlayback.displayedWorkVisual}` : ''} input-${selfPlayback.transition ? 'none' : visualInputKind} ${inputStressed && !selfPlayback.transition ? 'input-stressed' : ''} ${selfPlayback.transition ? 'transition-source-frame' : ''} ${tuckedClass('self')}`}
               aria-hidden="true"
               onLoopBoundary={selfPlayback.handleLoopBoundary}
             />
@@ -1313,7 +1334,7 @@ export default function App() {
             onWheel={event => handlePetPinch(event, 'partner')}
           >
             <SpriteCanvas skin={partnerSkin} paused={renderPaused}
-              className={`pet-sprite partner-sprite ${partnerPlayback.displayedActivity} ${partnerPlayback.displayedActivity === 'work' ? `work-${partnerPlayback.displayedWorkVisual}` : ''} input-${partnerPlayback.transition ? 'none' : partnerWinding ? (partnerWindingPaw ? 'pointer' : 'none') : playing ? visualInputForActivity(partnerActivity, history.hands.keyboard, history.hands.pointer) : liveShown ? visualInputForActivity(partnerActivity, live.hands.keyboard, live.hands.pointer) : 'none'} ${(playing ? history.hands.stressed : liveShown && live.hands.stressed) && !partnerPlayback.transition ? 'input-stressed' : ''} ${liveShown ? 'live' : ''} ${playing ? 'replaying' : ''} ${partnerPlayback.transition ? 'transition-source-frame' : ''}`}
+              className={`pet-sprite partner-sprite ${partnerPlayback.displayedActivity} ${partnerPlayback.displayedActivity === 'work' ? `work-${partnerPlayback.displayedWorkVisual}` : ''} input-${partnerPlayback.transition ? 'none' : partnerWinding ? (partnerWindingPaw ? 'pointer' : 'none') : playing ? visualInputForActivity(partnerActivity, history.hands.keyboard, history.hands.pointer) : liveShown ? visualInputForActivity(partnerActivity, live.hands.keyboard, live.hands.pointer) : 'none'} ${(playing ? history.hands.stressed : liveShown && live.hands.stressed) && !partnerPlayback.transition ? 'input-stressed' : ''} ${liveShown ? 'live' : ''} ${playing ? 'replaying' : ''} ${partnerPlayback.transition ? 'transition-source-frame' : ''} ${tuckedClass('partner')}`}
               aria-hidden="true"
               onLoopBoundary={partnerPlayback.handleLoopBoundary}
             />
@@ -1331,7 +1352,7 @@ export default function App() {
           </button>}
           {displayedGesture && !hug && <SpriteCanvas key={displayedGesture.id} skin={gestureSkins.receiver} paused={renderPaused} className={`interaction-sprite ${displayedGesture.variant} target-${displayedGesture.target} cup-${displayedGesture.cupStyle ?? 'ceramic'}`} aria-hidden="true" />}
           {hug && <HugWalk key={hug.id} id={hug.id} skin={gestureSkins.sender} scale={durationScale} paused={renderPaused} reducedMotion={reducedMotion}
-            onMoment={setHugMoment} walk={hugWayFor(hug.target)} />}
+            onMoment={onHugMoment} walk={hugWayFor(hug.target)} />}
           {(['self', 'partner'] as const).map(target => pendingCups[target] && !(displayedGesture?.target === target && displayedGesture.variant.startsWith('water')) && <span key={target} className={`waiting-cup target-${target} ${pendingCups[target]!.style}`} aria-label={text.water}><i /><i /></span>)}
         </div>
         {/* Under the pets, never over them: notices and news under mine, TA's replay under TA's. */}

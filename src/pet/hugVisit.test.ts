@@ -91,10 +91,11 @@ describe('a hug in place', () => {
 
   it('tells the avatars when the sender is away and when the receiver hosts the hug', () => {
     const plan = planHug(way('self'));
-    expect(hugPhase(plan, 0)).toEqual({ senderAway: true, hosting: false, done: false });
-    expect(hugPhase(plan, plan.host[0] + 1)).toEqual({ senderAway: true, hosting: true, done: false });
-    expect(hugPhase(plan, plan.host[1] + 1)).toEqual({ senderAway: true, hosting: false, done: false });
-    expect(hugPhase(plan, plan.duration)).toEqual({ senderAway: false, hosting: false, done: true });
+    expect(hugPhase(plan, 0)).toEqual({ senderAway: true, hosting: false, tuckedIn: false, done: false });
+    expect(hugPhase(plan, plan.host[0] + 1)).toEqual({ senderAway: true, hosting: true, tuckedIn: false, done: false });
+    // As the hug ends, a sleeping receiver is tucked in.
+    expect(hugPhase(plan, plan.host[1] + 1)).toEqual({ senderAway: true, hosting: false, tuckedIn: true, done: false });
+    expect(hugPhase(plan, plan.duration)).toEqual({ senderAway: false, hosting: false, tuckedIn: true, done: true });
     // At half speed everything takes twice as long.
     expect(hugPhase(plan, plan.host[0] + 1, 2).hosting).toBe(false);
     expect(hugPhaseMarks(plan, 2)).toEqual([0, plan.duration * 2, plan.host[0] * 2, plan.host[1] * 2]);
