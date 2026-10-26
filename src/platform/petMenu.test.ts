@@ -20,4 +20,12 @@ describe('the pets’ right-click menu', () => {
     created[0].action();
     expect(pick).toHaveBeenCalledWith('top');
   });
+  it('can switch from top to bottom and keeps the supplied language', async () => {
+    const pick = vi.fn();
+    await showLayerMenu('top', { top: 'Keep on top', bottom: 'Keep below' }, pick);
+    expect(created.map(({ text, checked }) => [text, checked])).toEqual([['Keep on top', true], ['Keep below', false]]);
+    expect(popup).toHaveBeenCalledOnce();
+    created[1].action();
+    expect(pick).toHaveBeenCalledWith('bottom');
+  });
 });

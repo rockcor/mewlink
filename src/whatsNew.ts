@@ -4,6 +4,10 @@ import { compareVersions } from './services/update';
 // What a release brings, said once in a cloud under the pets after updating to
 // it, under the version's title. Keep each to a sentence that fits two short
 // lines; every release from 0.3.31 on needs one (src/whatsNew.test.ts).
+// Pending NEXT release (do not rewrite published 0.3.35 news):
+// zh: 右键小狗即可选择置于顶层或底层，无需打开设置
+// zh-Hant: 右鍵小狗即可選擇置於頂層或底層，無需開啟設定
+// en: Right-click a pup to keep its window on top or below, without opening settings.
 export const WHATS_NEW: Record<string, Record<Language, string>> = {
   '0.3.35': {
     zh: '钥匙串授权未完成时暂停连接，避免连续弹窗；原配对保留',
