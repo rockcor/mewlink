@@ -5,6 +5,11 @@ import { compareVersions } from './services/update';
 // it, under the version's title. Keep each to a sentence that fits two short
 // lines; every release from 0.3.31 on needs one (src/whatsNew.test.ts).
 export const WHATS_NEW: Record<string, Record<Language, string>> = {
+  '0.3.35': {
+    zh: '钥匙串授权未完成时暂停连接，避免连续弹窗；原配对保留',
+    'zh-Hant': '鑰匙圈授權未完成時暫停連線，避免連續彈窗；原配對保留',
+    en: 'Keychain denial pauses connections instead of repeating prompts; your pairing stays.',
+  },
   '0.3.34': {
     zh: '盖好的被子会留在睡着的小狗身上，抱完走开也不带走，起身后再收起',
     'zh-Hant': '蓋好的被子會留在睡著的小狗身上，抱完走開也不帶走，起身後再收起',
