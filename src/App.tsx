@@ -28,6 +28,7 @@ import {
 } from './pairing/pairing';
 import { securePairing, SecureStorageError } from './pairing/secureStore';
 import { initializeRatchet, nativeRatchet, RatchetError, type RatchetStatus } from './crypto/ratchet';
+import { credentialAccessRequired } from './pairing/credentialAccess';
 import { activityProbe, nextActivity, demoInitialActivity, demoInitialWorkVisual, inputBurstReached, inputBurstSampleForSequence, inputChangesForSequence, INPUT_STRESS_HOLD_MS, keyboardEventsForSequence, nextSampleDelay, POINTER_ANIMATION_HOLD_MS, POINTER_EVENTS_PER_ANIMATION, pointerClicksForSequence, pointerEventsForSequence, shouldAnimatePointer, trimInputBurst, visualInputForActivity, workVisualFor, type InputBurstSample, type InputSignal } from './platform/activity';
 import { ACTIVITY_TRANSITION_MS, gestureFor, waterDrinkDelay, type GestureVariant, sceneFor } from './pet/interaction';
 import { transitionAssetName, useActivityPlayback } from './pet/activityPlayback';
@@ -338,11 +339,11 @@ export default function App() {
   const persistPairing = useCallback(async (next: PairingState) => {
     try {
       await securePairing.save(next);
-    } catch {
+    } catch (error) {
       pairingBlockedRef.current = true;
       setPairingReady(false);
-      setPairingStatus(textRef.current.secureStorageError);
-      throw new SecureStorageError();
+      setPairingStatus(credentialAccessRequired(error) ? textRef.current.keychainAuthorizationRequired : textRef.current.secureStorageError);
+      throw new SecureStorageError(error);
     }
     pairingRef.current = next;
     setPairing(next);
@@ -363,10 +364,10 @@ export default function App() {
   // Call inside the shared session queue when the relay confirms a revoked pair.
   const forgetRevokedPair = useCallback(async (active: PairingState) => {
     pairingBlockedRef.current = true;
-    try { await securePairing.beginRevocation(active); } catch {
+    try { await securePairing.beginRevocation(active); } catch (error) {
       setPairingReady(false);
-      setPairingStatus(textRef.current.secureStorageError);
-      throw new SecureStorageError();
+      setPairingStatus(credentialAccessRequired(error) ? textRef.current.keychainAuthorizationRequired : textRef.current.secureStorageError);
+      throw new SecureStorageError(error);
     }
     pairingRef.current = undefined;
     setPairing(undefined);
@@ -390,7 +391,8 @@ export default function App() {
       setPairingReady(true);
       if (securePairing.pending()) setPairingStatus(textRef.current.revocationPending);
       else if (restored && !restored.ratchet) setPairingStatus(textRef.current.ratchetUpgrade);
-    }).catch(() => { if (!stopped) setPairingStatus(textRef.current.secureStorageError); });
+    }).catch(error => { if (!stopped) setPairingStatus(credentialAccessRequired(error)
+      ? textRef.current.keychainAuthorizationRequired : textRef.current.secureStorageError); });
     return () => { stopped = true; };
   }, [sessionQueue]);
 
@@ -399,7 +401,14 @@ export default function App() {
     let stopped = false;
     const retry = () => {
       void sessionQueue(async () => { if (!stopped) await finishRevocation(); })
-        .catch(() => { if (!stopped) setPairingStatus(textRef.current.revocationPending); });
+        .catch(error => {
+          if (stopped) return;
+          if (credentialAccessRequired(error)) {
+            pairingBlockedRef.current = true;
+            setPairingReady(false);
+            setPairingStatus(textRef.current.keychainAuthorizationRequired);
+          } else setPairingStatus(textRef.current.revocationPending);
+        });
     };
     retry();
     const timer = window.setInterval(retry, 15_000);
@@ -710,7 +719,12 @@ export default function App() {
           setPresenceNow(Date.now());
         });
       } catch (error) {
-        if (!stopped && !pairingBlockedRef.current) setPairingStatus(error instanceof RatchetError ? text.ratchetStorageError : text.connectionRetry);
+        if (stopped) return;
+        if (credentialAccessRequired(error)) {
+          pairingBlockedRef.current = true;
+          setPairingReady(false);
+          setPairingStatus(text.keychainAuthorizationRequired);
+        } else if (!pairingBlockedRef.current) setPairingStatus(error instanceof RatchetError ? text.ratchetStorageError : text.connectionRetry);
       }
     };
     const sync = () => {
@@ -946,8 +960,9 @@ export default function App() {
       });
       setPairingStatus(text.waitingForInvite);
     } catch (error) {
-      if (!(error instanceof SecureStorageError)) pairingBlockedRef.current = !pairingRef.current;
-      setPairingStatus(error instanceof SecureStorageError ? text.secureStorageError
+      if (credentialAccessRequired(error)) { pairingBlockedRef.current = true; setPairingReady(false); }
+      else if (!(error instanceof SecureStorageError)) pairingBlockedRef.current = !pairingRef.current;
+      setPairingStatus(credentialAccessRequired(error) ? text.keychainAuthorizationRequired : error instanceof SecureStorageError ? text.secureStorageError
         : securePairing.pending() ? text.revocationPending : text.createInviteError);
     } finally {
       pairingBusyRef.current = false;
@@ -969,8 +984,9 @@ export default function App() {
       setJoinCode('');
       setPairingStatus(text.ratchetVerify);
     } catch (error) {
-      if (!(error instanceof SecureStorageError)) pairingBlockedRef.current = !pairingRef.current;
-      setPairingStatus(error instanceof RatchetError && error.code === 'upgrade_required' ? text.ratchetUpgrade
+      if (credentialAccessRequired(error)) { pairingBlockedRef.current = true; setPairingReady(false); }
+      else if (!(error instanceof SecureStorageError)) pairingBlockedRef.current = !pairingRef.current;
+      setPairingStatus(credentialAccessRequired(error) ? text.keychainAuthorizationRequired : error instanceof RatchetError && error.code === 'upgrade_required' ? text.ratchetUpgrade
         : error instanceof SecureStorageError ? text.secureStorageError : text.connectError);
     } finally {
       pairingBusyRef.current = false;
@@ -998,7 +1014,10 @@ export default function App() {
           verified: status.verified, safetyNumber: status.safetyNumber } });
         setPairingStatus(text.connected);
       });
-    } catch { setPairingStatus(text.ratchetStorageError); }
+    } catch (error) {
+      if (credentialAccessRequired(error)) { pairingBlockedRef.current = true; setPairingReady(false); }
+      setPairingStatus(credentialAccessRequired(error) ? text.keychainAuthorizationRequired : text.ratchetStorageError);
+    }
     finally { pairingBusyRef.current = false; setPairingBusy(false); }
   }
 
@@ -1023,9 +1042,9 @@ export default function App() {
         setPairingStatus(text.revocationPending);
         try { await finishRevocation(); } catch { /* Durable retry on reconnect. */ }
       });
-    } catch {
+    } catch (error) {
       setPairingReady(false);
-      setPairingStatus(text.secureStorageError);
+      setPairingStatus(credentialAccessRequired(error) ? text.keychainAuthorizationRequired : text.secureStorageError);
     } finally {
       pairingBusyRef.current = false;
       setPairingBusy(false);

@@ -16,6 +16,42 @@ are bounded and platform errors are reduced to codes without logging secrets.
 Keychain calls run off the UI thread and use a process-wide lock. Unsupported
 platforms fail instead of using keyring's mock backend.
 
+### Bounded macOS authorization (2026-10-24)
+
+Pairing and ratchet reads/writes share `credentials.rs`. Every macOS operation
+first runs with Keychain interaction disabled. An authorization failure permits
+one interactive operation per item per process. Cancellation, denial, or another
+failure to authorize that item pauses credential access for the entire process;
+relay timers, live typing and history retries cannot reopen the dialog. The user
+must deliberately reopen the app to try again. A temporary Allow is not treated
+as durable authorization. This bounds interactive attempts, not the number of
+system dialogs within an initial operation (macOS can check both ACL layers).
+
+The process-wide Security interaction setting is guarded by one mutex across
+both stores and restored after each probe. Existing items are updated in place;
+only item-not-found permits creation. A denied lookup must never cause add,
+delete, ACL replacement or a plaintext fallback. Ratchet anchor rotation,
+durable read-back verification and rollback checks remain unchanged. Windows
+continues using its existing Credential Manager backend.
+
+Read-only inspection on this machine found `cdhash:` partitions for both
+release credentials, despite a stable certificate-backed designated
+requirement. Apple validates this partition independently from the trusted-app
+ACL. With self-signed code and no Apple Team ID, a changed binary can still
+need initial authorization after an update. The bounded policy fixes repeated
+background prompts; it does not promise zero upgrade prompts. Developer ID
+signing is the normal path to a stable Team ID (no App Store listing required).
+Do not remove the partition protection, trust all apps, or use an Apple-signed
+shell/tool as a credential proxy to avoid this check.
+
+`swift -suppress-warnings scripts/keychain-access-check.swift` reports only the
+QA app's credential ACL metadata. Pass `app.mewlink.desktop` to inspect the
+two release ACLs. It never asks for secret data, allows an authorization UI,
+or changes a credential. No private key or pairing data appears in its output.
+
+References: [Apple partition validation implementation](https://github.com/apple-oss-distributions/Security/blob/main/securityd/src/acls.cpp),
+[Apple access control lists](https://developer.apple.com/documentation/security/access-control-lists).
+
 The record has three states: active, revoking and empty. Active stores the
 relationship and its counters. Revoking retains only the relationship ID,
 device ID and relay token. Empty is a tombstone, not a deleted credential; this
@@ -64,9 +100,10 @@ self-signed certificate (`MACOS_SELF_SIGNED_CERTIFICATE`, base64 PKCS#12, and
 keychain and trusts its public half (`src-tauri/macos/mewlink-self-signed.pem`)
 for code signing (Tauri's own certificate import only accepts Apple-issued
 identity names), and the build is
-checked to carry that exact certificate. Keychain items are bound to the code
-signature, so a stable certificate keeps users' "Always Allow" across updates;
-ad-hoc signatures change on every build. The private key lives only in the
+checked to carry that exact certificate. The trusted-app requirement stays
+stable, but self-signed apps still have per-binary cdhash partitions rather
+than a Developer ID Team ID; updates may therefore need authorization again.
+Ad-hoc signatures also change on every build. The private key lives only in the
 GitHub secret and with the maintainer (`~/.mewlink-signing/`); losing it means
 users approve Keychain access once more after the next update. With them, the workflow uses Tauri's Developer ID
 signing/notarization flow, then runs codesign, stapler and Gatekeeper checks.

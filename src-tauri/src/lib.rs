@@ -1,6 +1,7 @@
 use serde::Serialize;
 use tauri::Manager;
 mod autostart;
+mod credentials;
 mod language;
 mod live;
 mod ratchet;

@@ -14,7 +14,12 @@ test('MewLink QA is a separate app: own identifier, keychain items and data', ()
   assert.equal(qa.productName, 'MewLink QA');
   // Keychain items follow the identifier (secure_storage::keychain_service).
   assert.match(readFileSync('src-tauri/src/secure_storage.rs', 'utf8'), /format!\("\{identifier\}\.\{item\}"\)/);
-  assert.match(readFileSync('src-tauri/src/ratchet/store.rs', 'utf8'), /keychain_service\("ratchet"\)/);
+  assert.match(readFileSync('src-tauri/src/ratchet/store.rs', 'utf8'), /credentials::read\(crate::credentials::Item::Ratchet\)/);
+  assert.match(readFileSync('src-tauri/src/secure_storage.rs', 'utf8'), /credentials::read\(crate::credentials::Item::Pairing\)/);
+  const credentials = readFileSync('src-tauri/src/credentials.rs', 'utf8');
+  assert.match(credentials, /Self::Ratchet => \("ratchet", "anchor-v1"\)/);
+  assert.match(credentials, /Self::Pairing => \("pairing", "pairing-v2"\)/);
+  assert.match(credentials, /secure_storage::keychain_service\(service\)/);
 });
 
 test('MewLink QA is never updated to a release, and needs no updater key', () => {

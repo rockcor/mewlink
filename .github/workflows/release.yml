@@ -107,7 +107,7 @@ jobs:
         with:
           args: --target ${{ matrix.target }} --bundles ${{ matrix.bundles }}
           uploadUpdaterJson: false
-      # Same certificate for every release, so macOS Keychain "Always Allow" survives updates.
+      # Pin the trusted-app identity; self-signed cdhash partitions may still need upgrade authorization.
       - uses: tauri-apps/tauri-action@v0
         if: steps.signing.outputs.selfsigned == 'true'
         env:

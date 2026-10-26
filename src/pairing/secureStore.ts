@@ -1,5 +1,6 @@
 import { invoke, isTauri } from '@tauri-apps/api/core';
 import { isPairingState, LEGACY_PAIRING_STORAGE_KEY, type PairingState } from './pairing';
+import { credentialAccessRequired } from './credentialAccess';
 
 export type Revocation = Pick<PairingState, 'relationshipId' | 'relayToken' | 'deviceId'>;
 type RecordV2 = { version: 2 } & (
@@ -10,7 +11,9 @@ type RecordV2 = { version: 2 } & (
 export interface SecretBackend { read(): Promise<string | null>; write(value: string): Promise<void> }
 type LegacyStorage = Pick<Storage, 'getItem' | 'removeItem'>;
 export class SecureStorageError extends Error {
-  constructor() { super('secure_storage_unavailable'); }
+  constructor(cause?: unknown) {
+    super(credentialAccessRequired(cause) ? 'secure_storage_authorization_required' : 'secure_storage_unavailable');
+  }
 }
 
 // All commands share one queue, including sync, send and unpair. A request from
