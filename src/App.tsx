@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties, type PointerEvent as ReactPointerEvent, type WheelEvent as ReactWheelEvent } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties, type MouseEvent as ReactMouseEvent, type PointerEvent as ReactPointerEvent, type WheelEvent as ReactWheelEvent } from 'react';
 import { invoke } from '@tauri-apps/api/core';
 import { getCurrentWindow } from '@tauri-apps/api/window';
 import { v4 as uuid } from 'uuid';
@@ -12,6 +12,7 @@ import { PomodoroTimer } from './components/PomodoroTimer';
 import { clearOfMyCup } from './pomodoro/placement';
 import { finishedWhileAway, fromPayload, loadPomodoro, minutesLeft, newPomodoro, pomodoroEnd, pomodoroPhase, savePomodoro, toPayload, type Pomodoro } from './pomodoro/pomodoro';
 import { allowNotifications, notify } from './platform/notify';
+import { showLayerMenu } from './platform/petMenu';
 import { usePomodoroClock, useWindingPaw } from './pomodoro/usePomodoroClock';
 import { dayInstant, formatDuration, partnerClock } from './history/days';
 import { consumeCup, restorePendingCups, waterClickAction, type PendingCups, type PetTarget } from './pet/pendingCups';
@@ -1092,6 +1093,14 @@ export default function App() {
     }
   }
 
+  // Right-clicking the pets: keep the window above or below other windows (as in settings).
+  function showPetContextMenu(event: ReactMouseEvent) {
+    if (!isTauriWindow || settingsOpen || statisticsOpen) return;
+    event.preventDefault();
+    void showLayerMenu(preferences.windowLayer, text.windowLayers,
+      windowLayer => setPreferences(current => ({ ...current, windowLayer }))).catch(() => undefined);
+  }
+
   function revealPetMenu() {
     window.clearTimeout(menuCloseTimer.current);
     setPetMenuOpen(true);
@@ -1286,7 +1295,8 @@ export default function App() {
 
   return (
     <main className="desktop-pet" style={motionStyle} data-render-paused={renderPaused}>
-      <section style={{ '--tray-height': `${trayHeight}px` } as CSSProperties} className={`pet-zone ${trayHeight < 49.5 ? 'tray-above' : ''} ${settingsOpen || statisticsOpen ? 'settings-open' : ''}`} aria-label={connected ? text.petZone : text.soloPetZone} lang={languageTags[preferences.language]}>
+      <section style={{ '--tray-height': `${trayHeight}px` } as CSSProperties} className={`pet-zone ${trayHeight < 49.5 ? 'tray-above' : ''} ${settingsOpen || statisticsOpen ? 'settings-open' : ''}`} aria-label={connected ? text.petZone : text.soloPetZone} lang={languageTags[preferences.language]}
+        onContextMenu={showPetContextMenu}>
         <div
           id="pet-menu"
           className={`hover-ui ${connected ? 'paired' : 'solo'} ${petMenuOpen ? 'menu-visible' : ''}`}
