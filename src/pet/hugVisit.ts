@@ -82,8 +82,8 @@ export const WALKER = {
 };
 /** How far the walker gets each frame at its everyday size (frame pixels): a trot. */
 const STRIDE = 15;
-/** It comes out from behind its desk (laptop), rising over these frames (frame pixels below the floor). */
-const EMERGE: Record<HugScene, readonly number[]> = { work: [92, 64, 36, 14, 4], meeting: [100, 70, 40, 16, 4], rest: [] };
+/** It comes out from behind its desk, rising over these frames (frame pixels below the floor). */
+const EMERGE: Record<HugScene, readonly number[]> = { work: [92, 64, 36, 14, 4], meeting: [92, 64, 36, 14, 4], rest: [] };
 const TURN = [{ facing: 0, squash: 0.62 }, { facing: 1, squash: 0.62 }, { facing: 1, squash: 1 }];
 // Over a pup sleeping on its cushion the walker is in front; at a desk, behind it.
 const zFor = (scene: HugScene) => scene === 'rest' ? 3 : 0;

@@ -4,6 +4,9 @@
 --   aseprite -b --script-param root=$PWD --script-param build=/tmp/mewlink-rig \
 --     --script art/aseprite/build-animation-master.lua
 --
+-- To export a few strips again without rewriting the master, render only
+-- them (build.py --only meeting ...) and add --script-param master=keep.
+--
 -- The rig animates the approved artwork split into layers. This script
 -- imports every animation as a tag on one layered sprite, converts it to the
 -- shared indexed palette, saves mewlink-pet-animation-master.aseprite, then
@@ -72,7 +75,9 @@ app.activeSprite = sprite
 sprite:setPalette(palette)
 app.command.ChangePixelFormat { format = "indexed", dithering = "none" }
 sprite.transparentColor = 0
-sprite:saveAs(projectPath)
+-- With --script-param master=keep (and build.py --only), only those strips are
+-- exported again and the full master is left as it is.
+if app.params.master ~= "keep" then sprite:saveAs(projectPath) end
 
 local function flatten(frameNumber)
   local image = Image(width, height, ColorMode.INDEXED)

@@ -14,12 +14,13 @@ they match the neighbouring loop frames pixel for pixel.
 from __future__ import annotations
 
 import math
+from functools import lru_cache
 
 import numpy as np
 
 import fx as fxlib
 from cutout import H, W, bbox, load, over, scale_about, split, warp
-from pixel import Canvas
+from pixel import Canvas, capsule, ellipse, ramp, rrect
 
 N_LOOP, N_TRANSITION, N_INTERACTION = 24, 32, 24
 # Watching videos is drawn at the desk (the app's sceneFor), so there is no leisure scene.
@@ -31,7 +32,7 @@ LAYERS = ["back", "pet", "front", "fx"]
 # keep the props still when the pose changes.
 ALIGN = {"peak_meeting": (-11, 0), "peak_rest": (1, 0)}
 # Rows below this stay pinned when the pup nods (top edge of the laptop / TV).
-NOD_BELOW = {"meeting": 150, "rest": 256, "idle": 256}
+NOD_BELOW = {"meeting": 190, "rest": 256, "idle": 256}
 BACK_PROPS = {"rest", "idle"}
 # Away from the computer the pup simply sleeps: idle shows the rest scene.
 SLEEPS = {"idle": "rest"}
@@ -107,12 +108,7 @@ def loop_frame(state, i, n=N_LOOP):
     t = i / n
     state = SLEEPS.get(state, state)
     if state == "meeting":
-        pose = "peak_meeting" if i in (8, 9, 10, 18, 19) else "base_meeting"
-        nod = (0, -2, -3, -2, 0, 1)[i % 6]
-        sy = 0.97 if i in (8, 18) else 1.0
-        dog = _pose_warp(dog_of(pose), sy=sy, lean=2 * math.sin(2 * math.pi * t), nod=nod, nod_below=NOD_BELOW["meeting"])
-        fx = [{"k": "wave", "x": 238, "y": 108}] if i % 3 != 2 else []
-        return frame(pet=dog, front=props_of(pose), fx=fx_layer(fx))
+        return meeting_frame(i)
     if state == "rest":
         pose = "peak_rest" if i in (14, 15) else "base_rest"
         dog = _pose_warp(dog_of(pose), sy=1 + 0.03 * math.sin(2 * math.pi * t))
@@ -146,6 +142,8 @@ def scene_parts(state, visual):
     state = SLEEPS.get(state, state)
     if state == "work":
         dog, props = split(f"{visual}_input_none")
+    elif state == "meeting":
+        dog, props = meeting_pup(), meeting_props()
     else:
         name = {"meeting": "base_meeting", "rest": "base_rest"}[state]
         dog, props = dog_of(name), props_of(name)
@@ -166,6 +164,8 @@ def same_scene(a, b):
 def transition(a, b, visual_a="code", visual_b="code"):
     if SLEEPS.get(a, a) == SLEEPS.get(b, b):
         return same_scene(a, b)
+    if {a, b} == {"work", "meeting"}:
+        return headset_on(visual_a) if a == "work" else headset_off(visual_b)
     a, b = SLEEPS.get(a, a), SLEEPS.get(b, b)
     frames = []
     dog_a, props_a, anchor_a = scene_parts(a, visual_a)
@@ -259,6 +259,171 @@ def transition(a, b, visual_a="code", visual_b="code"):
     return frames
 
 
+# --------------------------------------------------------------------------- the meeting, at the desk
+
+# A meeting is the working pup at its own desk with a headset on and a call
+# on its screen: nothing moves to get there. The headset comes down onto its
+# head and the screen connects; afterwards it lifts off again.
+HEADSET = ramp("#0d0812", "#a83f55", "#d45e6c", "#fc9a98", "#fdd9d7")
+CUP = ramp("#0d0812", "#30092e", "#2a0828", "#470d45", "#6a2763")
+TILE = ramp("#1b1534", "#4a3a78", "#5a4890", "#6b56a8", "#7f6bbd")
+FACE = ramp("#2b0f17", "#d9b99b", "#f3d7b4", "#fdf0dc", "#fffaf0")
+EAR = ramp("#2b0f17", "#c2465a", "#e9717e", "#fc9a98", "#fdd9d7")
+# The monitor's content (the same for every screen), and the window in it.
+SCREEN = (55, 116, 149, 193)
+SCREEN_WINDOW = (63, 126, 141, 190)
+# Rows of the 3x art grid: frame y = 3 * native y - 2 (as fx_layer).
+_NY, _NX = np.mgrid[0:86, 0:128].astype(np.float64) + 0.5
+
+
+def _native(layer):
+    big = layer.repeat(3, 0).repeat(3, 1)
+    return big[2:2 + H, :W].copy()
+
+
+@lru_cache(maxsize=None)
+def headset():
+    """The meeting headset, drawn on the art's grid for the working pup's head
+    (every desk frame has the same head): a band over its head, a cup over
+    each ear, and the mic on the right."""
+    cv = Canvas()
+    cx, cy, rx, ry, t = 78.7, 27.3, 26.0, 19.5, 1.7
+    band = ellipse(cx, cy, rx + t, ry + t) & ~ellipse(cx, cy, rx - t, ry - t) & (_NY < cy)
+    cv.part("pet", band, HEADSET, shade=(0, 1), hi=ellipse(cx, cy, rx + t, ry + t) & ~ellipse(cx, cy, rx + t - 0.9, ry + t - 0.9) & (_NY < cy - 8))
+    cups = ((-1, 52.7), (1, 104.7))
+    for side, x in cups:
+        cv.part("mid", ellipse(x, 28.6, 4.6, 6.6), HEADSET, shade=(side, 1), hi=ellipse(x + side * 1.6, 25.6, 1.4, 2.0))
+    for side, x in cups:
+        cv.part("paws", ellipse(x - side * 1.6, 28.8, 2.0, 5.0), CUP, shade=(0, 1), outline=False)
+    boom = capsule(103.6, 34.6, 96.4, 39.2, 0.75) | capsule(96.4, 39.2, 91.0, 40.9, 0.75)
+    cv.part("front", boom, HEADSET, shade=None)
+    cv.part("fx", capsule(87.8, 41.2, 90.6, 41.2, 1.5), HEADSET, shade=(0, 1), hi=ellipse(88.0, 40.4, 0.8, 0.5))
+    return _native(cv.composite())
+
+
+@lru_cache(maxsize=None)
+def call_screen():
+    """A call on the monitor: four friends' pups in little windows."""
+    cv = Canvas()
+    tiles = [(22.5, 43.5, 33.5, 52.5), (35.0, 43.5, 46.0, 52.5), (22.5, 54.0, 33.5, 63.0), (35.0, 54.0, 46.0, 63.0)]
+    faces = [((x0 + x1) / 2, y1 - 3.6, y1) for x0, y0, x1, y1 in tiles]
+    for x0, y0, x1, y1 in tiles:
+        cv.part("back", rrect(x0, y0, x1, y1, 1.0), TILE, shade=(0, 1))
+    for fx_, fy, _ in faces:
+        cv.part("pet", ellipse(fx_ - 2.9, fy - 0.2, 1.1, 2.0) | ellipse(fx_ + 2.9, fy - 0.2, 1.1, 2.0), EAR, shade=None)
+    for fx_, fy, bottom in faces:
+        cv.part("mid", ellipse(fx_, fy, 2.6, 2.4) | rrect(fx_ - 3.4, fy + 1.6, fx_ + 3.4, bottom - 0.5, 1.2), FACE, shade=(0, 1))
+    eyes = np.zeros(_NX.shape, bool)
+    for fx_, fy, _ in faces:
+        for dx in (-1.1, 1.1):
+            eyes |= (np.abs(_NX - (fx_ + dx)) < 0.5) & (np.abs(_NY - (fy - 0.1)) < 0.5)
+    cv.fill("front", eyes, FACE["ol"])
+    return _native(cv.composite())
+
+
+def _area(box):
+    mask = np.zeros((H, W), bool)
+    x0, y0, x1, y1 = box
+    mask[y0:y1, x0:x1] = True
+    return mask
+
+
+@lru_cache(maxsize=None)
+def meeting_props():
+    """The working desk with the call on its screen (in the MewLink screen's frame)."""
+    props = split("mewlink_input_none")[1].copy()
+    window = _area(SCREEN_WINDOW) & (props[:, :, 3] > 0)
+    navy = props[150, 60].copy()
+    props[window] = navy
+    call = call_screen()
+    drawn = window & (call[:, :, 3] > 0)
+    props[drawn] = call[drawn]
+    return props
+
+
+def _screen_of(screen, visual):
+    """The desk props with a work screen, the call, or the call connecting (a blank screen)."""
+    if screen == "call":
+        return meeting_props()
+    props = split(f"{visual}_input_none")[1].copy()
+    if screen == "blank":
+        props[_area(SCREEN) & (props[:, :, 3] > 0)] = meeting_props()[150, 60]
+    return props
+
+
+def meeting_pup(lift=0):
+    """The working pup with the headset on (or `lift` px above its head)."""
+    pup = split("code_input_none")[0]
+    gear = headset()
+    if lift:
+        gear = warp(gear, dy=-lift) if lift < H else np.zeros_like(gear)
+    return over(pup, gear)
+
+
+def meeting_frame(i, lift=0, screen="call", visual="code", calm=1.0, sy=1.0, waves=True):
+    """A frame of the meeting at the desk: it nods and leans as it talks, and
+    its voice comes out of the mic."""
+    i %= N_LOOP
+    t = i / N_LOOP
+    nod = (0, -2, -3, -2, 0, 1)[i % 6] * calm
+    pet = _pose_warp(meeting_pup(lift), sy=sy, lean=1.5 * math.sin(2 * math.pi * t) * calm, nod=nod,
+                     nod_below=NOD_BELOW["meeting"])
+    fx = [{"k": "wave", "x": 290, "y": 116}] if waves and i % 3 != 2 else []
+    return frame(pet=pet, front=_screen_of(screen, visual), fx=fx_layer(fx))
+
+
+def headset_on(visual):
+    """Work to meeting, in place: the headset comes down onto its head with a
+    little bounce and the call connects; then it is talking."""
+    frames = [loop_end("work", visual)]
+    lifts = (110, 92, 72, 52, 32, 14, 4, -3, 0)
+    for j in range(1, N_TRANSITION):
+        landing = j <= len(lifts)
+        lift = lifts[j - 1] if landing else 0
+        screen = visual if j <= 6 else "blank" if j == 7 else "call"
+        sy = 0.97 if j == 8 else 1.01 if j == 9 else 1.0
+        frames.append(meeting_frame((j - (N_TRANSITION - 1)) % N_LOOP, lift=lift, screen="work" if screen == visual else screen,
+                                    visual=visual, calm=0.0 if j < 8 else min(1.0, (j - 7) / 4), sy=sy, waves=j >= 11))
+    frames[-1] = loop_start("meeting")
+    return frames
+
+
+def headset_off(visual):
+    """Meeting to work, in place: the headset lifts off and away, the screen
+    goes back to work, and it types again."""
+    frames = [loop_end("meeting")]
+    lifts = (0, 4, 12, 24, 40, 60, 84, 112, 150)
+    for j in range(1, len(lifts) + 1):
+        screen = "call" if j <= 4 else "blank" if j == 5 else "work"
+        frames.append(meeting_frame(N_LOOP - 1 + j, lift=lifts[j - 1], screen=screen, visual=visual,
+                                    calm=max(0.0, 1 - j / 6), waves=False))
+    typing = ("keyboard", "none", "keyboard", "pointer", "none", "both", "none", "keyboard", "none", "pointer")
+    while len(frames) < N_TRANSITION - 4:
+        frames.append(work_frame(typing[(len(frames) - 10) % len(typing)], visual))
+    while len(frames) < N_TRANSITION:
+        frames.append(loop_start("work", visual))
+    return frames
+
+
+def in_meeting(image):
+    """An authored desk frame (a cup arriving) as it looks in a meeting."""
+    out = image.copy()
+    call = meeting_props()
+    screen = _area(SCREEN) & (call[:, :, 3] > 0)
+    out[screen] = call[screen]
+    gear = headset()
+    worn = gear[:, :, 3] > 0
+    out[worn] = gear[worn]
+    return out
+
+
+def authored(prefix, n):
+    """Authored frame n of an interaction; in a meeting, the desk ones with the headset and the call."""
+    if prefix.startswith("water_meeting_"):
+        return in_meeting(load(f"water_work_{prefix[len('water_meeting_'):]}_{n}"))
+    return load(f"{prefix}_{n}")
+
+
 # --------------------------------------------------------------------------- interactions
 
 def _settle(pose_index, k, index):
@@ -272,7 +437,7 @@ def _authored_sequence(prefix, counts, nod_below=200, fx_fn=None, start=0):
     frames = []
     index = start
     for pose_index, count in enumerate(counts):
-        image = load(f"{prefix}_{pose_index + 1}")
+        image = authored(prefix, pose_index + 1)
         if prefix.startswith("hug"):
             image = without_hearts(image)
         for k in range(count):
@@ -387,7 +552,7 @@ def _align_params(base, target, region):
 
 def _cup_of(prefix):
     """The cup that appears in the second pose (pixels new on the right-hand side)."""
-    before, after = load(f"{prefix}_1"), load(f"{prefix}_2")
+    before, after = authored(prefix, 1), authored(prefix, 2)
     mask = (after[:, :, 3] > 0) & (before[:, :, 3] == 0)
     mask[:, :280] = False
     cup = np.zeros_like(after)
@@ -407,7 +572,7 @@ def water(prefix, counts=(5, 6, 7, 6)):
     if cup is None:
         frames = _authored_sequence(prefix, counts, nod_below=180, fx_fn=fx)
     else:
-        first = load(f"{prefix}_1")
+        first = authored(prefix, 1)
         frames = []
         for k in range(3):
             sy = _settle(0, k, k)
@@ -427,7 +592,7 @@ def _authored_sequence_from(prefix, counts, first_pose, nod_below, start, fx_fn,
     frames, index = [], start
     for offset, count in enumerate(counts):
         pose_index = first_pose - 1 + offset
-        image = load(f"{prefix}_{pose_index + 1}")
+        image = authored(prefix, pose_index + 1)
         if not hearts:
             image = without_hearts(image)
         for k in range(count):

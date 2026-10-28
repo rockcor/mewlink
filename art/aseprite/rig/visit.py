@@ -114,8 +114,8 @@ def _keyboard_and_mouse(desk):
 
 
 def _work_desk(visual):
-    dog, props = split(f"{visual}_input_none")
-    desk = props.copy()
+    """A work desk (or, for "meeting", the same desk with the call on its screen)."""
+    desk = (og.meeting_props() if visual == "meeting" else split(f"{visual}_input_none")[1]).copy()
     # The monitor stands in front of the pup; only an ear tip above and right
     # of its bezel was cut into the props.
     monitor = _zone_mask([("rect", 36, 104, 170, 192)])
@@ -125,19 +125,6 @@ def _work_desk(visual):
     stray = monitor & ((np.arange(H)[:, None] < top) | (np.arange(W)[None, :] > right))
     desk[stray] = 0
     desk = _keyboard_and_mouse(desk)
-    desk[~_components(desk[:, :, 3] > 0, 40)] = 0
-    return desk
-
-
-def _meeting_desk():
-    dog, props = split("base_meeting")
-    desk = props.copy()
-    # Above the laptop's top edge only the webcam belongs to it; the rest is
-    # the waving arm's and the headset cord's outline.
-    above = np.zeros((H, W), bool)
-    above[:146, :] = True
-    above[:, 140:157] = False
-    desk[above] = 0
     desk[~_components(desk[:, :, 3] > 0, 40)] = 0
     return desk
 
@@ -189,7 +176,7 @@ def desk(scene):
     if scene.startswith("work-"):
         return _work_desk(scene[5:])
     if scene == "meeting":
-        return _meeting_desk()
+        return _work_desk("meeting")
     if scene == "rest":
         return _rest_bed()
     raise ValueError(scene)
@@ -321,12 +308,30 @@ def _blanket_mask(prefix, pose):
     return mask & (a[:, :, 3] > 0)
 
 
+def _head(layer):
+    """Centre and top of a pup's head (its top 25 rows)."""
+    alpha = layer[:, :, 3] > 0
+    top = int(np.nonzero(alpha.any(1))[0].min())
+    xs = np.nonzero(alpha[top:top + 25].any(0))[0]
+    return (xs.min() + xs.max()) / 2, top
+
+
+def _wear_headset(receiver, visitor):
+    """The meeting headset moved onto the receiver's head as it is in a hug pose."""
+    x, y = _head(receiver[:, :W])
+    hx, hy = _head(split("code_input_none")[0])
+    gear = _wide(warp(og.headset(), dx=x - hx, dy=y - hy))
+    worn = (gear[:, :, 3] > 0) & (visitor[:, :, 3] == 0)
+    out = receiver.copy()
+    out[worn] = gear[worn]
+    return out
+
+
 @lru_cache(maxsize=None)
 def _hug_poses(kind):
     """Each authored pose of a hug as (receiver, visitor[, blanket]) layers on
-    the wide canvas, in the receiver's everyday geometry. In a meeting the
-    receiver keeps its headset and laptop: the visitor of the desk hug puts
-    its arms round the pup as it is."""
+    the wide canvas, in the receiver's everyday geometry. A meeting is at the
+    desk too: the receiver keeps its headset on."""
     group = "rest" if kind.startswith("rest") else "work"
     prefix = "hug_work" if kind == "meeting" else f"hug_{kind.replace('-', '_')}"
     first = 1 if group == "rest" else 0
@@ -362,14 +367,14 @@ def _hug_poses(kind):
             cover = kept_blanket & (pets[:, :, 3] > 0)
             extra = [np.where(cover[..., None], pets, 0).astype(np.uint8)]
             visitor[cover] = 0
-        if kind == "meeting":
-            # The visitor is in front: each pixel belongs to one of them.
-            receiver = _wide(og.dog_of("base_meeting"))
-            receiver[visitor[:, :, 3] > 0] = 0
-        elif group == "work":
+        if group == "work":
             right = int(np.nonzero(desk_props[150, :200, 3] > 0)[0].max())
             top = int(np.nonzero(desk_props[:, 100, 3] > 0)[0].min())
             receiver = _behind_monitor(receiver, np.where(~side[..., None], mapped, 0).astype(np.uint8), right + 1, top)
+        if kind == "meeting":
+            # In a meeting it keeps its headset on, on its head however it turns
+            # (the visitor in front of it).
+            receiver = _wear_headset(receiver, visitor)
         poses.append((receiver, visitor, *extra))
     return poses
 
@@ -415,8 +420,8 @@ def _warp_wide(layer, sy, sx, nod, nod_below, anchor):
 # the frames that take a pup from its seat line up with its scene pixel for pixel.
 ANCHOR = (192, 246)
 WALK_FRAMES = 8
-# How far a pup sinks behind its desk (laptop) as it gets up, frame by frame.
-SINK = {"work": (0, 18, 50, 100), "meeting": (0, 24, 60, 110)}
+# How far a pup sinks behind its desk as it gets up, frame by frame.
+SINK = (0, 18, 50, 100)
 
 
 def _walking_pup():
@@ -553,7 +558,7 @@ def scene_pup(scene):
     if scene == "rest":
         return og.loop_frame("rest", 0)["pet"]
     if scene == "meeting":
-        return og.loop_frame("meeting", 0)["pet"]
+        return og.meeting_pup()
     return split(f"{scene[5:] if scene.startswith('work-') else 'code'}_input_none")[0]
 
 
@@ -571,7 +576,7 @@ def leave_frames(scene):
     if scene == "rest":
         return [warp(placed, sy=sy, sx=1 / math.sqrt(sy), anchor=(ANCHOR[0], bbox(placed)[3])) for sy in (1.0, 0.95, 0.9, 1.06)]
     frames = []
-    for sink in SINK["meeting" if scene == "meeting" else "work"]:
+    for sink in SINK:
         frame = _shift(placed, 0, sink)
         # Below the floor it is under the desk.
         frame[ANCHOR[1]:] = 0 if sink else frame[ANCHOR[1]:]

@@ -1098,7 +1098,14 @@ export default function App() {
     if (!isTauriWindow || settingsOpen || statisticsOpen) return;
     event.preventDefault();
     void showLayerMenu(preferences.windowLayer, text.windowLayers,
-      windowLayer => setPreferences(current => ({ ...current, windowLayer }))).catch(() => undefined);
+      windowLayer => setPreferences(current => ({ ...current, windowLayer })))
+      .catch(() => undefined)
+      // Closing the native menu hands focus back as if from the keyboard: no focus mark on a pup.
+      .finally(() => { if (document.activeElement instanceof HTMLElement && document.activeElement.closest('.pet-pair')) document.activeElement.blur(); });
+  }
+  // A right click never focuses a pup (it only opens the menu).
+  function keepFocusOnRightClick(event: ReactMouseEvent) {
+    if (event.button === 2 && !settingsOpen && !statisticsOpen) event.preventDefault();
   }
 
   function revealPetMenu() {
@@ -1296,7 +1303,7 @@ export default function App() {
   return (
     <main className="desktop-pet" style={motionStyle} data-render-paused={renderPaused}>
       <section style={{ '--tray-height': `${trayHeight}px` } as CSSProperties} className={`pet-zone ${trayHeight < 49.5 ? 'tray-above' : ''} ${settingsOpen || statisticsOpen ? 'settings-open' : ''}`} aria-label={connected ? text.petZone : text.soloPetZone} lang={languageTags[preferences.language]}
-        onContextMenu={showPetContextMenu}>
+        onContextMenu={showPetContextMenu} onMouseDown={keepFocusOnRightClick}>
         <div
           id="pet-menu"
           className={`hover-ui ${connected ? 'paired' : 'solo'} ${petMenuOpen ? 'menu-visible' : ''}`}

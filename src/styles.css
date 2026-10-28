@@ -212,10 +212,19 @@ button { font: inherit; }
   transition: transform 180ms cubic-bezier(.2, .8, .2, 1), right 180ms cubic-bezier(.2, .8, .2, 1);
 }
 
-.partner-pet:focus-visible {
-  outline: 3px solid rgba(129, 115, 198, .35);
-  outline-offset: -15px;
-  border-radius: 50%;
+/* Keyboard focus on a pup: a short mark under it, not a ring round its
+   whole (mostly see-through) box. */
+.pet-avatar:focus-visible::after {
+  content: '';
+  position: absolute;
+  left: 50%;
+  bottom: 2px;
+  width: 44px;
+  height: 3px;
+  border-radius: 2px;
+  background: rgba(129, 115, 198, .45);
+  transform: translateX(-50%);
+  pointer-events: none;
 }
 
 .pet-pair.interacting .pet-avatar { filter: saturate(1.08) brightness(1.03); }
