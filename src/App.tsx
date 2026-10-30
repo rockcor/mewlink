@@ -58,6 +58,7 @@ import { growthScale, partnerGrowthLevel } from './statistics/growth';
 import { appCopy } from './i18n';
 import { queueDesktopWindow, setDesktopPanel } from './platform/desktopPanel';
 import { petWindowLayout } from './platform/petWindow';
+import { holdPetPointer, usePixelPointer } from './platform/usePixelPointer';
 import './styles.css';
 import './pet.css';
 import './settings-panel.css';
@@ -1164,6 +1165,12 @@ export default function App() {
     else hidePetMenuSoon();
   }
 
+  usePixelPointer(isTauriWindow, target => {
+    if (settingsOpen || statisticsOpen) return;
+    if (target === 'self' || target === 'partner' || target === 'menu') revealPetMenu();
+    else hidePetMenuSoon();
+  }, () => suppressPetClick.current);
+
   function revealPetMenu() {
     window.clearTimeout(menuCloseTimer.current);
     menuCloseTimer.current = undefined;
@@ -1224,6 +1231,7 @@ export default function App() {
     petDragStart.current = undefined;
     event.preventDefault();
     void getCurrentWindow().startDragging().finally(() => {
+      void holdPetPointer(false).catch(() => undefined);
       window.setTimeout(() => { suppressPetClick.current = false; }, 80);
     });
   }

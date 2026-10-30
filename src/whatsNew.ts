@@ -4,6 +4,9 @@ import { compareVersions } from './services/update';
 // What a release brings, said once in a cloud under the pets after updating to
 // it, under the version's title. Keep each to a sentence that fits two short
 // lines; every release from 0.3.31 on needs one (src/whatsNew.test.ts).
+// Next release: 只响应可见的小狗和按钮；透明处可点击后面的窗口，悬停小狗即可展开菜单。
+// Next release (zh-Hant): 只回應可見的小狗和按鈕；透明處可點擊後方視窗，懸停小狗即可展開選單。
+// Next release (en): Hover visible pet pixels for the menu; transparent space passes clicks through.
 export const WHATS_NEW: Record<string, Record<Language, string>> = {
   '0.3.40': {
     zh: '窗口贴近菜单；钥匙串需授权时可在设置恢复，启动不再自动弹窗',

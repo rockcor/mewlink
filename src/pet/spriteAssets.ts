@@ -51,6 +51,8 @@ export function spriteAssetFor(className: string): string {
   const classes = className.split(/\s+/);
   const transition = classes.find(name => name.startsWith('transition-') && name !== 'transition-source-frame');
   if (transition) return transition;
+  const desk = classes.find(name => name.startsWith('desk-'));
+  if (desk) return desk;
   const visit = classes.find(name => name.startsWith('hug-visit-'));
   if (visit) return visit;
   const interaction = classes.find(name => name.startsWith('water-'));

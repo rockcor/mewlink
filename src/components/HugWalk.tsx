@@ -4,6 +4,8 @@ import { deskAsset, hugAvatarClass, hugPhase, hugPhaseMarks, planHug, visitAsset
   type HugMoment, type HugRole, type HugScene, type HugWalk as Walk } from '../pet/hugVisit';
 import { petSkinFilters } from '../pet/skins';
 import { SpriteCanvas } from '../pet/SpriteCanvas';
+import { frameFromPosition, spriteSheets } from '../pet/spriteAssets';
+import { registerSpritePixels } from '../pet/hitTest';
 
 interface SceneryProps {
   id: string;
@@ -23,7 +25,8 @@ interface SceneryProps {
 export function HugScenery({ id, role, moment, scene, visual, skins, blanket, paused }: SceneryProps) {
   const shown = hugAvatarClass(role, moment);
   if (!shown) return null;
-  const desk = <span className={`hug-desk ${deskAsset(scene, visual)}`} aria-hidden="true" />;
+  const desk = <SpriteCanvas skin={role === 'sender' ? skins.sender : skins.receiver} paused={paused}
+    className={`hug-desk ${deskAsset(scene, visual)}`} aria-hidden="true" />;
   if (shown === 'hug-away') return desk;
   return <>
     {scene === 'rest' && desk}
@@ -56,6 +59,18 @@ export function HugWalk({ id, walk, skin, scale, paused, reducedMotion, onMoment
   const walker = useRef<HTMLSpanElement>(null);
   const report = useRef(onMoment);
   useLayoutEffect(() => { report.current = onMoment; });
+  useEffect(() => {
+    const node = walker.current;
+    if (!node || paused) return;
+    const lease = spriteSheets.acquire('hug-walker');
+    let cancelled = false;
+    let unregister = () => {};
+    void lease.ready.then(sheet => {
+      if (!cancelled) unregister = registerSpritePixels(node, sheet,
+        () => frameFromPosition(getComputedStyle(node).backgroundPositionX, sheet.frames));
+    }).catch(() => undefined);
+    return () => { cancelled = true; unregister(); lease.release(); };
+  }, [paused]);
 
   useEffect(() => {
     const elapsed = () => performance.now() - startedAt;
@@ -74,7 +89,7 @@ export function HugWalk({ id, walk, skin, scale, paused, reducedMotion, onMoment
   }, [plan, scale, paused, startedAt]);
 
   if (!plan.frames.length) return null;
-  return <span ref={walker} className="hug-walker" aria-hidden="true" style={{
+  return <span ref={walker} className="hug-walker" data-pet-target={walk.sender} aria-hidden="true" style={{
     transformOrigin: `${WALKER.anchorX}px ${WALKER.anchorY}px`, backgroundSize: `${WALKER.frames * 100}% 100%`,
     filter: `${petSkinFilters[skin]} drop-shadow(0 13px 10px rgba(86, 45, 67, .16))`,
   }} />;

@@ -302,6 +302,7 @@ button { font: inherit; }
 .whats-new-shadow { fill: rgba(69, 36, 55, .1); }
 .whats-new-outline { fill: #ecd0da; stroke: #ecd0da; stroke-width: 2px; }
 .whats-new-fill { fill: #fffaf7; }
+.whats-new-fill > * { pointer-events: fill; }
 .whats-new:hover .whats-new-fill { fill: #fff; }
 .whats-new:focus-visible { outline: 2px solid #d986a5; outline-offset: 3px; }
 

@@ -4,6 +4,7 @@ mod autostart;
 mod credentials;
 mod language;
 mod live;
+mod pointer;
 mod ratchet;
 mod resources;
 mod secure_storage;
@@ -813,6 +814,7 @@ pub fn run() {
         .plugin(tauri_plugin_notification::init())
         .plugin(tauri_plugin_updater::Builder::new().build())
         .manage(window_layout::DesktopLayout::default())
+        .manage(pointer::PointerPolicy::default())
         .manage(resources::ResourceState::default())
         .manage(live::LiveState::default())
         .invoke_handler(tauri::generate_handler![
@@ -831,7 +833,10 @@ pub fn run() {
             window_layout::restore_pet_position,
             window_layout::set_pet_size,
             window_layout::pet_tray_height,
-            window_layout::set_pet_layer
+            window_layout::set_pet_layer,
+            pointer::pet_pointer_position,
+            pointer::set_pet_pointer_capture,
+            pointer::hold_pet_pointer
         ])
         .setup(|app| {
             // Before anything touches the keychain: a QA build keeps items of its own.
@@ -843,6 +848,7 @@ pub fn run() {
                     &window,
                     &app.state::<window_layout::DesktopLayout>(),
                 )?;
+                pointer::panel(&window, false)?;
             }
             Ok(())
         })

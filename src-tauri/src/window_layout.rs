@@ -215,15 +215,19 @@ pub fn set_panel_open(
         let panel = panel_bounds(pet, area, scale);
         // Remember the pet, not the expanded panel, even while the panel is being dragged.
         *saved = Some(pet);
-        if let Err(error) = place(&window, panel, true) {
+        if let Err(error) =
+            crate::pointer::panel(&window, true).and_then(|_| place(&window, panel, true))
+        {
             let _ = place(&window, pet, false);
             *saved = None;
+            let _ = crate::pointer::panel(&window, false);
             return Err(error);
         }
     } else if let Some(pet) = *saved {
         let (area, _) = monitor_area(&window, pet)?;
         place(&window, pet.fit(area, 0), false)?;
         *saved = None;
+        crate::pointer::panel(&window, false)?;
     }
     Ok(())
 }

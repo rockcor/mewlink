@@ -3,6 +3,7 @@ import type { PetSkin } from '../domain/types';
 import { petSkinFilters } from './skins';
 import { frameFromPosition, SOURCE_FRAME_HEIGHT as H, SOURCE_FRAME_WIDTH as W, spriteAssetFor, spriteSheets } from './spriteAssets';
 import { spriteClock } from './frameClock';
+import { registerSpritePixels } from './hitTest';
 
 interface Props extends HTMLAttributes<HTMLSpanElement> {
   skin: PetSkin; senderSkin?: PetSkin; paused: boolean;
@@ -40,6 +41,7 @@ export function SpriteCanvas({ skin, senderSkin, paused, className = '', onLoopB
     const lease = spriteSheets.acquire(asset);
     let cancelled = false;
     let timer: number | undefined;
+    let unregisterPixels = () => {};
     void lease.ready.then(sheet => {
       if (cancelled) return;
       if (surface.width !== W + PAD * 2) surface.width = W + PAD * 2;
@@ -74,6 +76,7 @@ export function SpriteCanvas({ skin, senderSkin, paused, className = '', onLoopB
       // Older WKWebView versions retain colors using a small-canvas CSS fallback.
       if (!layered) surface.style.filter = nativeFilter ? 'none' : `${petSkinFilters[skin]} drop-shadow(0 ${shadow[0]}px ${shadow[1]}px rgba(86,45,67,${shadow[2]}))`;
       let previousFrame = -1;
+      unregisterPixels = registerSpritePixels(node, sheet, () => Math.max(0, previousFrame));
       // A tucked-in pup is its sleeping loop with a blanket over it: it breathes on without a restart.
       const clockAsset = asset.startsWith('rest-tucked-') ? (className.split(/\s+/).includes('idle') ? 'idle' : 'rest') : asset;
       const loop = ['idle', 'meeting', 'rest'].includes(clockAsset) && !className.includes('transition-source-frame');
@@ -128,8 +131,8 @@ export function SpriteCanvas({ skin, senderSkin, paused, className = '', onLoopB
         timer = window.setTimeout(paint, reduced ? 1000 : clock.nextMs);
       };
       paint();
-    }).catch(() => { if (!cancelled) setFailed(true); });
-    return () => { cancelled = true; window.clearTimeout(timer); lease.release(); };
+    }).catch(() => { unregisterPixels(); if (!cancelled) setFailed(true); });
+    return () => { cancelled = true; unregisterPixels(); window.clearTimeout(timer); lease.release(); };
   }, [asset, className, paused, skin, senderSkin]);
   return <span {...props} ref={element} data-sprite={asset} className={`${className} ${failed ? '' : 'canvas-sprite'}`}
     onAnimationIteration={event => {
