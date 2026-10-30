@@ -4,11 +4,12 @@ import { compareVersions } from './services/update';
 // What a release brings, said once in a cloud under the pets after updating to
 // it, under the version's title. Keep each to a sentence that fits two short
 // lines; every release from 0.3.31 on needs one (src/whatsNew.test.ts).
-// Pending next release (keep published 0.3.36 news unchanged):
-// zh: 开会时小狗留在自己的桌前戴上耳机；键盘焦点改为小标记
-// zh-Hant: 開會時小狗留在自己的桌前戴上耳機；鍵盤焦點改為小標記
-// en: Meetings stay at your pup's desk with a headset; keyboard focus uses a small mark.
 export const WHATS_NEW: Record<string, Record<Language, string>> = {
+  '0.3.37': {
+    zh: '开会时小狗留在自己的桌前戴上耳机；键盘焦点改为小标记',
+    'zh-Hant': '開會時小狗留在自己的桌前戴上耳機；鍵盤焦點改為小標記',
+    en: 'Meetings stay at your pup\'s desk with a headset; keyboard focus uses a small mark.',
+  },
   '0.3.36': {
     zh: '右键小狗即可选择置于顶层或底层，无需打开设置',
     'zh-Hant': '右鍵小狗即可選擇置於頂層或底層，無需開啟設定',
