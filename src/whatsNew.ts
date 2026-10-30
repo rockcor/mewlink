@@ -4,6 +4,10 @@ import { compareVersions } from './services/update';
 // What a release brings, said once in a cloud under the pets after updating to
 // it, under the version's title. Keep each to a sentence that fits two short
 // lines; every release from 0.3.31 on needs one (src/whatsNew.test.ts).
+// Pending next release (keep published 0.3.37 news unchanged):
+// zh: 微信聊天会回到工作画面，不再在通话后停留为开会状态
+// zh-Hant: 微信聊天會回到工作畫面，不再在通話後停留為開會狀態
+// en: WeChat chats return to the work screen instead of keeping your pup in a meeting.
 export const WHATS_NEW: Record<string, Record<Language, string>> = {
   '0.3.37': {
     zh: '开会时小狗留在自己的桌前戴上耳机；键盘焦点改为小标记',
