@@ -16,16 +16,20 @@ are bounded and platform errors are reduced to codes without logging secrets.
 Keychain calls run off the UI thread and use a process-wide lock. Unsupported
 platforms fail instead of using keyring's mock backend.
 
-### Bounded macOS authorization (2026-10-24)
+### Explicit macOS authorization (2026-10-30)
 
 Pairing and ratchet reads/writes share `credentials.rs`. Every macOS operation
-first runs with Keychain interaction disabled. An authorization failure permits
-one interactive operation per item per process. Cancellation, denial, or another
-failure to authorize that item pauses credential access for the entire process;
-relay timers, live typing and history retries cannot reopen the dialog. The user
-must deliberately reopen the app to try again. A temporary Allow is not treated
-as durable authorization. This bounds interactive attempts, not the number of
-system dialogs within an initial operation (macOS can check both ACL layers).
+always runs with Keychain interaction disabled, including at startup after a
+restart or update. An authorization failure pauses the connection and preserves
+the pairing. Only the explicit Settings "Authorize Keychain" action can enable
+interaction: it serially probes the two fixed items and permits at most one
+interactive attempt for each. Denial stops the attempt before the next item;
+background retries and restarting the app cannot open a prompt. The person can
+retry from Settings without restarting or unpairing. After authorization, both
+items must pass silent read-back before the UI retries restoring the connection.
+A temporary Allow is not treated as durable authorization. This bounds attempts,
+not the number of system dialogs within an explicit operation (macOS can check
+both ACL layers).
 
 The process-wide Security interaction setting is guarded by one mutex across
 both stores and restored after each probe. Existing items are updated in place;
@@ -38,8 +42,9 @@ Read-only inspection on this machine found `cdhash:` partitions for both
 release credentials, despite a stable certificate-backed designated
 requirement. Apple validates this partition independently from the trusted-app
 ACL. With self-signed code and no Apple Team ID, a changed binary can still
-need initial authorization after an update. The bounded policy fixes repeated
-background prompts; it does not promise zero upgrade prompts. Developer ID
+need initial authorization after an update. Manual recovery prevents unsolicited
+startup/background prompts; it does not eliminate the authorization requirement
+or guarantee password-free upgrades. Developer ID
 signing is the normal path to a stable Team ID (no App Store listing required).
 Do not remove the partition protection, trust all apps, or use an Apple-signed
 shell/tool as a credential proxy to avoid this check.

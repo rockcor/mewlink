@@ -4,6 +4,9 @@ import { compareVersions } from './services/update';
 // What a release brings, said once in a cloud under the pets after updating to
 // it, under the version's title. Keep each to a sentence that fits two short
 // lines; every release from 0.3.31 on needs one (src/whatsNew.test.ts).
+// Next release: 窗口贴近菜单；钥匙串需要授权时可在设置恢复，启动不再自动弹窗。
+// Next release (zh-Hant): 視窗貼近選單；鑰匙圈需要授權時可在設定恢復，啟動不再自動彈窗。
+// Next release (en): A snug menu frame; authorize Keychain in settings, with no startup prompts.
 export const WHATS_NEW: Record<string, Record<Language, string>> = {
   '0.3.39': {
     zh: '鼠标只响应小狗和桌面，减少上方透明空白的误触',

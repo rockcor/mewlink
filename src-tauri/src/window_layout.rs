@@ -54,8 +54,22 @@ impl Default for DesktopLayout {
     }
 }
 
-// The saved v1 position describes the old 320px content, not the extra tray.
-// If fitting the larger frame lifts it, move the content down by the same amount.
+// The saved v1 position describes the old 320px content, not the extra tray
+// or the new compact frame. Preserve that anchor across all frame heights.
+fn saved_anchor_y(rect: Rect, scale: f64, tray_height: f64) -> i32 {
+    rect.y + rect.height as i32 - ((320.0 + tray_height) * scale).round() as i32
+}
+
+fn resize_pet(rect: Rect, width: u32, height: u32, scale: f64, tray_height: f64) -> Rect {
+    Rect {
+        y: saved_anchor_y(rect, scale, tray_height) + (370.0 * scale).round() as i32
+            - height as i32,
+        width,
+        height,
+        ..rect
+    }
+}
+
 fn fit_pet(rect: Rect, area: Rect, scale: f64, tray_height: f64) -> (Rect, f64) {
     let fitted = rect.fit(area, 0);
     let lift = f64::from(rect.y - fitted.y) / scale;
@@ -228,7 +242,7 @@ pub fn pet_window_position(
     let scale = window.scale_factor().map_err(|e| e.to_string())?;
     Ok(PhysicalPosition::new(
         rect.x,
-        rect.y + ((50.0 - tray_height) * scale).round() as i32,
+        saved_anchor_y(rect, scale, tray_height),
     ))
 }
 
@@ -243,10 +257,12 @@ pub fn restore_pet_position(
     if saved.is_some() {
         return Ok(());
     }
+    let current = bounds(&window)?;
+    let scale = window.scale_factor().map_err(|e| e.to_string())?;
     let rect = Rect {
         x,
-        y,
-        ..bounds(&window)?
+        y: y + (370.0 * scale).round() as i32 - current.height as i32,
+        ..current
     };
     let (area, _) = monitor_area(&window, rect)?;
     place_pet(&window, rect, area, &state)
@@ -265,29 +281,38 @@ fn pet_width(logical: f64, scale: f64) -> u32 {
     (logical.clamp(440.0, 800.0) * scale).round() as u32
 }
 
-/// Sets the pet window's width when the companions' distance changes. The left
-/// edge stays put (that is what the saved position records); while a panel is
-/// open, the pet size it returns to is updated instead.
+/// Fit the frame to the menu and pets. Resizing trims the TOP, never moves the
+/// desks; settings still use their separate full-size panel frame.
 #[tauri::command]
-pub fn set_pet_width(
+pub fn set_pet_size(
     window: WebviewWindow,
     state: State<'_, DesktopLayout>,
     width: f64,
+    height: f64,
 ) -> Result<(), String> {
     let mut saved = state.0.lock().map_err(|e| e.to_string())?;
     let scale = window.scale_factor().map_err(|e| e.to_string())?;
     let width = pet_width(width, scale);
+    let height = ((if height.is_finite() { height } else { 333.0 }).clamp(220.0, 600.0) * scale)
+        .round() as u32;
+    let mut tray_height = state.1.lock().map_err(|e| e.to_string())?;
     if let Some(pet) = saved.as_mut() {
-        pet.width = width;
+        if pet.width != width || pet.height != height {
+            let (area, _) = monitor_area(&window, *pet)?;
+            let desired = resize_pet(*pet, width, height, scale, *tray_height);
+            let (next, tray) = fit_pet(desired, area, scale, 50.0);
+            *pet = next;
+            *tray_height = tray;
+        }
         return Ok(());
     }
     let rect = bounds(&window)?;
-    if rect.width == width {
+    if rect.width == width && rect.height == height {
         return Ok(());
     }
     let (area, _) = monitor_area(&window, rect)?;
-    let mut tray_height = state.1.lock().map_err(|e| e.to_string())?;
-    let (next, next_tray_height) = fit_pet(Rect { width, ..rect }, area, scale, *tray_height);
+    let desired = resize_pet(rect, width, height, scale, *tray_height);
+    let (next, next_tray_height) = fit_pet(desired, area, scale, 50.0);
     *tray_height = next_tray_height;
     // Resize without taking focus, unlike opening a panel.
     let size = PhysicalSize::new(next.width, next.height);
@@ -323,6 +348,33 @@ pub fn set_pet_layer(window: WebviewWindow, bottom: bool) -> Result<(), String> 
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn trimming_headroom_keeps_desks_and_legacy_saved_position_still() {
+        for scale in [1.0, 1.25, 1.5, 2.0, 3.0] {
+            let original = Rect {
+                x: -900,
+                y: 300,
+                width: 440,
+                height: (370.0 * scale) as u32,
+            };
+            for tray in [0.0, 16.0, 50.0] {
+                let anchor = saved_anchor_y(original, scale, tray);
+                for logical_height in [282.0, 333.0, 410.0] {
+                    let compact =
+                        resize_pet(original, 500, (logical_height * scale) as u32, scale, tray);
+                    assert_eq!(saved_anchor_y(compact, scale, 50.0), anchor);
+                    assert_eq!(
+                        compact.y + compact.height as i32 - (50.0 * scale).round() as i32,
+                        original.y + original.height as i32 - (tray * scale).round() as i32
+                    );
+                    let restored =
+                        resize_pet(compact, original.width, original.height, scale, 50.0);
+                    assert_eq!(saved_anchor_y(restored, scale, 50.0), anchor);
+                }
+            }
+        }
+    }
+
     #[test]
     fn taller_frame_keeps_old_pet_baseline_at_bottom_edge() {
         for scale in [1.0, 1.25, 1.5, 2.0, 3.0] {

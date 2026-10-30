@@ -57,6 +57,7 @@ import { currentGrowthLevel, currentStatisticsBundle, flushStatistics, recordAct
 import { growthScale, partnerGrowthLevel } from './statistics/growth';
 import { appCopy } from './i18n';
 import { queueDesktopWindow, setDesktopPanel } from './platform/desktopPanel';
+import { petWindowLayout } from './platform/petWindow';
 import './styles.css';
 import './pet.css';
 import './settings-panel.css';
@@ -125,6 +126,9 @@ export default function App() {
   const pairingBlockedRef = useRef(true);
   const connected = Boolean(pairing?.partnerDeviceId && pairing.ratchet?.verified);
   const [pairingStatus, setPairingStatus] = useState('');
+  const [credentialLocked, setCredentialLocked] = useState(false);
+  const [credentialRetry, setCredentialRetry] = useState(0);
+  const authorizationBusy = useRef(false);
   const [pairingBusy, setPairingBusy] = useState(false);
   const pairingBusyRef = useRef(false);
   const [joinCode, setJoinCode] = useState('');
@@ -135,6 +139,8 @@ export default function App() {
   });
   const [notice, setNotice] = useState('');
   const [trayHeight, setTrayHeight] = useState(50);
+  const petMenuRef = useRef<HTMLDivElement>(null);
+  const [petMenuHeight, setPetMenuHeight] = useState(103);
   const gestureTimer = useRef<number | undefined>(undefined);
   const noticeTimer = useRef<number | undefined>(undefined);
   const menuCloseTimer = useRef<number | undefined>(undefined);
@@ -338,18 +344,43 @@ export default function App() {
     }
   }, [installAvailableUpdate, runUpdateCheck, text]);
 
+  const authorizationFailure = useCallback((error: unknown) => {
+    if (!credentialAccessRequired(error)) return false;
+    pairingBlockedRef.current = true;
+    setPairingReady(false);
+    setCredentialLocked(true);
+    return true;
+  }, []);
+
+  const authorizeStorage = async () => {
+    if (authorizationBusy.current) return;
+    authorizationBusy.current = true;
+    setPairingBusy(true);
+    try {
+      await sessionQueue(() => invoke('authorize_secure_storage'));
+      setCredentialLocked(false);
+      setPairingStatus('');
+      setCredentialRetry(value => value + 1);
+    } catch (error) {
+      setPairingStatus(authorizationFailure(error) ? text.keychainAuthorizationRequired : text.secureStorageError);
+    } finally {
+      authorizationBusy.current = false;
+      setPairingBusy(false);
+    }
+  };
+
   const persistPairing = useCallback(async (next: PairingState) => {
     try {
       await securePairing.save(next);
     } catch (error) {
       pairingBlockedRef.current = true;
       setPairingReady(false);
-      setPairingStatus(credentialAccessRequired(error) ? textRef.current.keychainAuthorizationRequired : textRef.current.secureStorageError);
+      setPairingStatus(authorizationFailure(error) ? textRef.current.keychainAuthorizationRequired : textRef.current.secureStorageError);
       throw new SecureStorageError(error);
     }
     pairingRef.current = next;
     setPairing(next);
-  }, []);
+  }, [authorizationFailure]);
 
   const finishRevocation = useCallback(async () => {
     const pending = securePairing.pending();
@@ -368,7 +399,7 @@ export default function App() {
     pairingBlockedRef.current = true;
     try { await securePairing.beginRevocation(active); } catch (error) {
       setPairingReady(false);
-      setPairingStatus(credentialAccessRequired(error) ? textRef.current.keychainAuthorizationRequired : textRef.current.secureStorageError);
+      setPairingStatus(authorizationFailure(error) ? textRef.current.keychainAuthorizationRequired : textRef.current.secureStorageError);
       throw new SecureStorageError(error);
     }
     pairingRef.current = undefined;
@@ -379,7 +410,7 @@ export default function App() {
     await securePairing.completeRevocation(active.relationshipId);
     setRevocationPending(false);
     setPairingStatus(textRef.current.disconnected);
-  }, []);
+  }, [authorizationFailure]);
 
   useEffect(() => {
     let stopped = false;
@@ -391,12 +422,13 @@ export default function App() {
       setPairing(restored);
       setRevocationPending(Boolean(securePairing.pending()));
       setPairingReady(true);
+      setCredentialLocked(false);
       if (securePairing.pending()) setPairingStatus(textRef.current.revocationPending);
       else if (restored && !restored.ratchet) setPairingStatus(textRef.current.ratchetUpgrade);
-    }).catch(error => { if (!stopped) setPairingStatus(credentialAccessRequired(error)
+    }).catch(error => { if (!stopped) setPairingStatus(authorizationFailure(error)
       ? textRef.current.keychainAuthorizationRequired : textRef.current.secureStorageError); });
     return () => { stopped = true; };
-  }, [sessionQueue]);
+  }, [sessionQueue, credentialRetry, authorizationFailure]);
 
   useEffect(() => {
     if (!pairingReady || !revocationPending) return;
@@ -405,7 +437,7 @@ export default function App() {
       void sessionQueue(async () => { if (!stopped) await finishRevocation(); })
         .catch(error => {
           if (stopped) return;
-          if (credentialAccessRequired(error)) {
+          if (authorizationFailure(error)) {
             pairingBlockedRef.current = true;
             setPairingReady(false);
             setPairingStatus(textRef.current.keychainAuthorizationRequired);
@@ -416,7 +448,7 @@ export default function App() {
     const timer = window.setInterval(retry, 15_000);
     window.addEventListener('online', retry);
     return () => { stopped = true; window.clearInterval(timer); window.removeEventListener('online', retry); };
-  }, [finishRevocation, pairingReady, revocationPending, sessionQueue]);
+  }, [finishRevocation, pairingReady, revocationPending, sessionQueue, authorizationFailure]);
 
   const enqueueEncryptedEvent = useCallback((createEvent: (active: PairingState) => PlainEvent) => {
     const relationshipId = pairingRef.current?.relationshipId;
@@ -607,13 +639,26 @@ export default function App() {
   // Alone, one companion always fits the default width.
   // When I hug TA, my pup stands at TA's right: the window keeps room for it there.
   const windowWidth = connected ? petWindowWidth(preferences.petDistancePercent, selfScale, partnerScale) + hugRoom(partnerScale) : PET_WINDOW_MIN_WIDTH;
+  const petLayout = petWindowLayout(petMenuHeight, selfScale, connected ? partnerScale : selfScale);
+  useEffect(() => {
+    const menu = petMenuRef.current;
+    if (!menu) return;
+    // Measure even while hidden. A wrapped menu, translated labels, or zoom
+    // must change the native frame, not leave an invisible strip above it.
+    const measure = () => setPetMenuHeight(Math.ceil(menu.scrollHeight));
+    const observer = new ResizeObserver(measure);
+    observer.observe(menu);
+    if (menu.firstElementChild) observer.observe(menu.firstElementChild);
+    measure();
+    return () => observer.disconnect();
+  }, []);
   useEffect(() => {
     if (!isTauriWindow) return;
     void queueDesktopWindow(async () => {
-      await invoke('set_pet_width', { width: windowWidth });
+      await invoke('set_pet_size', { width: windowWidth, height: petLayout.height });
       setTrayHeight(await invoke<number>('pet_tray_height'));
     }).catch(() => undefined);
-  }, [windowWidth]);
+  }, [windowWidth, petLayout.height]);
 
   useEffect(() => {
     if (!isTauriWindow) return;
@@ -722,7 +767,7 @@ export default function App() {
         });
       } catch (error) {
         if (stopped) return;
-        if (credentialAccessRequired(error)) {
+        if (authorizationFailure(error)) {
           pairingBlockedRef.current = true;
           setPairingReady(false);
           setPairingStatus(text.keychainAuthorizationRequired);
@@ -742,7 +787,7 @@ export default function App() {
     window.addEventListener('online', reconnect);
     const timer = window.setInterval(() => { void sync(); }, 2_500);
     return () => { stopped = true; syncNow.current = async () => undefined; window.clearInterval(timer); window.removeEventListener('online', reconnect); };
-  }, [pairing?.relationshipId, pairing?.deviceId, persistPairing, forgetRevokedPair, sessionQueue, text, drinkCup]);
+  }, [pairing?.relationshipId, pairing?.deviceId, persistPairing, forgetRevokedPair, sessionQueue, text, drinkCup, authorizationFailure]);
   useEffect(() => {
     let timer: number | undefined;
     let stopped = false;
@@ -962,8 +1007,7 @@ export default function App() {
       });
       setPairingStatus(text.waitingForInvite);
     } catch (error) {
-      if (credentialAccessRequired(error)) { pairingBlockedRef.current = true; setPairingReady(false); }
-      else if (!(error instanceof SecureStorageError)) pairingBlockedRef.current = !pairingRef.current;
+      if (!authorizationFailure(error) && !(error instanceof SecureStorageError)) pairingBlockedRef.current = !pairingRef.current;
       setPairingStatus(credentialAccessRequired(error) ? text.keychainAuthorizationRequired : error instanceof SecureStorageError ? text.secureStorageError
         : securePairing.pending() ? text.revocationPending : text.createInviteError);
     } finally {
@@ -986,8 +1030,7 @@ export default function App() {
       setJoinCode('');
       setPairingStatus(text.ratchetVerify);
     } catch (error) {
-      if (credentialAccessRequired(error)) { pairingBlockedRef.current = true; setPairingReady(false); }
-      else if (!(error instanceof SecureStorageError)) pairingBlockedRef.current = !pairingRef.current;
+      if (!authorizationFailure(error) && !(error instanceof SecureStorageError)) pairingBlockedRef.current = !pairingRef.current;
       setPairingStatus(credentialAccessRequired(error) ? text.keychainAuthorizationRequired : error instanceof RatchetError && error.code === 'upgrade_required' ? text.ratchetUpgrade
         : error instanceof SecureStorageError ? text.secureStorageError : text.connectError);
     } finally {
@@ -1017,7 +1060,7 @@ export default function App() {
         setPairingStatus(text.connected);
       });
     } catch (error) {
-      if (credentialAccessRequired(error)) { pairingBlockedRef.current = true; setPairingReady(false); }
+      authorizationFailure(error);
       setPairingStatus(credentialAccessRequired(error) ? text.keychainAuthorizationRequired : text.ratchetStorageError);
     }
     finally { pairingBusyRef.current = false; setPairingBusy(false); }
@@ -1046,7 +1089,7 @@ export default function App() {
       });
     } catch (error) {
       setPairingReady(false);
-      setPairingStatus(credentialAccessRequired(error) ? text.keychainAuthorizationRequired : text.secureStorageError);
+      setPairingStatus(authorizationFailure(error) ? text.keychainAuthorizationRequired : text.secureStorageError);
     } finally {
       pairingBusyRef.current = false;
       setPairingBusy(false);
@@ -1324,10 +1367,11 @@ export default function App() {
 
   return (
     <main className="desktop-pet" style={motionStyle} data-render-paused={renderPaused}>
-      <section style={{ '--tray-height': `${trayHeight}px` } as CSSProperties} className={`pet-zone ${trayHeight < 49.5 ? 'tray-above' : ''} ${settingsOpen || statisticsOpen ? 'settings-open' : ''}`} aria-label={connected ? text.petZone : text.soloPetZone} lang={languageTags[preferences.language]}
+      <section style={{ '--tray-height': `${trayHeight}px`, '--pet-menu-bottom': `${petLayout.menuBottom}px` } as CSSProperties} className={`pet-zone ${trayHeight < 49.5 ? 'tray-above' : ''} ${settingsOpen || statisticsOpen ? 'settings-open' : ''}`} aria-label={connected ? text.petZone : text.soloPetZone} lang={languageTags[preferences.language]}
         onContextMenu={showPetContextMenu} onMouseDown={keepPetPointerFocus}>
         <div
           id="pet-menu"
+          ref={petMenuRef}
           className={`hover-ui ${connected ? 'paired' : 'solo'} ${petMenuOpen ? 'menu-visible' : ''}`}
           onPointerEnter={revealPetMenu}
           onPointerLeave={hidePetMenuSoon}
@@ -1442,6 +1486,9 @@ export default function App() {
           feedbackStatus={feedbackStatus}
           pairing={pairing}
           pairingStatus={pairingStatus}
+          credentialLocked={credentialLocked}
+          storageAuthorizing={pairingBusy}
+          onAuthorizeStorage={() => { void authorizeStorage(); }}
           pairingBusy={pairingBusy || !pairingReady || revocationPending}
           inviteCode={inviteCode}
           joinCode={joinCode}

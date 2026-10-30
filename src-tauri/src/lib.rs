@@ -823,12 +823,13 @@ pub fn run() {
             language::system_languages,
             secure_storage::read_pairing_secure,
             secure_storage::write_pairing_secure,
+            credentials::authorize_secure_storage,
             ratchet::ratchet_command,
             live::live_command,
             window_layout::set_panel_open,
             window_layout::pet_window_position,
             window_layout::restore_pet_position,
-            window_layout::set_pet_width,
+            window_layout::set_pet_size,
             window_layout::pet_tray_height,
             window_layout::set_pet_layer
         ])

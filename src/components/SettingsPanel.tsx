@@ -28,6 +28,9 @@ interface SettingsPanelProps {
   feedbackStatus: string;
   pairing?: PairingState;
   pairingStatus: string;
+  credentialLocked: boolean;
+  storageAuthorizing: boolean;
+  onAuthorizeStorage: () => void;
   pairingBusy: boolean;
   inviteCode: string;
   joinCode: string;
@@ -121,6 +124,9 @@ export function SettingsPanel({
   feedbackStatus,
   pairing,
   pairingStatus,
+  credentialLocked,
+  storageAuthorizing,
+  onAuthorizeStorage,
   pairingBusy,
   inviteCode,
   joinCode,
@@ -202,6 +208,12 @@ export function SettingsPanel({
       </nav>
     }>
       <div key={page} id="settings-page" role="tabpanel" aria-labelledby={`settings-tab-${page}`}>
+        {credentialLocked && <article className="setting-block" aria-label={appCopy[preferences.language].authorizeKeychain}>
+          <p role="status">{appCopy[preferences.language].keychainAuthorizationRequired}</p>
+          <button type="button" className="pairing-primary" disabled={storageAuthorizing} onClick={onAuthorizeStorage}>
+            {appCopy[preferences.language].authorizeKeychain}
+          </button>
+        </article>}
         <article hidden={page !== 'general'} className="setting-row language-setting">
           <div><b>{text.language}</b><small>{text.languageNote}</small></div>
           <div className="mini-tabs language-options" role="group" aria-label={text.language}>
@@ -215,7 +227,7 @@ export function SettingsPanel({
             <div><b>{text.connect}</b><small>{text.connectNote}</small></div>
             {pairing && <span className={`pairing-badge ${pairing.partnerDeviceId ? 'connected' : ''}`}>{pairing.partnerDeviceId ? text.connected : inviteExpired ? text.expired : text.waiting}</span>}
           </div>
-          {!pairing && <>
+          {!pairing && !credentialLocked && <>
             <button type="button" className="pairing-primary" onClick={onCreatePairing} disabled={pairingBusy}>{text.createInvite}</button>
             <div className="pairing-divider"><span>{text.or}</span></div>
             <input className="pairing-code-input short-code" value={joinCode} maxLength={9} autoCapitalize="characters" autoComplete="off" spellCheck={false} onChange={event => {

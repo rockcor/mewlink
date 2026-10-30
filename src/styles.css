@@ -37,10 +37,10 @@ button { font: inherit; }
 }
 
 .hover-ui {
-  --menu-bottom: clamp(6px, calc(100% - var(--tray-height) - 174px), 166px);
+  --menu-bottom: var(--pet-menu-bottom, 174px);
   position: absolute;
   z-index: 5;
-  /* Keep the menu near the pet, but leave room above it on short displays. */
+  /* The native frame ends 6px above the measured menu, with no spare headroom. */
   bottom: calc(var(--menu-bottom) + var(--tray-height));
   left: calc(50% - var(--hug-room, 0px) / 2);
   display: grid;
@@ -256,9 +256,10 @@ button { font: inherit; }
   transform: translateX(-50%);
   pointer-events: none;
 }
-/* At the bottom edge, keep the pets anchored and use the extra space above
-   the menu instead of forcing a 50px strip below the screen. */
-.tray-above .pet-tray { top: 0; bottom: auto; }
+/* At the bottom edge, keep the pets anchored and put notices between the
+   menu and the pets rather than reserving invisible headroom above the menu. */
+.tray-above .pet-tray { top: auto; bottom: var(--pet-menu-bottom, 174px); }
+.tray-above .hover-ui { --menu-bottom: calc(var(--pet-menu-bottom, 174px) + 50px - var(--tray-height)); }
 .tray-slot {
   position: absolute;
   top: 0;

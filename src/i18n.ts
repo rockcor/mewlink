@@ -45,6 +45,7 @@ interface AppCopy {
   disconnected: string;
   secureStorageError: string;
   keychainAuthorizationRequired: string;
+  authorizeKeychain: string;
   revocationPending: string;
   ratchetUpgrade: string;
   ratchetVerify: string;
@@ -75,7 +76,8 @@ interface AppCopy {
 
 export const appCopy: Record<Language, AppCopy> = {
   zh: {
-    keychainAuthorizationRequired: '钥匙串授权未完成，连接已暂停，不会连续弹窗。请重新打开应用，并在提示中选择“始终允许”。原配对已保留，无需重新绑定。',
+    keychainAuthorizationRequired: '连接已暂停，原配对已保留。点“授权钥匙串”恢复，并在系统提示中选择“始终允许”；启动和后台不会自动弹窗。',
+    authorizeKeychain: '授权钥匙串',
     secureStorageError: '无法访问安全存储，连接已暂停。请允许访问系统钥匙串后重新打开应用。',
     revocationPending: '已停止本机收发，等待联网完成解绑。完成前暂不能建立新连接。',
     ratchetUpgrade: '请双方更新后解除旧绑定，重新生成配对码。旧连接的收发已暂停。',
@@ -94,7 +96,8 @@ export const appCopy: Record<Language, AppCopy> = {
     petZone: 'MewLink 双人桌面宠物', soloPetZone: 'MewLink 桌面宠物', partnerWaiting: '等待同步', actionsAria: '给 TA 一个小动作', hug: '拥抱', water: '喝水', changeCup: '换杯', replay: '回放', statistics: '统计', settings: '设置', myPet: status => `我的宠物：${status}`, partnerPet: status => `TA 的宠物：${status}`,
   },
   'zh-Hant': {
-    keychainAuthorizationRequired: '鑰匙圈授權未完成，連線已暫停，不會連續彈窗。請重新開啟應用程式，並在提示中選擇「永遠允許」。原配對已保留，無需重新綁定。',
+    keychainAuthorizationRequired: '連線已暫停，原配對已保留。點「授權鑰匙圈」恢復，並在系統提示中選擇「永遠允許」；啟動和背景不會自動彈窗。',
+    authorizeKeychain: '授權鑰匙圈',
     secureStorageError: '無法存取安全儲存，連線已暫停。請允許存取系統鑰匙圈後重新開啟應用程式。',
     revocationPending: '已停止本機收發，等待連網完成解除綁定。完成前暫不能建立新連線。',
     ratchetUpgrade: '請雙方更新後解除舊綁定，重新產生配對碼。舊連線的收發已暫停。',
@@ -113,7 +116,8 @@ export const appCopy: Record<Language, AppCopy> = {
     petZone: 'MewLink 雙人桌面寵物', soloPetZone: 'MewLink 桌面寵物', partnerWaiting: '等待同步', actionsAria: '給 TA 一個小動作', hug: '擁抱', water: '喝水', changeCup: '換杯', replay: '回放', statistics: '統計', settings: '設定', myPet: status => `我的寵物：${status}`, partnerPet: status => `TA 的寵物：${status}`,
   },
   en: {
-    keychainAuthorizationRequired: 'Keychain access was not authorized. Connections are paused; prompts will not repeat. Reopen MewLink and choose Always Allow. Your pairing is preserved; do not unpair.',
+    keychainAuthorizationRequired: 'Connection paused; your pairing is preserved. Click “Authorize Keychain” and choose Always Allow in the system prompt. Startup and background retries never open prompts.',
+    authorizeKeychain: 'Authorize Keychain',
     secureStorageError: 'Secure storage is unavailable. Connections are paused. Allow system credential access and reopen the app.',
     revocationPending: 'Sending and receiving stopped here. Unpairing will finish when online; new connections are paused until then.',
     ratchetUpgrade: 'Both people need to update, unpair and create a new code. The old connection is paused.',

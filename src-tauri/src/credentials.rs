@@ -1,7 +1,6 @@
 //! Only the app's two credentials. Never log backend errors or secret values.
-//! macOS probes silently first; each item may ask for authorization once per
-//! process. A denial (or a later loss of access) pauses all credential access
-//! until the person deliberately reopens the app, not the next relay poll.
+//! Startup and background operations NEVER enable Keychain UI. Authorization
+//! is a separate explicit Settings action, bounded across both fixed items.
 
 #[derive(Clone, Copy)]
 pub(crate) enum Item {
@@ -68,6 +67,22 @@ struct AccessGate {
 impl AccessGate {
     fn run<T>(
         &mut self,
+        _item: Item,
+        mut operation: impl FnMut(Interaction) -> Result<T, AccessError>,
+    ) -> Result<T, AccessError> {
+        if self.paused {
+            return Err(AccessError::Authorization);
+        }
+        let result = operation(Interaction::Silent);
+        if !matches!(result, Err(AccessError::Authorization)) {
+            return result;
+        }
+        self.paused = true;
+        result
+    }
+
+    fn authorize<T>(
+        &mut self,
         item: Item,
         mut operation: impl FnMut(Interaction) -> Result<T, AccessError>,
     ) -> Result<T, AccessError> {
@@ -90,6 +105,12 @@ impl AccessGate {
             self.paused = true;
         }
         result
+    }
+
+    /// Only a deliberate Settings action starts a new bounded attempt.
+    fn begin_authorization(&mut self) {
+        self.prompted = [false; 2];
+        self.paused = false;
     }
 }
 
@@ -127,6 +148,35 @@ mod macos {
         };
         // The guard restores the previous allowed state, on errors as well.
         operation()
+    }
+
+    fn probe(item: Item, mode: Interaction) -> Result<(), AccessError> {
+        let (service, account) = item.names();
+        with_interaction(mode, || {
+            let keychain =
+                SecKeychain::default_for_domain(SecPreferencesDomain::User).map_err(classify)?;
+            match keychain.find_generic_password(&service, account) {
+                Ok(_) => Ok(()), // drop password data immediately, never return it to the UI
+                Err(error) if error.code() == -25300 => Ok(()),
+                Err(error) => Err(classify(error)),
+            }
+        })
+    }
+
+    pub(super) fn authorize() -> Result<(), String> {
+        let mut gate = GATE.lock().map_err(|_| AccessError::Unavailable.code())?;
+        gate.begin_authorization();
+        for item in [Item::Pairing, Item::Ratchet] {
+            gate.authorize(item, |mode| probe(item, mode))
+                .map_err(AccessError::code)?;
+        }
+        // "Allow" can be temporary. Verify that the exact background path is
+        // now usable instead of claiming the connection has been unlocked.
+        for item in [Item::Pairing, Item::Ratchet] {
+            gate.run(item, |mode| probe(item, mode))
+                .map_err(AccessError::code)?;
+        }
+        Ok(())
     }
 
     pub(super) fn read(item: Item) -> Result<Option<String>, String> {
@@ -192,6 +242,17 @@ mod macos {
             assert_eq!(SecKeychain::user_interaction_allowed().unwrap(), before);
         }
     }
+}
+
+/// No arbitrary service/account access, and no prompt at startup.
+#[tauri::command]
+pub async fn authorize_secure_storage() -> Result<(), String> {
+    #[cfg(target_os = "macos")]
+    return tauri::async_runtime::spawn_blocking(macos::authorize)
+        .await
+        .map_err(|_| AccessError::Unavailable.code())?;
+    #[cfg(not(target_os = "macos"))]
+    Ok(())
 }
 
 /// A failed lookup is NOT a missing item. Never turn denial into an add/delete
@@ -299,14 +360,60 @@ mod tests {
                 Err(AccessError::Authorization)
             );
         }
-        assert_eq!(calls.get(), 2); // one silent probe + one interactive attempt
+        assert_eq!(calls.get(), 1); // startup does not open an interactive attempt
+    }
+
+    #[test]
+    fn restarting_cannot_reopen_a_dialog_without_a_settings_action() {
+        for _ in 0..20 {
+            let mut gate = AccessGate::default();
+            assert_eq!(
+                gate.run::<()>(Item::Pairing, |mode| {
+                    assert_eq!(mode, Interaction::Silent);
+                    Err(AccessError::Authorization)
+                }),
+                Err(AccessError::Authorization)
+            );
+        }
+    }
+
+    #[test]
+    fn explicit_authorization_can_resume_a_paused_store_without_reopening() {
+        let mut gate = AccessGate::default();
+        assert!(gate
+            .run::<()>(Item::Pairing, |_| Err(AccessError::Authorization))
+            .is_err());
+        gate.begin_authorization();
+        assert!(gate
+            .authorize(Item::Pairing, |mode| match mode {
+                Interaction::Silent => Err(AccessError::Authorization),
+                Interaction::Allow => Ok(()),
+            })
+            .is_ok());
+        assert!(gate.run(Item::Pairing, |_| Ok(())).is_ok());
+    }
+
+    #[test]
+    fn cancelling_an_explicit_attempt_does_not_prompt_for_the_other_item() {
+        let mut gate = AccessGate::default();
+        gate.begin_authorization();
+        let calls = Cell::new(0);
+        for item in [Item::Pairing, Item::Ratchet] {
+            assert!(gate
+                .authorize::<()>(item, |_| {
+                    calls.set(calls.get() + 1);
+                    Err(AccessError::Authorization)
+                })
+                .is_err());
+        }
+        assert_eq!(calls.get(), 2);
     }
 
     #[test]
     fn a_temporary_allow_cannot_start_an_endless_prompt_loop() {
         let mut gate = AccessGate::default();
         assert_eq!(
-            gate.run(Item::Ratchet, |mode| match mode {
+            gate.authorize(Item::Ratchet, |mode| match mode {
                 Interaction::Silent => Err(AccessError::Authorization),
                 Interaction::Allow => Ok(1),
             }),
@@ -329,7 +436,7 @@ mod tests {
         let mut gate = AccessGate::default();
         for item in [Item::Pairing, Item::Ratchet] {
             assert_eq!(
-                gate.run(item, |mode| match mode {
+                gate.authorize(item, |mode| match mode {
                     Interaction::Silent => Err(AccessError::Authorization),
                     Interaction::Allow => Ok(()),
                 }),
@@ -378,7 +485,7 @@ mod tests {
         for worker in workers {
             worker.join().unwrap();
         }
-        assert_eq!(interactive.load(std::sync::atomic::Ordering::SeqCst), 1);
+        assert_eq!(interactive.load(std::sync::atomic::Ordering::SeqCst), 0);
     }
 
     #[test]
