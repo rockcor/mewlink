@@ -4,6 +4,10 @@ import { compareVersions } from './services/update';
 // What a release brings, said once in a cloud under the pets after updating to
 // it, under the version's title. Keep each to a sentence that fits two short
 // lines; every release from 0.3.31 on needs one (src/whatsNew.test.ts).
+// Pending next release (keep published 0.3.38 news unchanged):
+// zh: 鼠标只响应小狗和桌面，减少上方透明空白的误触
+// zh-Hant: 滑鼠只回應小狗和桌面，減少上方透明空白的誤觸
+// en: Pet controls follow the artwork, avoiding accidental activation in empty space above.
 export const WHATS_NEW: Record<string, Record<Language, string>> = {
   '0.3.38': {
     zh: '微信聊天会回到工作画面，不再在通话后停留为开会状态',

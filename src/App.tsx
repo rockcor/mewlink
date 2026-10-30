@@ -35,6 +35,7 @@ import { ACTIVITY_TRANSITION_MS, gestureFor, waterDrinkDelay, type GestureVarian
 import { transitionAssetName, useActivityPlayback } from './pet/activityPlayback';
 import { petSkinFilters } from './pet/skins';
 import { SpriteCanvas } from './pet/SpriteCanvas';
+import { petHitAt } from './pet/hitTest';
 import { preloadSprite } from './pet/spriteAssets';
 import { watchInput } from './platform/inputStream';
 import { useRenderBudget } from './platform/resources';
@@ -1097,37 +1098,55 @@ export default function App() {
   function showPetContextMenu(event: ReactMouseEvent) {
     if (!isTauriWindow || settingsOpen || statisticsOpen) return;
     event.preventDefault();
+    const avatar = event.target instanceof Element ? event.target.closest<HTMLElement>('.pet-avatar') : null;
+    const fromKeyboard = event.button === 0 && event.clientX === 0 && event.clientY === 0 && document.activeElement === avatar;
+    if (!avatar || (!fromKeyboard && !petHitAt(avatar, event))) return;
     void showLayerMenu(preferences.windowLayer, text.windowLayers,
       windowLayer => setPreferences(current => ({ ...current, windowLayer })))
       .catch(() => undefined)
       // Closing the native menu hands focus back as if from the keyboard: no focus mark on a pup.
       .finally(() => { if (document.activeElement instanceof HTMLElement && document.activeElement.closest('.pet-pair')) document.activeElement.blur(); });
   }
-  // A right click never focuses a pup (it only opens the menu).
-  function keepFocusOnRightClick(event: ReactMouseEvent) {
-    if (event.button === 2 && !settingsOpen && !statisticsOpen) event.preventDefault();
+  // Neither transparent pixels nor a right click should focus the pet button.
+  function keepPetPointerFocus(event: ReactMouseEvent) {
+    if (settingsOpen || statisticsOpen) return;
+    const avatar = event.target instanceof Element ? event.target.closest<HTMLElement>('.pet-avatar') : null;
+    if (avatar && (event.button === 2 || !petHitAt(avatar, event))) event.preventDefault();
+  }
+
+  function revealPetAtPointer(event: ReactPointerEvent<HTMLButtonElement>) {
+    const hit = petHitAt(event.currentTarget, event);
+    event.currentTarget.style.cursor = hit ? '' : 'default';
+    if (hit) revealPetMenu();
+    else hidePetMenuSoon();
   }
 
   function revealPetMenu() {
     window.clearTimeout(menuCloseTimer.current);
+    menuCloseTimer.current = undefined;
     setPetMenuOpen(true);
   }
 
   function hidePetMenuSoon() {
-    window.clearTimeout(menuCloseTimer.current);
-    if (petMenuPinned) return;
-    menuCloseTimer.current = window.setTimeout(() => setPetMenuOpen(false), 180);
+    if (petMenuPinned || menuCloseTimer.current !== undefined) return;
+    menuCloseTimer.current = window.setTimeout(() => {
+      menuCloseTimer.current = undefined;
+      setPetMenuOpen(false);
+    }, 180);
   }
 
-  function pinPetMenu() {
-    if (suppressPetClick.current) return;
+  function pinPetMenu(event: ReactMouseEvent<HTMLButtonElement>) {
+    // A zero-detail click is a keyboard/accessibility activation.
+    if (suppressPetClick.current || (event.detail > 0 && !petHitAt(event.currentTarget, event))) return;
     window.clearTimeout(menuCloseTimer.current);
+    menuCloseTimer.current = undefined;
     setPetMenuOpen(true);
     setPetMenuPinned(current => !current);
   }
 
   function dismissPetMenu() {
     window.clearTimeout(menuCloseTimer.current);
+    menuCloseTimer.current = undefined;
     setPetMenuOpen(false);
     setPetMenuPinned(false);
   }
@@ -1148,13 +1167,15 @@ export default function App() {
 
   function beginPetDrag(event: ReactPointerEvent<HTMLButtonElement>) {
     if (event.button !== 0 || !isTauriWindow) return;
+    if (!petHitAt(event.currentTarget, event)) { event.preventDefault(); return; }
     petDragStart.current = { pointerId: event.pointerId, x: event.clientX, y: event.clientY };
     event.currentTarget.setPointerCapture(event.pointerId);
   }
 
   function continuePetDrag(event: ReactPointerEvent<HTMLButtonElement>) {
     const start = petDragStart.current;
-    if (!start || start.pointerId !== event.pointerId || suppressPetClick.current) return;
+    if (!start) { revealPetAtPointer(event); return; }
+    if (start.pointerId !== event.pointerId || suppressPetClick.current) return;
     if (Math.hypot(event.clientX - start.x, event.clientY - start.y) < 5) return;
     suppressPetClick.current = true;
     petDragStart.current = undefined;
@@ -1170,6 +1191,7 @@ export default function App() {
 
   function handlePetPinch(event: ReactWheelEvent, target: 'self' | 'partner') {
     if (!event.ctrlKey || event.deltaY === 0) return;
+    if (!(event.currentTarget instanceof HTMLElement) || !petHitAt(event.currentTarget, event)) return;
     event.preventDefault();
     event.stopPropagation();
     const now = performance.now();
@@ -1303,7 +1325,7 @@ export default function App() {
   return (
     <main className="desktop-pet" style={motionStyle} data-render-paused={renderPaused}>
       <section style={{ '--tray-height': `${trayHeight}px` } as CSSProperties} className={`pet-zone ${trayHeight < 49.5 ? 'tray-above' : ''} ${settingsOpen || statisticsOpen ? 'settings-open' : ''}`} aria-label={connected ? text.petZone : text.soloPetZone} lang={languageTags[preferences.language]}
-        onContextMenu={showPetContextMenu} onMouseDown={keepFocusOnRightClick}>
+        onContextMenu={showPetContextMenu} onMouseDown={keepPetPointerFocus}>
         <div
           id="pet-menu"
           className={`hover-ui ${connected ? 'paired' : 'solo'} ${petMenuOpen ? 'menu-visible' : ''}`}
@@ -1333,7 +1355,7 @@ export default function App() {
             onPointerMove={continuePetDrag}
             onPointerUp={endPetDrag}
             onPointerCancel={endPetDrag}
-            onPointerEnter={revealPetMenu}
+            onPointerEnter={revealPetAtPointer}
             onPointerLeave={hidePetMenuSoon}
             onClick={pinPetMenu}
             onFocus={revealPetMenu}
@@ -1362,7 +1384,8 @@ export default function App() {
             aria-label={text.partnerPet(partnerLabel)}
             aria-expanded={petMenuOpen}
             aria-controls="pet-menu"
-            onPointerEnter={revealPetMenu}
+            onPointerEnter={revealPetAtPointer}
+            onPointerMove={revealPetAtPointer}
             onPointerLeave={hidePetMenuSoon}
             onClick={pinPetMenu}
             onFocus={revealPetMenu}

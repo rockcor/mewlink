@@ -180,7 +180,8 @@ button { font: inherit; }
   position: absolute;
   bottom: 0;
   width: 228px;
-  height: 226px;
+  /* The 153px artwork sits 6px above the baseline; no invisible headroom. */
+  height: 159px;
   padding: 0;
   border: 0;
   outline: 0;
