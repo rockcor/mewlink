@@ -2511,7 +2511,7 @@ dependencies = [
 
 [[package]]
 name = "mewlink"
-version = "0.3.40"
+version = "0.3.41"
 dependencies = [
  "base64 0.22.1",
  "chacha20poly1305",
