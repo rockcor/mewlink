@@ -4,10 +4,12 @@ import { compareVersions } from './services/update';
 // What a release brings, said once in a cloud under the pets after updating to
 // it, under the version's title. Keep each to a sentence that fits two short
 // lines; every release from 0.3.31 on needs one (src/whatsNew.test.ts).
-// Next release: 起身工作不再留下睡觉重影，状态切换更干净连贯。
-// Next release (zh-Hant): 起身工作不再留下睡覺重影，狀態切換更乾淨連貫。
-// Next release (en): Activity transitions no longer leave the previous pose behind the moving pup.
 export const WHATS_NEW: Record<string, Record<Language, string>> = {
+  '0.3.42': {
+    zh: '起身工作不再留下睡觉重影，状态切换更干净连贯',
+    'zh-Hant': '起身工作不再留下睡覺重影，狀態切換更乾淨連貫',
+    en: 'Activity transitions no longer leave the previous pose behind the moving pup.',
+  },
   '0.3.41': {
     zh: '悬停小狗即可展开菜单，透明处可点击后面的窗口',
     'zh-Hant': '懸停小狗即可展開選單，透明處可點擊後方視窗',
