@@ -68,6 +68,10 @@
 /* Freeze the outgoing loop on the exact bitmap copied into transition frame 1. */
 .pet-sprite.transition-source-frame { animation: none; background-position: 100% 0; }
 .pet-sprite.work.transition-source-frame { background-position: 0 0; }
+/* Only until the transition has painted that frame itself: its frames are whole,
+   so the frozen pose must not stay behind the pup as it moves (getting up from
+   the cushion to work left a second, sleeping pup there). */
+.pet-sprite.transition-source-frame:has(~ .activity-transition[data-frame]) { visibility: hidden; }
 
 /* Every ordered pair is its own 32-frame, 4.8 second Aseprite transition strip. */
 .pet-sprite.activity-transition {
