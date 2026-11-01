@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties, type MouseEvent as ReactMouseEvent, type PointerEvent as ReactPointerEvent, type WheelEvent as ReactWheelEvent } from 'react';
 import { invoke } from '@tauri-apps/api/core';
+import { listen } from '@tauri-apps/api/event';
 import { getCurrentWindow } from '@tauri-apps/api/window';
 import { v4 as uuid } from 'uuid';
 import { SettingsPanel, type UpdateViewState } from './components/SettingsPanel';
@@ -12,7 +13,7 @@ import { PomodoroTimer } from './components/PomodoroTimer';
 import { clearOfMyCup } from './pomodoro/placement';
 import { finishedWhileAway, fromPayload, loadPomodoro, minutesLeft, newPomodoro, pomodoroEnd, pomodoroPhase, savePomodoro, toPayload, type Pomodoro } from './pomodoro/pomodoro';
 import { allowNotifications, notify } from './platform/notify';
-import { showLayerMenu } from './platform/petMenu';
+import { showPetMenu } from './platform/petMenu';
 import { usePomodoroClock, useWindingPaw } from './pomodoro/usePomodoroClock';
 import { dayInstant, formatDuration, partnerClock } from './history/days';
 import { consumeCup, restorePendingCups, waterClickAction, type PendingCups, type PetTarget } from './pet/pendingCups';
@@ -67,6 +68,8 @@ const windowPositionKey = 'mewlink.windowPosition.v1';
 const pendingCupKey = 'mewlink.pendingCup.v1';
 const feedbackNicknameKey = 'mewlink.feedbackNickname.v1';
 const isTauriWindow = typeof window !== 'undefined' && '__TAURI_INTERNALS__' in window;
+// Click-through mode ends from the Dock icon on a Mac, by opening MewLink again elsewhere.
+const onMac = typeof navigator !== 'undefined' && /Mac/.test(navigator.userAgent);
 
 function loadPendingCups(): PendingCups {
   try {
@@ -110,6 +113,8 @@ export default function App() {
   const drinkLockTimer = useRef<number | undefined>(undefined);
   const [petMenuOpen, setPetMenuOpen] = useState(false);
   const [petMenuPinned, setPetMenuPinned] = useState(false);
+  /** Faded, and every click goes to the windows underneath, until MewLink is opened again from its icon. */
+  const [clickThrough, setClickThrough] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [statisticsOpen, setStatisticsOpen] = useState(false);
   const [preferences, setPreferences] = useState(loadPreferences);
@@ -636,6 +641,16 @@ export default function App() {
     if (!isTauriWindow) return;
     void queueDesktopWindow(() => invoke('set_pet_layer', { bottom: windowLayer === 'bottom' })).catch(() => undefined);
   }, [windowLayer]);
+  useEffect(() => {
+    if (!isTauriWindow) return;
+    void invoke('set_pet_click_through', { through: clickThrough }).catch(() => undefined);
+  }, [clickThrough]);
+  useEffect(() => {
+    if (!isTauriWindow) return;
+    // The app ends it natively (the pets cannot be clicked), then tells the page.
+    const stop = listen('pet-click-through-ended', () => setClickThrough(false));
+    return () => { void stop.then(unlisten => unlisten()).catch(() => undefined); };
+  }, []);
 
   // Alone, one companion always fits the default width.
   // When I hug TA, my pup stands at TA's right: the window keeps room for it there.
@@ -1138,15 +1153,17 @@ export default function App() {
     }
   }
 
-  // Right-clicking the pets: keep the window above or below other windows (as in settings).
+  // Right-clicking the pets: keep the window above or below other windows (as in settings), or let clicks through.
   function showPetContextMenu(event: ReactMouseEvent) {
     if (!isTauriWindow || settingsOpen || statisticsOpen) return;
     event.preventDefault();
     const avatar = event.target instanceof Element ? event.target.closest<HTMLElement>('.pet-avatar') : null;
     const fromKeyboard = event.button === 0 && event.clientX === 0 && event.clientY === 0 && document.activeElement === avatar;
     if (!avatar || (!fromKeyboard && !petHitAt(avatar, event))) return;
-    void showLayerMenu(preferences.windowLayer, text.windowLayers,
-      windowLayer => setPreferences(current => ({ ...current, windowLayer })))
+    void showPetMenu(preferences.windowLayer, { layers: text.windowLayers, clickThrough: text.clickThrough(onMac) }, {
+      layer: windowLayer => setPreferences(current => ({ ...current, windowLayer })),
+      clickThrough: () => { setPetMenuPinned(false); dismissPetMenu(); setClickThrough(true); },
+    })
       .catch(() => undefined)
       // Closing the native menu hands focus back as if from the keyboard: no focus mark on a pup.
       .finally(() => { if (document.activeElement instanceof HTMLElement && document.activeElement.closest('.pet-pair')) document.activeElement.blur(); });
@@ -1165,7 +1182,7 @@ export default function App() {
     else hidePetMenuSoon();
   }
 
-  usePixelPointer(isTauriWindow, target => {
+  usePixelPointer(isTauriWindow && !clickThrough, target => {
     if (settingsOpen || statisticsOpen) return;
     if (target === 'self' || target === 'partner' || target === 'menu') revealPetMenu();
     else hidePetMenuSoon();
@@ -1374,7 +1391,7 @@ export default function App() {
     scene={sceneOf[side].scene} visual={sceneOf[side].visual} skins={gestureSkins} blanket={hugBlanket} paused={renderPaused} />;
 
   return (
-    <main className="desktop-pet" style={motionStyle} data-render-paused={renderPaused}>
+    <main className={`desktop-pet ${clickThrough ? 'click-through' : ''}`} style={motionStyle} data-render-paused={renderPaused} inert={clickThrough}>
       <section style={{ '--tray-height': `${trayHeight}px`, '--pet-menu-bottom': `${petLayout.menuBottom}px` } as CSSProperties} className={`pet-zone ${trayHeight < 49.5 ? 'tray-above' : ''} ${settingsOpen || statisticsOpen ? 'settings-open' : ''}`} aria-label={connected ? text.petZone : text.soloPetZone} lang={languageTags[preferences.language]}
         onContextMenu={showPetContextMenu} onMouseDown={keepPetPointerFocus}>
         <div

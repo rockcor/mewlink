@@ -794,8 +794,9 @@ pub fn run() {
     tauri::Builder::default()
         // One pet at a time: launching MewLink again (say, after it started at
         // login) brings the running one forward instead of a second copy with
-        // the same encrypted session.
+        // the same encrypted session, and ends click-through mode.
         .plugin(tauri_plugin_single_instance::init(|app, _args, _cwd| {
+            pointer::end_click_through(app);
             if let Some(window) = app.get_webview_window("main") {
                 let _ = window.show();
                 let _ = window.unminimize();
@@ -836,7 +837,8 @@ pub fn run() {
             window_layout::set_pet_layer,
             pointer::pet_pointer_position,
             pointer::set_pet_pointer_capture,
-            pointer::hold_pet_pointer
+            pointer::hold_pet_pointer,
+            pointer::set_pet_click_through
         ])
         .setup(|app| {
             // Before anything touches the keychain: a QA build keeps items of its own.
@@ -852,6 +854,15 @@ pub fn run() {
             }
             Ok(())
         })
-        .run(tauri::generate_context!())
-        .expect("error while running MewLink");
+        .build(tauri::generate_context!())
+        .expect("error while running MewLink")
+        .run(|app, event| {
+            // Clicking MewLink's Dock icon ends click-through mode.
+            #[cfg(target_os = "macos")]
+            if let tauri::RunEvent::Reopen { .. } = event {
+                pointer::end_click_through(app);
+            }
+            #[cfg(not(target_os = "macos"))]
+            let _ = (app, event);
+        });
 }

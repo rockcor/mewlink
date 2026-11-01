@@ -1,12 +1,13 @@
 //! Cursor coordinates are used transiently inside our own window only.
 //! No desktop pixels, button history, or positions outside the window are returned.
 use std::sync::atomic::{AtomicBool, AtomicI8, Ordering};
-use tauri::{Manager, State, WebviewWindow};
+use tauri::{AppHandle, Emitter, Manager, State, WebviewWindow};
 
 pub struct PointerPolicy {
     pixel: AtomicBool,
     held: AtomicBool,
     panel: AtomicBool,
+    through: AtomicBool,
     applied: AtomicI8,
 }
 
@@ -16,13 +17,15 @@ impl Default for PointerPolicy {
             pixel: AtomicBool::new(false),
             held: AtomicBool::new(false),
             panel: AtomicBool::new(false),
+            through: AtomicBool::new(false),
             applied: AtomicI8::new(-1),
         }
     }
 }
 
-fn captures(pixel: bool, held: bool, panel: bool) -> bool {
-    pixel || held || panel
+/// Click-through mode passes every click to the windows underneath, left and right.
+fn captures(pixel: bool, held: bool, panel: bool, through: bool) -> bool {
+    !through && (pixel || held || panel)
 }
 
 fn refresh(window: &WebviewWindow) -> Result<(), String> {
@@ -36,6 +39,7 @@ fn refresh(window: &WebviewWindow) -> Result<(), String> {
                 state.pixel.load(Ordering::Relaxed),
                 state.held.load(Ordering::Relaxed),
                 state.panel.load(Ordering::Relaxed),
+                state.through.load(Ordering::Relaxed),
             );
             if state.applied.load(Ordering::Relaxed) != i8::from(capture)
                 && target.set_ignore_cursor_events(!capture).is_ok()
@@ -126,17 +130,60 @@ pub async fn hold_pet_pointer(
     refresh(&window)
 }
 
+/// Click-through mode, from the pets' right-click menu. The pets cannot be
+/// clicked to end it, so only opening the app again does (end_click_through).
+#[tauri::command]
+pub async fn set_pet_click_through(
+    window: WebviewWindow,
+    state: State<'_, PointerPolicy>,
+    through: bool,
+) -> Result<(), String> {
+    state.through.store(through, Ordering::Relaxed);
+    if through {
+        // Once it ends, the window takes clicks only when the pointer is over a pet again.
+        state.pixel.store(false, Ordering::Relaxed);
+    }
+    refresh(&window)
+}
+
+/// Clicking the Dock icon, or opening MewLink again, makes the pets clickable again.
+pub fn end_click_through(app: &AppHandle) {
+    let Some(window) = app.get_webview_window("main") else {
+        return;
+    };
+    if window
+        .state::<PointerPolicy>()
+        .through
+        .swap(false, Ordering::Relaxed)
+    {
+        let _ = refresh(&window);
+        let _ = window.emit("pet-click-through-ended", ());
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
 
     #[test]
     fn transparent_pixels_do_not_capture_but_panels_and_active_drags_do() {
-        assert!(!captures(false, false, false));
-        assert!(captures(true, false, false));
-        assert!(captures(false, true, false));
-        assert!(captures(false, false, true));
-        assert!(!captures(false, false, false)); // closing a panel is not a permanent rectangle
+        assert!(!captures(false, false, false, false));
+        assert!(captures(true, false, false, false));
+        assert!(captures(false, true, false, false));
+        assert!(captures(false, false, true, false));
+        assert!(!captures(false, false, false, false)); // closing a panel is not a permanent rectangle
+    }
+
+    #[test]
+    fn click_through_mode_lets_every_click_pass_even_over_the_pets() {
+        for (pixel, held, panel) in [
+            (true, false, false),
+            (false, true, false),
+            (false, false, true),
+            (true, true, true),
+        ] {
+            assert!(!captures(pixel, held, panel, true));
+        }
     }
 
     #[test]

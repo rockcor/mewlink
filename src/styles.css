@@ -25,7 +25,10 @@ button { font: inherit; }
   background: transparent;
   user-select: none;
   -webkit-user-select: none;
+  transition: opacity .2s ease;
 }
+/* Click-through mode: faded, while every click goes to the windows underneath. */
+.desktop-pet.click-through { opacity: .3; }
 
 .pet-zone {
   /* A strip under the pets for notices, news and the replay bar, so nothing covers them. */
