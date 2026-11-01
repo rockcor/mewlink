@@ -4,10 +4,12 @@ import { compareVersions } from './services/update';
 // What a release brings, said once in a cloud under the pets after updating to
 // it, under the version's title. Keep each to a sentence that fits two short
 // lines; every release from 0.3.31 on needs one (src/whatsNew.test.ts).
-// Next release: 右键可让小狗进入穿透模式，再次打开 MewLink 即可恢复。
-// Next release (zh-Hant): 右鍵可讓小狗進入穿透模式，再次開啟 MewLink 即可恢復。
-// Next release (en): Right-click for click-through mode; reopen MewLink to restore pet controls.
 export const WHATS_NEW: Record<string, Record<Language, string>> = {
+  '0.3.43': {
+    zh: '右键可让小狗进入穿透模式，再次打开 MewLink 即可恢复',
+    'zh-Hant': '右鍵可讓小狗進入穿透模式，再次開啟 MewLink 即可恢復',
+    en: 'Right-click for click-through mode; reopen MewLink to restore pet controls.',
+  },
   '0.3.42': {
     zh: '起身工作不再留下睡觉重影，状态切换更干净连贯',
     'zh-Hant': '起身工作不再留下睡覺重影，狀態切換更乾淨連貫',
