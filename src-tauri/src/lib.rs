@@ -663,7 +663,7 @@ mod platform {
             locked: false,
             app_class: "unknown",
             foreground_sequence: 0,
-            audio: false,
+            audio: super::audio::playing(),
         }
     }
 
