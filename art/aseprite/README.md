@@ -20,6 +20,10 @@ Open `mewlink-pet-animation-master.aseprite` in Aseprite. It holds 2448 frames i
 - `rest-tucked-<blanket>`: after a hug at its cushion a pup keeps the blanket while it sleeps on: the everyday sleeping loop (first row, the same frames) with the blanket over it up to its chin, under its ear, breathing with it (second row, in the blanket's own colours).
 - `desk-<scene>`: each scene's desk, laptop or cushion without its pup; where paws hid the keyboard and mouse, their rows of keys and the mouse's other half fill in. It is drawn while its pup is away, and over the hug, so the desk stays in front.
 
+## The speaker on the monitor
+
+`mewlink-speaker-master.aseprite` holds the little speaker standing on the pup's monitor (every desk has the same monitor). `speaker`: frame 0 at rest, then an eight-frame loop the app plays while a video or music is on (`src-tauri/src/audio.rs`): the woofer thumps twice and the cabinet squashes with it, and an eighth note and a beamed pair float up and fade. Only the box around it is exported; `src/pet/speaker.json` says where that box sits in the frame. It takes its pup's colours like the desk under it. Preview: `speaker-preview.gif`.
+
 ## How transitions move
 
 `rig/cutout.py` separates the pup from its props in each authored scene (fur and outlines that hug it stay with the pup; desk, laptop, TV, snacks and cushion go to the props), so both can move independently. A transition then plays in three beats: the pup winds up with a squash and a lean while its props shrink away under a dust poof and it re-appears in its sitting pose; it cheer-hops to the next spot and lands squashed with the `> <` face; the next props pop in with a springy overshoot and a sparkle, and a second poof reveals the destination pose. Every transition starts with the exact final bitmap of its source loop (or the neutral work frame) and ends with the exact first bitmap of its destination loop.
@@ -41,6 +45,13 @@ aseprite -b --script-param root="$PWD" --script-param build=/tmp/mewlink-hug --s
 ```
 
 It also writes `src/pet/hugVisit.json`: where each scene's pup sits and where the walker stops beside the receiver, which the app uses to walk it there.
+
+The speaker master too, from `rig/speaker.py`, under its own name:
+
+```bash
+/tmp/mewlink-venv/bin/python art/aseprite/rig/speaker.py --out /tmp/mewlink-speaker
+aseprite -b --script-param root="$PWD" --script-param build=/tmp/mewlink-speaker --script-param project=mewlink-speaker-master --script art/aseprite/build-hug-master.lua
+```
 
 `rig/original.py` choreographs every loop, transition and interaction. `rig/fx.py` and `rig/pixel.py` draw the effects. `rig/palette.json` is the shared palette; regenerate it with `rig/palette.py` only when the source artwork changes. `build.py` writes per-layer strips and a manifest; `build-animation-master.lua` imports them into the layered master, converts it to the indexed palette and exports every tag under `public/pets/animations`.
 

@@ -10,6 +10,9 @@
 -- converted to the shared indexed palette and saved as
 -- mewlink-hug-master.aseprite; each tag is exported with a row per layer,
 -- which the app colours one by one (pet/SpriteCanvas.tsx).
+--
+-- Other props built the same way name their own master with
+-- --script-param project=... (the desk speaker: rig/speaker.py).
 
 local root = app.params.root
 local build = app.params.build
@@ -17,7 +20,9 @@ if not root or root == "" then error("Pass --script-param root=/absolute/project
 if not build or build == "" then error("Pass --script-param build=/absolute/rig/output") end
 
 local exportDir = root .. "/public/pets/animations/"
-local projectPath = root .. "/art/aseprite/mewlink-hug-master.aseprite"
+local project = app.params.project
+if not project or project == "" then project = "mewlink-hug-master" end
+local projectPath = root .. "/art/aseprite/" .. project .. ".aseprite"
 
 local file = assert(io.open(build .. "/manifest.json", "r"))
 local manifest = json.decode(file:read("a"))
@@ -86,4 +91,4 @@ for _, range in ipairs(ranges) do
   strip:saveAs { filename = exportDir .. sheet.name .. ".png", palette = sprite.palettes[1] }
 end
 
-print("MewLink hug master: " .. frameCount .. " frames, " .. #ranges .. " tags, " .. #order .. " layers")
+print(project .. ": " .. frameCount .. " frames, " .. #ranges .. " tags, " .. #order .. " layers")

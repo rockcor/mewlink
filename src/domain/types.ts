@@ -19,6 +19,8 @@ export interface ActivitySegment {
   growth?: number;
   /** A running pomodoro (see pomodoro/pomodoro); absent when none. */
   pomodoro?: { id: string; startedAt: string; durationMs: number };
+  /** A video or music playing: the speaker on the desk bounces. Absent when quiet (and from older versions). */
+  audio?: boolean;
 }
 // Relative milliseconds, key presses, pointer events, clicks, activity, work screen.
 // Counts and categories only: never key values, titles, URLs or coordinates.

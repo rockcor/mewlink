@@ -1,7 +1,15 @@
 import { describe, expect, it } from 'vitest';
-import { gestureFor, sceneFor, WATER_AUTO_DRINK_MS, waterDrinkDelay } from './interaction';
+import { deskShown, gestureFor, sceneFor, WATER_AUTO_DRINK_MS, waterDrinkDelay } from './interaction';
 
 describe('state-aware pet interactions', () => {
+  it('keeps the desk (and its speaker) through work and meetings, but not through getting up or lying down', () => {
+    expect(deskShown({ displayedActivity: 'leisure' })).toBe(true);
+    expect(deskShown({ displayedActivity: 'meeting' })).toBe(true);
+    expect(deskShown({ displayedActivity: 'idle' })).toBe(false);
+    expect(deskShown({ displayedActivity: 'work', transition: { from: 'work', to: 'meeting' } })).toBe(true);
+    expect(deskShown({ displayedActivity: 'work', transition: { from: 'work', to: 'rest' } })).toBe(false);
+    expect(deskShown({ displayedActivity: 'rest', transition: { from: 'rest', to: 'work' } })).toBe(false);
+  });
   it('hugs wherever the receiver is: the scene is picked at its desk (hugVisit)', () => {
     for (const activity of ['work', 'meeting', 'rest', 'idle', 'leisure'] as const) expect(gestureFor('hug', activity)).toBe('hug');
   });

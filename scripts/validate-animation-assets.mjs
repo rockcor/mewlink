@@ -27,6 +27,8 @@ const hugSheets = new Map([
   ...['blush', 'night', 'mint'].map(style => [`rest-tucked-${style}`, { frames: loopFrames, rows: 2 }]),
   ...[...workVisuals.map(visual => `work-${visual}`), 'meeting', 'rest'].map(scene => [`desk-${scene}`, { frames: 1, rows: 1 }]),
 ]);
+// The speaker on the monitor (art/aseprite/rig/speaker.py): at rest, then its loop, in a box of the frame.
+const speaker = JSON.parse(await readFile(path.resolve('src/pet/speaker.json'), 'utf8'));
 const states = ['work', 'meeting', 'idle', 'rest'];
 const transitionSpecs = states.flatMap(from => states.filter(to => to !== from).map(to => ({
   name: `transition-${from}-${to}`,
@@ -69,6 +71,13 @@ for (const [name, { frames, rows }] of hugSheets) {
     throw new Error(`${name}: expected ${frameWidth * frames}x${frameHeight * rows}, got ${metadata.width}x${metadata.height}`);
   }
   if (!metadata.hasAlpha) throw new Error(`${name}: PNG has no alpha channel`);
+}
+
+{
+  const metadata = await sharp(path.join(path.resolve('public/pets/animations'), 'speaker.png')).metadata();
+  if (metadata.width !== speaker.width * speaker.frames || metadata.height !== speaker.height || !metadata.hasAlpha) {
+    throw new Error(`speaker: expected ${speaker.width * speaker.frames}x${speaker.height} with alpha, got ${metadata.width}x${metadata.height}`);
+  }
 }
 
 const decoded = new Map();
@@ -190,4 +199,20 @@ for (const scene of [...workVisuals.map(visual => `work-${visual}`), 'meeting', 
   if (same < opaque * (scene === 'rest' ? 0.4 : 0.85)) throw new Error(`desk-${scene}: moved away from its everyday desk (${same}/${opaque} pixels)`);
 }
 
-console.log(`Validated ${expected.size} Aseprite animation strips (${[...expected.values()].reduce((a, b) => a + b, 0)} frames), including exact transition endpoints, and ${hugSheets.size} hug sheets.`);
+// It stands on every desk's monitor: under each pixel of its bottom row, at rest and on the beat, is the monitor's edge.
+const speakerStrip = await decodeRgba('speaker');
+for (const desk of [...inputFrame, 'meeting']) {
+  const image = await decodeRgba(desk);
+  for (let frame = 0; frame < speaker.frames; frame += 1) {
+    const opaque = (x, y) => speakerStrip.pixels[(y * speakerStrip.width + frame * speaker.width + x) * 4 + 3] > 0;
+    let bottom = speaker.height - 1;
+    while (bottom > 0 && ![...Array(speaker.width).keys()].some(x => opaque(x, bottom))) bottom -= 1;
+    for (let x = 0; x < speaker.width; x += 1) {
+      if (opaque(x, bottom) && !image.pixels[((speaker.y + bottom) * image.width + speaker.x + x) * 4 + 3]) {
+        throw new Error(`speaker: frame ${frame} floats above the ${desk} monitor at ${speaker.x + x},${speaker.y + bottom}`);
+      }
+    }
+  }
+}
+
+console.log(`Validated ${expected.size} Aseprite animation strips (${[...expected.values()].reduce((a, b) => a + b, 0)} frames), including exact transition endpoints, ${hugSheets.size} hug sheets and the desk speaker.`);

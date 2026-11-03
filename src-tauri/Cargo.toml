@@ -44,4 +44,6 @@ keyring = { version = "=3.6.3", default-features = false, features = ["windows-n
 winreg = "0.55"
 webview2-com = "=0.38.2"
 windows-core = "=0.61.2"
+# Audio session peak meters only (src/audio.rs).
+windows = { version = "=0.61.3", features = ["Win32_Foundation", "Win32_Media_Audio", "Win32_Media_Audio_Endpoints", "Win32_System_Com", "Win32_System_Com_StructuredStorage", "Win32_System_Variant"] }
 windows-sys = { version = "0.61", features = ["Win32_Foundation", "Win32_Globalization", "Win32_System_LibraryLoader", "Win32_System_StationsAndDesktops", "Win32_System_SystemInformation", "Win32_System_Threading", "Win32_UI_Input_KeyboardAndMouse", "Win32_UI_WindowsAndMessaging"] }

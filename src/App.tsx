@@ -19,6 +19,7 @@ import { dayInstant, formatDuration, partnerClock } from './history/days';
 import { consumeCup, restorePendingCups, waterClickAction, type PendingCups, type PetTarget } from './pet/pendingCups';
 import { deskAsset, HUG_HOLD_MS, hugAvatarClass, hugRoom, hugScene, hugSkins, planHug, seatOf, visitAsset, visitSpotOf, type HugMoment, type HugWalk as HugWay } from './pet/hugVisit';
 import { HugScenery, HugWalk } from './components/HugWalk';
+import { DeskSpeaker } from './components/DeskSpeaker';
 import { loadTucked, saveTucked, stillTucked } from './pet/tucked';
 import type { ActivityKind, ActivitySegment, BlanketStyle, CupStyle, InteractionKind, InteractionPayload, PetSkin, PlainEvent, StatisticsPayload, StatisticsVisibility, StoredEvent, WorkVisual } from './domain/types';
 import { cupStyles } from './domain/types';
@@ -31,8 +32,8 @@ import {
 import { securePairing, SecureStorageError } from './pairing/secureStore';
 import { initializeRatchet, nativeRatchet, RatchetError, type RatchetStatus } from './crypto/ratchet';
 import { credentialAccessRequired } from './pairing/credentialAccess';
-import { activityProbe, nextActivity, demoInitialActivity, demoInitialWorkVisual, inputBurstReached, inputBurstSampleForSequence, inputChangesForSequence, INPUT_STRESS_HOLD_MS, keyboardEventsForSequence, nextSampleDelay, POINTER_ANIMATION_HOLD_MS, POINTER_EVENTS_PER_ANIMATION, pointerClicksForSequence, pointerEventsForSequence, shouldAnimatePointer, trimInputBurst, visualInputForActivity, workVisualFor, type InputBurstSample, type InputSignal } from './platform/activity';
-import { ACTIVITY_TRANSITION_MS, gestureFor, waterDrinkDelay, type GestureVariant, sceneFor } from './pet/interaction';
+import { activityProbe, listening, nextActivity, present, demoInitialActivity, demoInitialWorkVisual, inputBurstReached, inputBurstSampleForSequence, inputChangesForSequence, INPUT_STRESS_HOLD_MS, keyboardEventsForSequence, nextSampleDelay, POINTER_ANIMATION_HOLD_MS, POINTER_EVENTS_PER_ANIMATION, pointerClicksForSequence, pointerEventsForSequence, shouldAnimatePointer, trimInputBurst, visualInputForActivity, workVisualFor, type InputBurstSample, type InputSignal } from './platform/activity';
+import { ACTIVITY_TRANSITION_MS, deskShown, gestureFor, waterDrinkDelay, type GestureVariant, sceneFor } from './pet/interaction';
 import { transitionAssetName, useActivityPlayback } from './pet/activityPlayback';
 import { petSkinFilters } from './pet/skins';
 import { SpriteCanvas } from './pet/SpriteCanvas';
@@ -81,6 +82,8 @@ function loadPendingCups(): PendingCups {
 
 export default function App() {
   const [locked, setLocked] = useState(false);
+  /** A video or music playing here (native audio.rs): my speaker bounces, and TA's copy of it. */
+  const [audio, setAudio] = useState(false);
   const renderPaused = useRenderBudget(locked);
   const [activity, setActivity] = useState<ActivityKind>(demoInitialActivity ?? 'work');
   const [workVisual, setWorkVisual] = useState<WorkVisual>(demoInitialWorkVisual);
@@ -597,7 +600,7 @@ export default function App() {
             senderDeviceId: active.deviceId, createdAt: endedAt,
             senderUtcOffsetMinutes: receiverUtcOffsetMinutes, kind: 'activity.segment',
             payload: { category: activity, workVisual, startedAt, endedAt, ...(growWithBusyness ? { growth: selfGrowth } : {}),
-              ...(heartbeatPomodoro ? { pomodoro: heartbeatPomodoro } : {}) } };
+              ...(heartbeatPomodoro ? { pomodoro: heartbeatPomodoro } : {}), ...(audio ? { audio: true } : {}) } };
         });
         startedAt = new Date().toISOString();
       } catch {
@@ -607,7 +610,7 @@ export default function App() {
     void publish();
     const timer = window.setInterval(() => { void publish(); }, PRESENCE_HEARTBEAT_MS);
     return () => { stopped = true; window.clearInterval(timer); };
-  }, [activity, workVisual, connected, pairing?.relationshipId, receiverUtcOffsetMinutes, enqueueEncryptedEvent, growWithBusyness, selfGrowth, heartbeatPomodoro]);
+  }, [activity, workVisual, connected, pairing?.relationshipId, receiverUtcOffsetMinutes, enqueueEncryptedEvent, growWithBusyness, selfGrowth, heartbeatPomodoro, audio]);
   useEffect(() => {
     if (!connected) return;
     let delivered = false;
@@ -818,8 +821,10 @@ export default function App() {
         }
         foregroundSequence = signal.foregroundSequence;
         setLocked(current => current === signal.locked ? current : signal.locked);
-        if (!signal.locked && signal.idleSeconds < 120 && signal.appClass !== 'unknown') setWorkVisual(workVisualFor(signal));
+        if (present(signal) && signal.appClass !== 'unknown') setWorkVisual(workVisualFor(signal));
         setActivity(currentActivity => nextActivity(currentActivity, signal));
+        const sounding = listening(signal);
+        setAudio(current => current === sounding ? current : sounding);
         delay = nextSampleDelay(signal);
       } catch {
         // A transient native sampling error must not leave the pet asleep forever.
@@ -1443,6 +1448,7 @@ export default function App() {
               onPlaybackEnd={() => selfPlayback.completeTransition(selfPlayback.transition!.key)}
             />}
             {hugScenery('self')}
+            {deskShown(selfPlayback) && <DeskSpeaker playing={audio && selfPlayback.displayedActivity !== 'meeting'} />}
             {activePomodoro && <PomodoroTimer pomodoro={activePomodoro} paused={renderPaused}
               atPaw={selfPlayback.displayedActivity === 'work' || selfPlayback.displayedActivity === 'meeting'}
               label={text.pomodoroLeft(minutesLeft(activePomodoro, selfPomodoroNow))} />}
@@ -1473,6 +1479,7 @@ export default function App() {
               onPlaybackEnd={() => partnerPlayback.completeTransition(partnerPlayback.transition!.key)}
             />}
             {hugScenery('partner')}
+            {deskShown(partnerPlayback) && <DeskSpeaker playing={companions.partner.audio && !playing && partnerPlayback.displayedActivity !== 'meeting'} />}
             {partnerPomodoro && partnerPomodoroPhase !== 'over' && <PomodoroTimer pomodoro={partnerPomodoro} paused={renderPaused}
               atPaw={partnerPlayback.displayedActivity === 'work' || partnerPlayback.displayedActivity === 'meeting'}
               x={pendingCups.self ? clearOfMyCup(selfScale, partnerScale, petDistance(preferences.petDistancePercent)) : undefined}

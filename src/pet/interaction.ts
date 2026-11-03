@@ -17,6 +17,10 @@ export type GestureVariant =
  * the activity itself is kept, so it never counts as work in the statistics.
  */
 export const sceneFor = (activity: ActivityKind): Exclude<ActivityKind, 'leisure'> => activity === 'leisure' ? 'work' : activity;
+const atDesk = (activity: ActivityKind) => sceneFor(activity) === 'work' || sceneFor(activity) === 'meeting';
+/** The desk, and the speaker on its monitor: at work and in a meeting, and through the change between the two (in place). */
+export const deskShown = ({ displayedActivity, transition }: { displayedActivity: ActivityKind; transition?: { from: ActivityKind; to: ActivityKind } }) =>
+  transition ? atDesk(transition.from) && atDesk(transition.to) : atDesk(displayedActivity);
 
 /**
  * The gesture for the receiver's activity. A cup has a strip per scene; a hug

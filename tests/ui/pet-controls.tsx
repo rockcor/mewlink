@@ -7,6 +7,8 @@ import { StatisticsPanel } from '../../src/components/StatisticsPanel';
 import { defaultPreferences, petDistance, petWindowWidth, type Preferences } from '../../src/settings/preferences';
 import { growthScale } from '../../src/statistics/growth';
 import { PomodoroTimer } from '../../src/components/PomodoroTimer';
+import { DeskSpeaker } from '../../src/components/DeskSpeaker';
+import { deskShown } from '../../src/pet/interaction';
 import { ReplayNotice, ReplayScrubber } from '../../src/components/ReplayControls';
 import { WhatsNewCloud } from '../../src/components/WhatsNewCloud';
 import { WHATS_NEW } from '../../src/whatsNew';
@@ -14,6 +16,7 @@ import { groupReplayDays } from '../../src/history/days';
 import { clearOfMyCup } from '../../src/pomodoro/placement';
 import { newPomodoro } from '../../src/pomodoro/pomodoro';
 import { SpriteCanvas } from '../../src/pet/SpriteCanvas';
+import { petSkinFilters } from '../../src/pet/skins';
 import { transitionAssetName, useActivityPlayback } from '../../src/pet/activityPlayback';
 import { spriteSheets } from '../../src/pet/spriteAssets';
 import type { ActivityKind, CupStyle, PetSkin } from '../../src/domain/types';
@@ -42,6 +45,8 @@ export function Checks() {
   const [activity, setActivity] = useState<ActivityKind>('idle');
   const [paused, setPaused] = useState(false);
   const [reduced, setReduced] = useState(false);
+  // ?sound: a video or music playing at both desks (the speaker on the monitor bounces).
+  const [sound, setSound] = useState(params.has('sound'));
   const [remount, setRemount] = useState(0);
   // A hug as the app shows it: at another distance the pair slides together first.
   const [hug, setHug] = useState<string>();
@@ -56,7 +61,8 @@ export function Checks() {
   }, [hug, gatherMs]);
   return <><main className="desktop-pet" data-window-width={petWindowWidth(preferences.petDistancePercent, preferences.selfPetScalePercent / 100 * growth, preferences.partnerPetScalePercent / 100 * growth)} style={{ background: '#f2e6db',
     '--pet-distance': `${petDistance(preferences.petDistancePercent)}px`, '--gather-ms': `${gatherMs}ms`,
-    '--self-pet-scale': String(preferences.selfPetScalePercent / 100 * growth), '--partner-pet-scale': String(preferences.partnerPetScalePercent / 100 * growth) } as CSSProperties}>
+    '--self-pet-scale': String(preferences.selfPetScalePercent / 100 * growth), '--partner-pet-scale': String(preferences.partnerPetScalePercent / 100 * growth),
+    '--self-pet-skin-filter': petSkinFilters[mySkin], '--partner-pet-skin-filter': petSkinFilters[taSkin] } as CSSProperties}>
     <section className="pet-zone">
       <div className="hover-ui menu-visible">
         <PetActions language={preferences.language} connected canReplay cupStyle={cup}
@@ -65,8 +71,9 @@ export function Checks() {
       </div>
       <div className={`pet-pair paired ${hug ? 'interacting target-partner interaction-hug' : ''}`}>
         <button className="pet-avatar self-pet" aria-label="Self working"><SpriteCanvas skin={mySkin} paused={false} className="pet-sprite work work-code input-none" />
-          {pomodoro && <PomodoroTimer pomodoro={pomodoro} atPaw paused={false} label="pomodoro" />}</button>
-        <Playback key={remount} desired={activity} paused={paused} reduced={reduced} />
+          {pomodoro && <PomodoroTimer pomodoro={pomodoro} atPaw paused={false} label="pomodoro" />}
+          <DeskSpeaker playing={sound} /></button>
+        <Playback key={remount} desired={activity} paused={paused} reduced={reduced} sound={sound} />
         {params.has('cup') && <span className="waiting-cup target-self ceramic"><i /><i /></span>}
         {/* ?hug=work|rest|meeting&me=<skin>&ta=<skin>: I hug TA, as the app draws it (receiver TA, sender me). */}
         {hug && !gathering && <SpriteCanvas key={hug} skin={taSkin} senderSkin={mySkin} paused={paused}
@@ -92,6 +99,7 @@ export function Checks() {
     <label>Remote activity <select value={activity} onChange={event => setActivity(event.target.value as ActivityKind)}>{kinds.map(kind => <option key={kind}>{kind}</option>)}</select></label>
     <label><input type="checkbox" checked={paused} onChange={event => setPaused(event.target.checked)} />Pause render</label>
     <label><input type="checkbox" checked={reduced} onChange={event => setReduced(event.target.checked)} />Disable CSS animation</label>
+    <label><input type="checkbox" checked={sound} onChange={event => setSound(event.target.checked)} />Sound playing</label>
     <button onClick={() => spriteSheets.clearUnused()}>Evict unused sheets</button>
     <button onClick={() => setRemount(current => current + 1)}>Reset partner to idle</button>
   </details>
@@ -105,7 +113,7 @@ export function Checks() {
   {panel === 'statistics' && <StatisticsPanel language={preferences.language} connected visibility="private" onVisibilityChange={noop} onClose={() => setPanel('')} />}
   </>;
 }
-export function Playback({ desired, paused, reduced }: { desired: ActivityKind; paused: boolean; reduced: boolean }) {
+export function Playback({ desired, paused, reduced, sound }: { desired: ActivityKind; paused: boolean; reduced: boolean; sound: boolean }) {
   const playback = useActivityPlayback({ desiredActivity: desired, desiredWorkVisual: 'web',
     initialActivity: 'idle', initialWorkVisual: 'web', workHandsSettled: true, transitionDurationMs: 480, paused });
   const style = { '--pet-idle-duration': '400ms', '--pet-meeting-duration': '400ms', '--pet-video-duration': '400ms', '--pet-rest-duration': '400ms',
@@ -119,6 +127,7 @@ export function Playback({ desired, paused, reduced }: { desired: ActivityKind; 
     {playback.transition && <SpriteCanvas skin={taSkin} paused={paused} key={playback.transition.key} style={noCss}
       className={`pet-sprite partner-sprite activity-transition ${transitionAssetName(playback.transition)}`}
       onPlaybackEnd={() => playback.completeTransition(playback.transition!.key)} />}
+    {deskShown(playback) && <DeskSpeaker playing={sound && playback.displayedActivity !== 'meeting'} />}
   </button>;
 }
 const root = createRoot(document.getElementById('root')!);

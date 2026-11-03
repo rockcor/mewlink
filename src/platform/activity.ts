@@ -4,7 +4,9 @@ import type { ActivityKind, WorkVisual } from '../domain/types';
 
 export type InputKind = 'keyboard' | 'pointer' | 'none';
 export type InputMotion = InputKind | 'both';
-export interface PresenceSignal { idleSeconds: number; locked: boolean; foregroundSequence?: number; appClass?: 'editor' | 'reader' | 'meeting' | 'media' | 'browser' | 'ai' | 'mewlink' | 'unknown'; inputKind?: InputKind }
+export interface PresenceSignal { idleSeconds: number; locked: boolean; foregroundSequence?: number; appClass?: 'editor' | 'reader' | 'meeting' | 'media' | 'browser' | 'ai' | 'mewlink' | 'unknown'; inputKind?: InputKind;
+  /** A video or music playing in a browser or media player (native audio.rs). */
+  audio?: boolean }
 export interface InputSignal { keyboardSequence: number; pointerSequence: number; pointerClickSequence: number; recentKind: InputKind }
 export interface InputChanges { keyboard: boolean; pointer: boolean }
 export interface InputBurstSample { at: number; keyboard: number; pointerClicks: number }
@@ -23,9 +25,17 @@ export const POINTER_CLICK_STRESS_THRESHOLD = 10;
 export const shouldAnimatePointer = (lastAnimationAt: number, now: number) =>
   now - lastAnimationAt >= POINTER_ANIMATION_INTERVAL_MS;
 
+/** Watching or listening keeps the pup at its desk without input, for a film's length at most. */
+export const LISTENING_AWAKE_SECONDS = 3 * 60 * 60;
+export const listening = (signal: PresenceSignal) => Boolean(signal.audio) && !signal.locked && signal.idleSeconds < LISTENING_AWAKE_SECONDS;
+/** At the computer: recent input, or something playing. */
+export const present = (signal: PresenceSignal) => !signal.locked && (signal.idleSeconds < 120 || listening(signal));
+
 export const classify = (signal: PresenceSignal): ActivityKind => {
-  if (signal.locked || signal.idleSeconds >= 600) return 'rest';
-  if (signal.idleSeconds >= 120) return 'idle';
+  if (signal.locked || (signal.idleSeconds >= 600 && !listening(signal))) return 'rest';
+  if (!present(signal)) return 'idle';
+  // Sound without input for a while is watching or listening, not working (it shows at the desk all the same).
+  if (signal.idleSeconds >= 120 && signal.appClass !== 'meeting') return 'leisure';
   const map: Record<NonNullable<PresenceSignal['appClass']>, ActivityKind> = {
     editor: 'work', reader: 'work', meeting: 'meeting', media: 'leisure', browser: 'work', ai: 'work', mewlink: 'work', unknown: 'work'
   };

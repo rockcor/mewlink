@@ -1,7 +1,20 @@
 import { classify, inputBurstReached, inputBurstSampleForSequence, inputChangesForSequence, keyboardEventsForSequence, KEYBOARD_STRESS_THRESHOLD, nextSampleDelay, POINTER_ANIMATION_INTERVAL_MS, POINTER_EVENTS_PER_ANIMATION, POINTER_CLICK_STRESS_THRESHOLD, pointerClicksForSequence, pointerEventsForSequence, shouldAnimatePointer, trimInputBurst, visualInputForActivity, workVisualFor, type InputBurstSample } from './activity';
 import { describe, expect, it } from 'vitest';
-import { nextActivity } from './activity';
+import { LISTENING_AWAKE_SECONDS, nextActivity } from './activity';
 describe('privacy-first activity classification', () => {
+  it('stays at the desk while a video or music plays, without input, until the screen locks', () => {
+    const watching = { locked: false, idleSeconds: 1_800, appClass: 'browser' as const, audio: true };
+    // A video in the browser is watching, not work (it never counts as work time); a call stays a call.
+    expect(nextActivity('idle', watching)).toBe('leisure');
+    expect(nextActivity('work', { ...watching, appClass: 'unknown' })).toBe('leisure');
+    expect(classify({ ...watching, appClass: 'meeting' })).toBe('meeting');
+    // Music while typing is still work.
+    expect(classify({ ...watching, appClass: 'editor', idleSeconds: 3 })).toBe('work');
+    // The same half hour in silence is asleep; so is a locked screen with music on, and past a film's length.
+    expect(classify({ ...watching, audio: false })).toBe('rest');
+    expect(classify({ ...watching, locked: true })).toBe('rest');
+    expect(classify({ ...watching, idleSeconds: LISTENING_AWAKE_SECONDS })).toBe('rest');
+  });
   it('wakes up after idle or lock even when the foreground app is unknown', () => {
     const active = { locked: false, idleSeconds: 0, appClass: 'unknown' as const };
     expect(nextActivity('rest', active)).toBe('work');

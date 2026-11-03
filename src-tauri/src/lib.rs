@@ -1,5 +1,6 @@
 use serde::Serialize;
 use tauri::Manager;
+mod audio;
 mod autostart;
 mod credentials;
 mod language;
@@ -19,6 +20,8 @@ struct PresenceSignal {
     locked: bool,
     app_class: &'static str,
     foreground_sequence: u64,
+    /// A video or music playing (audio.rs): one bit, nothing about what.
+    audio: bool,
 }
 
 #[cfg(any(target_os = "macos", target_os = "windows"))]
@@ -107,6 +110,19 @@ fn classify_foreground_app(value: &str) -> &'static str {
         "audible",
         "tidal",
         "deezer",
+        "netflix",
+        "microsoft.media.player",
+        "163music",
+        "cloudmusic",
+        "qqmusic",
+        "kugou",
+        "kuwo",
+        "bilibili",
+        "iqiyi",
+        "tenvideo",
+        "qqlive",
+        "youku",
+        "douyin",
     ]) {
         "media"
     } else if contains(&[
@@ -388,6 +404,7 @@ mod platform {
             locked: session_is_locked(),
             app_class: foreground_app_class(),
             foreground_sequence: super::foreground_sequence(),
+            audio: super::audio::playing(),
         }
     }
 
@@ -568,6 +585,7 @@ mod platform {
             locked: session_is_locked(),
             app_class: foreground_app_class(),
             foreground_sequence: super::foreground_sequence(),
+            audio: super::audio::playing(),
         }
     }
 
@@ -584,21 +602,25 @@ mod platform {
             let mut process_id = 0;
             GetWindowThreadProcessId(window, &mut process_id);
             super::note_foreground(format!("{window:p}:{process_id}"));
-            if process_id == 0 {
-                return "unknown";
-            }
+            process_image(process_id).map_or("unknown", |path| classify_foreground_app(&path))
+        }
+    }
+
+    /// A process's executable path, to tell what kind of app it is.
+    pub(crate) fn process_image(process_id: u32) -> Option<String> {
+        if process_id == 0 {
+            return None;
+        }
+        unsafe {
             let process = OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION, 0, process_id);
             if process.is_null() {
-                return "unknown";
+                return None;
             }
             let mut buffer = [0_u16; 1024];
             let mut length = buffer.len() as u32;
             let ok = QueryFullProcessImageNameW(process, 0, buffer.as_mut_ptr(), &mut length) != 0;
             CloseHandle(process);
-            if !ok {
-                return "unknown";
-            }
-            classify_foreground_app(&String::from_utf16_lossy(&buffer[..length as usize]))
+            ok.then(|| String::from_utf16_lossy(&buffer[..length as usize]))
         }
     }
 
@@ -641,6 +663,7 @@ mod platform {
             locked: false,
             app_class: "unknown",
             foreground_sequence: 0,
+            audio: false,
         }
     }
 
@@ -760,6 +783,10 @@ mod classification_tests {
             "com.colliderli.iina",
             "org.videolan.vlc",
             "com.spotify.client Spotify",
+            "com.netease.163music 网易云音乐",
+            "com.tencent.QQMusicMac QQ音乐",
+            r"C:\Program Files\bilibili\哔哩哔哩.exe",
+            r"C:\Program Files (x86)\Tencent\QQLive\QQLive.exe",
         ] {
             assert_eq!(classify_foreground_app(app), "media", "{app}");
         }
@@ -844,6 +871,7 @@ pub fn run() {
             // Before anything touches the keychain: a QA build keeps items of its own.
             secure_storage::use_identifier(&app.config().identifier);
             resources::start_input_monitor(app.handle().clone());
+            audio::start_monitor();
             autostart::refresh_autostart(app.handle());
             if let Some(window) = app.get_webview_window("main") {
                 window_layout::position_initial_pet(
