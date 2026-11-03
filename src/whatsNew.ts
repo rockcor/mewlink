@@ -5,6 +5,11 @@ import { compareVersions } from './services/update';
 // it, under the version's title. Keep each to a sentence that fits two short
 // lines; every release from 0.3.31 on needs one (src/whatsNew.test.ts).
 export const WHATS_NEW: Record<string, Record<Language, string>> = {
+  '0.3.44': {
+    zh: '回放提示随悬停菜单出现；播放影音时，双方小狗桌前的音箱会跳动',
+    'zh-Hant': '回放提示隨懸停選單出現；播放影音時，雙方小狗桌前的音箱會跳動',
+    en: 'Replay notices follow the hover menu; both pups\' speakers bounce with music or video.',
+  },
   '0.3.43': {
     zh: '右键可让小狗进入穿透模式，再次打开 MewLink 即可恢复',
     'zh-Hant': '右鍵可讓小狗進入穿透模式，再次開啟 MewLink 即可恢復',
