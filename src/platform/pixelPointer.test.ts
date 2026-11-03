@@ -12,11 +12,22 @@ describe('visible pixel input policy', () => {
     let visible = false;
     const menu = { classList: { contains: () => visible } };
     const button = { parentElement: null, classList: { contains: () => false },
-      closest: (selector: string) => selector === '.hover-ui' ? menu : selector === '.pet-avatar' ? null : button };
+      closest: (selector: string) => selector === '.hover-ui, .with-menu' ? menu : selector === '.pet-avatar' ? null : button };
     const element = { closest: () => button };
     const doc = { elementsFromPoint: () => [element], querySelectorAll: () => [] } as unknown as Document;
     expect(visiblePixelHit(doc, { clientX: 20, clientY: 20 })).toBeUndefined();
     visible = true;
+    expect(visiblePixelHit(doc, { clientX: 20, clientY: 20 })).toBe('menu');
+  });
+
+  it('keeps the menu open over TA’s replay on offer, which shows with it', () => {
+    let shown = false;
+    // The notice is its own with-menu element.
+    const notice = { parentElement: null, classList: { contains: (name: string) => name === 'menu-visible' && shown },
+      closest: (selector: string): unknown => selector === '.pet-avatar' ? null : notice };
+    const doc = { elementsFromPoint: () => [notice], querySelectorAll: () => [] } as unknown as Document;
+    expect(visiblePixelHit(doc, { clientX: 20, clientY: 20 })).toBeUndefined();
+    shown = true;
     expect(visiblePixelHit(doc, { clientX: 20, clientY: 20 })).toBe('menu');
   });
 

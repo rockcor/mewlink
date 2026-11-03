@@ -883,6 +883,15 @@ button { font: inherit; }
   white-space: nowrap;
   cursor: pointer;
 }
+/* On offer, it shows with the pets' menu rather than all the time. */
+.replay-notice {
+  opacity: 0;
+  visibility: hidden;
+  transform: translateY(5px);
+  animation: none;
+  transition: opacity 150ms ease, transform 180ms cubic-bezier(.2, .8, .2, 1), visibility 0s 180ms;
+}
+.replay-notice.menu-visible { opacity: 1; visibility: visible; transform: none; transition-delay: 0s; }
 .replay-notice span { overflow: hidden; text-overflow: ellipsis; }
 .replay-notice:hover { background: #fff; }
 .replay-notice:focus-visible, .replay-track:focus-visible, .replay-close:focus-visible { outline: 2px solid #d986a5; outline-offset: 2px; }

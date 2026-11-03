@@ -1495,7 +1495,7 @@ export default function App() {
             ? <ReplayScrubber day={history.playingDay} progress={history.progress}
               timeLabel={partnerClock(dayInstant(history.playingDay, history.progress), history.playingDay.offset)}
               positionLabel={text.replayPosition} closeLabel={text.stopReplay} onSeek={history.seek} onClose={history.stop} />
-            : history.unseen && <ReplayNotice label={text.replayNotice(formatDuration(history.unseen.ms, preferences.language), history.unseen.days)}
+            : history.unseen && <ReplayNotice shown={petMenuOpen} onReveal={revealPetMenu} onHide={hidePetMenuSoon} label={text.replayNotice(formatDuration(history.unseen.ms, preferences.language), history.unseen.days)}
               detail={text.replayDetail(formatDuration(history.unseen.workMs, preferences.language), formatDuration(history.unseen.ms - history.unseen.workMs, preferences.language))}
               onPlay={() => { void history.start({ unseen: true }); }} />}
         </div>}

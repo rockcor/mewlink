@@ -16,7 +16,8 @@ export function visiblePixelHit(document: Document, point: Point): PixelHit {
     const control = element.closest<HTMLElement>('button, input, select, textarea, [role="slider"]');
     if (!control || control.closest('.pet-avatar') || !visiblyPainted(control)) continue;
     if (control.classList.contains('whats-new') && !cloudHit(control, point)) continue;
-    const menu = control.closest('.hover-ui');
+    // The pets' menu, and what shows with it (TA's replay on offer), count only while shown.
+    const menu = control.closest('.hover-ui, .with-menu');
     if (menu && !menu.classList.contains('menu-visible')) continue;
     return menu ? 'menu' : 'control';
   }

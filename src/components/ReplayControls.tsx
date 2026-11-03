@@ -2,9 +2,21 @@ import { useRef, useState, type KeyboardEvent, type PointerEvent } from 'react';
 import { restSpans, type ReplayDay } from '../history/days';
 import { PixelIcon } from './PixelIcon';
 
+interface NoticeProps {
+  label: string;
+  detail: string;
+  onPlay: () => void;
+  /** Shown with the pets' menu, not all the time; over it, the menu stays open. */
+  shown?: boolean;
+  onReveal?: () => void;
+  onHide?: () => void;
+}
+
 /** "TA 的回放 · 5 小时": offered under the partner's pup instead of starting by itself. */
-export function ReplayNotice({ label, detail, onPlay }: { label: string; detail: string; onPlay: () => void }) {
-  return <button type="button" className="replay-notice" title={detail} onPointerDown={event => event.stopPropagation()} onClick={onPlay}>
+export function ReplayNotice({ label, detail, onPlay, shown = true, onReveal, onHide }: NoticeProps) {
+  return <button type="button" className={`replay-notice with-menu ${shown ? 'menu-visible' : ''}`} title={detail}
+    onPointerDown={event => event.stopPropagation()} onClick={onPlay}
+    onPointerEnter={onReveal} onPointerLeave={onHide} onFocus={onReveal} onBlur={onHide}>
     <PixelIcon name="replay" /><span>{label}</span>
   </button>;
 }
