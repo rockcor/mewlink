@@ -7,23 +7,28 @@
 //! later; no capture and no permission). Windows: each audio session's peak
 //! meter, its level only.
 use std::sync::atomic::{AtomicBool, Ordering};
+#[cfg(any(target_os = "macos", target_os = "windows", test))]
 use std::time::{Duration, Instant};
 
 static PLAYING: AtomicBool = AtomicBool::new(false);
 
 /// Heard for a few seconds before it counts, and silent for a few before it
 /// stops: a notification sound is not music, a gap between songs still is.
+#[cfg(any(target_os = "macos", target_os = "windows", test))]
 const ON_AFTER: Duration = Duration::from_secs(3);
+#[cfg(any(target_os = "macos", target_os = "windows", test))]
 const OFF_AFTER: Duration = Duration::from_secs(5);
 #[cfg(any(target_os = "macos", target_os = "windows"))]
 const POLL: Duration = Duration::from_secs(1);
 
+#[cfg(any(target_os = "macos", target_os = "windows", test))]
 #[derive(Default)]
 struct Steady {
     playing: bool,
     since: Option<Instant>,
 }
 
+#[cfg(any(target_os = "macos", target_os = "windows", test))]
 impl Steady {
     fn update(&mut self, heard: bool, now: Instant) -> bool {
         if heard == self.playing {
