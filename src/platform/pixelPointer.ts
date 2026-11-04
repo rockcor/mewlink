@@ -58,6 +58,7 @@ export function trackPixelPointer({ position, capture, hit, hover }: Options) {
     } catch {
       // A failed sample must not leave an invisible rectangular input shield.
       if (!stopped) {
+        hover(undefined);
         await capture(false).catch(() => undefined);
         captured = undefined;
       }

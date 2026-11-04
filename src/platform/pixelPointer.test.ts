@@ -71,11 +71,12 @@ describe('visible pixel input policy', () => {
   });
 
   it('fails open to the background if coordinate sampling breaks', async () => {
-    const capture = vi.fn(async () => undefined);
+    const capture = vi.fn(async () => undefined), hover = vi.fn();
     const stop = trackPixelPointer({ position: async () => { throw new Error('window closed'); },
-      capture, hover: vi.fn(), hit: () => 'self' });
+      capture, hover, hit: () => 'self' });
     await vi.advanceTimersByTimeAsync(1);
     expect(capture).toHaveBeenCalledWith(false);
+    expect(hover).toHaveBeenCalledWith(undefined);
     stop();
   });
 });

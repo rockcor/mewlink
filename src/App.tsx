@@ -13,6 +13,7 @@ import { PomodoroTimer } from './components/PomodoroTimer';
 import { clearOfMyCup } from './pomodoro/placement';
 import { finishedWhileAway, fromPayload, loadPomodoro, minutesLeft, newPomodoro, pomodoroEnd, pomodoroPhase, savePomodoro, toPayload, type Pomodoro } from './pomodoro/pomodoro';
 import { allowNotifications, notify } from './platform/notify';
+import { PetDrag } from './platform/petDrag';
 import { showPetMenu } from './platform/petMenu';
 import { usePomodoroClock, useWindingPaw } from './pomodoro/usePomodoroClock';
 import { dayInstant, formatDuration, partnerClock } from './history/days';
@@ -154,8 +155,7 @@ export default function App() {
   const noticeTimer = useRef<number | undefined>(undefined);
   const menuCloseTimer = useRef<number | undefined>(undefined);
   const lastScaleGestureAt = useRef({ self: Number.NEGATIVE_INFINITY, partner: Number.NEGATIVE_INFINITY });
-  const petDragStart = useRef<{ pointerId: number; x: number; y: number } | undefined>(undefined);
-  const suppressPetClick = useRef(false);
+  const petDrag = useRef(new PetDrag());
   const pendingUpdateRef = useRef<Update | undefined>(undefined);
   const updateBusyRef = useRef(false);
   const statisticsActivityRef = useRef<ActivityKind>('work');
@@ -1188,12 +1188,13 @@ export default function App() {
   }
 
   usePixelPointer(isTauriWindow && !clickThrough, target => {
-    if (settingsOpen || statisticsOpen) return;
+    if (settingsOpen || statisticsOpen || petDrag.current.dragging) return;
     if (target === 'self' || target === 'partner' || target === 'menu') revealPetMenu();
     else hidePetMenuSoon();
-  }, () => suppressPetClick.current);
+  }, () => petDrag.current.dragging);
 
   function revealPetMenu() {
+    if (petDrag.current.dragging) return;
     window.clearTimeout(menuCloseTimer.current);
     menuCloseTimer.current = undefined;
     setPetMenuOpen(true);
@@ -1209,7 +1210,7 @@ export default function App() {
 
   function pinPetMenu(event: ReactMouseEvent<HTMLButtonElement>) {
     // A zero-detail click is a keyboard/accessibility activation.
-    if (suppressPetClick.current || (event.detail > 0 && !petHitAt(event.currentTarget, event))) return;
+    if (petDrag.current.dragging || (event.detail > 0 && (petDrag.current.suppressClick || !petHitAt(event.currentTarget, event)))) return;
     window.clearTimeout(menuCloseTimer.current);
     menuCloseTimer.current = undefined;
     setPetMenuOpen(true);
@@ -1237,29 +1238,36 @@ export default function App() {
     } finally { panelBusy.current = false; }
   }
 
+  function releasePetCapture(element: HTMLButtonElement, pointerId: number) {
+    if (element.hasPointerCapture(pointerId)) element.releasePointerCapture(pointerId);
+  }
+
   function beginPetDrag(event: ReactPointerEvent<HTMLButtonElement>) {
-    if (event.button !== 0 || !isTauriWindow) return;
+    if (event.button !== 0 || !isTauriWindow || petDrag.current.dragging) return;
     if (!petHitAt(event.currentTarget, event)) { event.preventDefault(); return; }
-    petDragStart.current = { pointerId: event.pointerId, x: event.clientX, y: event.clientY };
+    petDrag.current.press(event);
     event.currentTarget.setPointerCapture(event.pointerId);
   }
 
   function continuePetDrag(event: ReactPointerEvent<HTMLButtonElement>) {
-    const start = petDragStart.current;
-    if (!start) { revealPetAtPointer(event); return; }
-    if (start.pointerId !== event.pointerId || suppressPetClick.current) return;
-    if (Math.hypot(event.clientX - start.x, event.clientY - start.y) < 5) return;
-    suppressPetClick.current = true;
-    petDragStart.current = undefined;
+    if (petDrag.current.dragging) return;
+    if (!petDrag.current.move(event)) { revealPetAtPointer(event); return; }
+    // A drag is never a click-to-pin, even when the menu was already pinned.
+    dismissPetMenu();
+    event.currentTarget.blur();
+    releasePetCapture(event.currentTarget, event.pointerId);
     event.preventDefault();
-    void getCurrentWindow().startDragging().finally(() => {
+    void getCurrentWindow().startDragging().catch(() => undefined).finally(() => {
+      petDrag.current.finish();
       void holdPetPointer(false).catch(() => undefined);
-      window.setTimeout(() => { suppressPetClick.current = false; }, 80);
+      dismissPetMenu();
+      // The pixel probe decides whether to reopen at the new window position.
     });
   }
 
   function endPetDrag(event: ReactPointerEvent<HTMLButtonElement>) {
-    if (petDragStart.current?.pointerId === event.pointerId) petDragStart.current = undefined;
+    petDrag.current.release(event.pointerId);
+    releasePetCapture(event.currentTarget, event.pointerId);
   }
 
   function handlePetPinch(event: ReactWheelEvent, target: 'self' | 'partner') {
@@ -1429,6 +1437,7 @@ export default function App() {
             onPointerMove={continuePetDrag}
             onPointerUp={endPetDrag}
             onPointerCancel={endPetDrag}
+            onLostPointerCapture={endPetDrag}
             onPointerEnter={revealPetAtPointer}
             onPointerLeave={hidePetMenuSoon}
             onClick={pinPetMenu}
@@ -1457,6 +1466,7 @@ export default function App() {
             className={`pet-avatar partner-pet ${hugAvatarClass(hugRole('partner'), hugNow)}`}
             type="button"
             aria-label={text.partnerPet(partnerLabel)}
+            onPointerDown={event => { if (event.button === 0) petDrag.current.newClick(); }}
             aria-expanded={petMenuOpen}
             aria-controls="pet-menu"
             onPointerEnter={revealPetAtPointer}
