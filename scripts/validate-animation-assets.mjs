@@ -29,6 +29,8 @@ const hugSheets = new Map([
 ]);
 // The speaker on the monitor (art/aseprite/rig/speaker.py): at rest, then its loop, in a box of the frame.
 const speaker = JSON.parse(await readFile(path.resolve('src/pet/speaker.json'), 'utf8'));
+// Away (art/aseprite/rig/away.py): where the app writes on the note, and a visitor's paw print.
+const away = JSON.parse(await readFile(path.resolve('src/pet/away.json'), 'utf8'));
 const states = ['work', 'meeting', 'idle', 'rest'];
 const transitionSpecs = states.flatMap(from => states.filter(to => to !== from).map(to => ({
   name: `transition-${from}-${to}`,
@@ -77,6 +79,13 @@ for (const [name, { frames, rows }] of hugSheets) {
   const metadata = await sharp(path.join(path.resolve('public/pets/animations'), 'speaker.png')).metadata();
   if (metadata.width !== speaker.width * speaker.frames || metadata.height !== speaker.height || !metadata.hasAlpha) {
     throw new Error(`speaker: expected ${speaker.width * speaker.frames}x${speaker.height} with alpha, got ${metadata.width}x${metadata.height}`);
+  }
+}
+
+{
+  const metadata = await sharp(path.join(path.resolve('public/pets/animations'), 'away-paw.png')).metadata();
+  if (metadata.width !== away.paw.width || metadata.height !== away.paw.height || !metadata.hasAlpha) {
+    throw new Error(`away-paw: expected ${away.paw.width}x${away.paw.height} with alpha, got ${metadata.width}x${metadata.height}`);
   }
 }
 
@@ -215,4 +224,16 @@ for (const desk of [...inputFrame, 'meeting']) {
   }
 }
 
-console.log(`Validated ${expected.size} Aseprite animation strips (${[...expected.values()].reduce((a, b) => a + b, 0)} frames), including exact transition endpoints, ${hugSheets.size} hug sheets and the desk speaker.`);
+// The words and the paw print are on the note, whole, in every frame of the away loop.
+const idle = await decodeRgba('idle');
+for (let frame = 0; frame < loopFrames; frame += 1) {
+  for (const [name, box] of [['words', away.words], ['paw', away.paw]]) {
+    for (let y = box.y; y < box.y + box.height; y += 1) {
+      for (let x = box.x; x < box.x + box.width; x += 1) {
+        if (!idle.pixels[(y * idle.width + frame * frameWidth + x) * 4 + 3]) throw new Error(`idle: frame ${frame} has no note under the ${name} at ${x},${y}`);
+      }
+    }
+  }
+}
+
+console.log(`Validated ${expected.size} Aseprite animation strips (${[...expected.values()].reduce((a, b) => a + b, 0)} frames), including exact transition endpoints, ${hugSheets.size} hug sheets, the desk speaker and the away note.`);

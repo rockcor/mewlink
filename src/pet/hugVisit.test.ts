@@ -14,12 +14,13 @@ describe('a hug in place', () => {
     expect(hugSkins('partner', 'shell', 'sky')).toEqual({ receiver: 'sky', sender: 'shell' });
   });
 
-  it('hugs at the desk the receiver shows: at work, in a meeting, or tucked in asleep', () => {
+  it('hugs at the desk the receiver shows: at work, in a meeting, or tucked in asleep; an away pup gets a visit', () => {
     expect(hugScene('work')).toBe('work');
     expect(hugScene('leisure')).toBe('work');
     expect(hugScene('meeting')).toBe('meeting');
-    expect(hugScene('idle')).toBe('rest');
+    expect(hugScene('idle')).toBe('away');
     expect(hugScene('rest')).toBe('rest');
+    expect(visitAsset('away', 'mint')).toBeUndefined();
     expect(deskAsset('work', 'ai')).toBe('desk-work-ai');
     expect(deskAsset('meeting', 'ai')).toBe('desk-meeting');
     expect(visitAsset('work', 'mint')).toBe('hug-visit-work');
@@ -114,6 +115,22 @@ describe('a hug in place', () => {
     // Facing left is the same frame mirrored.
     const left = plan.frames.findIndex(frame => frame.facing === -1);
     expect(keyframes[left].transform).toMatch(/scale\(-/);
+  });
+
+  it('visits an away pup: at its empty chair it looks round, leaves a paw print and goes home, never hidden', () => {
+    const plan = planHug(way('self', 'work', 'away'));
+    const chair = framePoint('partner', seatOf('away', 'code'), geometry);
+    const visiting = plan.frames.filter(frame => Math.abs(frame.x - chair.x) < 1e-6 && frame.shown);
+    // It looks one way, then the other, and hops as it leaves its print.
+    expect(new Set(visiting.map(frame => frame.facing)).size).toBe(2);
+    expect(visiting.some(frame => frame.y > chair.y)).toBe(true);
+    // Nobody hosts a hug: the away desk stays as it is; the print is left at the hop.
+    expect(plan.host[0]).toBe(plan.host[1]);
+    expect(hugPhase(plan, plan.host[0] - 1)).toMatchObject({ hosting: false, tuckedIn: false });
+    expect(hugPhase(plan, plan.host[0] + 1)).toMatchObject({ hosting: false, tuckedIn: true });
+    expect(plan.frames.slice(0, -1).every(frame => frame.shown)).toBe(true);
+    // It goes home the way it came, and sits down again.
+    expect(plan.frames.at(-2)).toMatchObject({ x: framePoint('self', seatOf('work', 'code'), geometry).x });
   });
 
   it('keeps room right of TA, so my pup hugging TA from the right is never cut off', () => {

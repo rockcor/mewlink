@@ -9,8 +9,10 @@ import layout from './hugVisit.json';
 // hug the receiver's desk is drawn over hug-visit-<kind>.png. The pup on its
 // way is hug-walker.png: a trot, and each scene's pup getting up (the
 // Aseprite master art/aseprite/mewlink-hug-master.aseprite; rig/visit.py).
+// A pup away from its desk is not there to hug: the visitor looks round its
+// chair, leaves a paw print on its note (pet/away.ts) and goes home.
 
-export type HugScene = 'work' | 'meeting' | 'rest';
+export type HugScene = 'work' | 'meeting' | 'rest' | 'away';
 export type HugRole = 'sender' | 'receiver';
 
 export const WALK_FRAME_MS = 100;
@@ -18,14 +20,16 @@ export const HUG_FRAME_MS = 125;
 /** The hug itself, at the receiver's desk. */
 export const HUG_HOLD_MS = layout.hugFrames * HUG_FRAME_MS;
 
-/** The scene a pup shows for an activity: away from the computer it sleeps. */
+/** The scene a pup shows for an activity: its empty desk while it is away. */
 export function hugScene(activity: ActivityKind): HugScene {
   const scene = sceneFor(activity);
-  return scene === 'idle' || scene === 'rest' ? 'rest' : scene;
+  return scene === 'idle' ? 'away' : scene;
 }
 
-export const deskAsset = (scene: HugScene, visual: string) => scene === 'work' ? `desk-work-${visual}` : `desk-${scene}`;
-export const visitAsset = (scene: HugScene, blanket: BlanketStyle) => scene === 'rest' ? `hug-visit-rest-${blanket}` : `hug-visit-${scene}`;
+export const deskAsset = (scene: HugScene, visual: string) => scene === 'work' || scene === 'away' ? `desk-work-${visual}` : `desk-${scene}`;
+/** The hug at the receiver's desk; none at an away pup's. */
+export const visitAsset = (scene: HugScene, blanket: BlanketStyle) =>
+  scene === 'away' ? undefined : scene === 'rest' ? `hug-visit-rest-${blanket}` : `hug-visit-${scene}`;
 
 export function hugSkins(target: 'self' | 'partner', self: PetSkin, partner: PetSkin) {
   return target === 'self' ? { receiver: self, sender: partner } : { receiver: partner, sender: self };
@@ -33,7 +37,7 @@ export function hugSkins(target: 'self' | 'partner', self: PetSkin, partner: Pet
 
 /** Where a hug is: the sender away from its desk, the receiver hosting the hug. */
 export interface HugMoment { id: string; senderAway: boolean; hosting: boolean; done?: boolean;
-  /** The hug itself is over: a sleeping receiver keeps the blanket (pet/tucked.ts). */
+  /** The hug itself is over: a sleeping receiver keeps the blanket (pet/tucked.ts), an away one a paw print (pet/away.ts). */
   tuckedIn?: boolean }
 
 /** The class of a pup's avatar while its own sprite gives way to the hug. */
@@ -67,9 +71,10 @@ export function framePoint(side: 'self' | 'partner', [fx, fy]: readonly [number,
 export const hugRoom = (partnerScale: number) => Math.ceil(layout.overhang * FRAME_TO_CSS * partnerScale);
 
 export const seatOf = (scene: HugScene, visual: string) =>
-  layout.seats[(scene === 'work' ? `work-${visual}` : scene) as keyof typeof layout.seats] as [number, number];
-export const visitSpotOf = (scene: HugScene) =>
-  layout.visit[(scene === 'rest' ? 'rest-blush' : scene) as keyof typeof layout.visit] as [number, number];
+  layout.seats[(scene === 'work' || scene === 'away' ? `work-${visual}` : scene) as keyof typeof layout.seats] as [number, number];
+/** Where the visitor stops: at the receiver's right to hug it, or at an away pup's empty chair. */
+export const visitSpotOf = (scene: HugScene) => scene === 'away' ? seatOf('away', 'code')
+  : layout.visit[(scene === 'rest' ? 'rest-blush' : scene) as keyof typeof layout.visit] as [number, number];
 
 const FRAMES = layout.walker.frames;
 const [ANCHOR_X, ANCHOR_Y] = layout.walker.anchor;
@@ -83,7 +88,7 @@ export const WALKER = {
 /** How far the walker gets each frame at its everyday size (frame pixels): a trot. */
 const STRIDE = 15;
 /** It comes out from behind its desk, rising over these frames (frame pixels below the floor). */
-const EMERGE: Record<HugScene, readonly number[]> = { work: [92, 64, 36, 14, 4], meeting: [92, 64, 36, 14, 4], rest: [] };
+const EMERGE: Record<HugScene, readonly number[]> = { work: [92, 64, 36, 14, 4], meeting: [92, 64, 36, 14, 4], rest: [], away: [92, 64, 36, 14, 4] };
 const TURN = [{ facing: 0, squash: 0.62 }, { facing: 1, squash: 0.62 }, { facing: 1, squash: 1 }];
 // Over a pup sleeping on its cushion the walker is in front; at a desk, behind it.
 const zFor = (scene: HugScene) => scene === 'rest' ? 3 : 0;
@@ -125,7 +130,7 @@ export function planHug(walk: HugWalk, reducedMotion = false): HugPlan {
   const out: 1 | -1 = to.x >= from.x ? 1 : -1;
   const stride = STRIDE * FRAME_TO_CSS * (from.scale + to.scale) / 2;
   const steps = Math.max(6, Math.round(Math.abs(to.x - from.x) / stride));
-  const leave = layout.walker.leave[walk.senderScene];
+  const leave = layout.walker.leave[walk.senderScene === 'away' ? 'work' : walk.senderScene];
   const leaveFrames = layout.walker.leaveFrames;
   const emerge = EMERGE[walk.senderScene];
   const frames: WalkerFrame[] = [];
@@ -150,12 +155,31 @@ export function planHug(walk: HugWalk, reducedMotion = false): HugPlan {
   };
   for (let k = 0; k < leaveFrames; k++) push(0, leave + k, 1, { z: zFor(walk.senderScene) });
   trot(true);
-  // It hugs facing left (it is at the receiver's right).
-  if (out === 1) turn(1);
-  const host: [number, number] = [at, at + HUG_HOLD_MS];
-  frames.push({ ...frames[frames.length - 1], at, shown: false });
-  at += HUG_HOLD_MS;
-  if (out === -1) turn(-1);
+  let host: [number, number];
+  if (walk.receiverScene === 'away') {
+    // Nobody there: it looks round, back again, and with a little hop leaves its paw print; then home.
+    const stand = (facing: 1 | -1, count: number, { sink = 0, squash = 1 } = {}) => {
+      for (let k = 0; k < count; k++) push(1, 0, facing, { sink, squash });
+    };
+    stand(out, 3);
+    turn(out);
+    stand(-out as 1 | -1, 4);
+    turn(-out as 1 | -1);
+    stand(out, 2);
+    stand(out, 1, { squash: 0.9 });
+    stand(out, 1, { sink: -10 });
+    host = [at, at];
+    stand(out, 1, { squash: 1.08 });
+    stand(out, 3);
+    turn(out);
+  } else {
+    // It hugs facing left (it is at the receiver's right).
+    if (out === 1) turn(1);
+    host = [at, at + HUG_HOLD_MS];
+    frames.push({ ...frames[frames.length - 1], at, shown: false });
+    at += HUG_HOLD_MS;
+    if (out === -1) turn(-1);
+  }
   trot(false);
   for (let k = leaveFrames - 1; k >= 0; k--) push(0, leave + k, 1, { z: zFor(walk.senderScene) });
   frames.push({ ...frames[frames.length - 1], at, shown: false });

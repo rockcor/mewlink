@@ -20,6 +20,8 @@ import { consumeCup, restorePendingCups, waterClickAction, type PendingCups, typ
 import { deskAsset, HUG_HOLD_MS, hugAvatarClass, hugRoom, hugScene, hugSkins, planHug, seatOf, visitAsset, visitSpotOf, type HugMoment, type HugWalk as HugWay } from './pet/hugVisit';
 import { HugScenery, HugWalk } from './components/HugWalk';
 import { DeskSpeaker } from './components/DeskSpeaker';
+import { AwayNote } from './components/AwayNote';
+import { awayNote, loadPawed, savePawed, stillPawed } from './pet/away';
 import { loadTucked, saveTucked, stillTucked } from './pet/tucked';
 import type { ActivityKind, ActivitySegment, BlanketStyle, CupStyle, InteractionKind, InteractionPayload, PetSkin, PlainEvent, StatisticsPayload, StatisticsVisibility, StoredEvent, WorkVisual } from './domain/types';
 import { cupStyles } from './domain/types';
@@ -109,6 +111,8 @@ export default function App() {
   const [hugMoment, setHugMoment] = useState<HugMoment>();
   /** Pups a hug tucked in, with the blanket they keep while they sleep on. */
   const [tucked, setTucked] = useState(loadTucked);
+  /** Away pups a visitor left a paw print for, on their note. */
+  const [pawed, setPawed] = useState(loadPawed);
   const [reducedMotion] = useState(() => typeof window.matchMedia === 'function' && window.matchMedia('(prefers-reduced-motion: reduce)').matches);
   const [pendingCups, setPendingCups] = useState(loadPendingCups);
   const pendingCupsRef = useRef(pendingCups);
@@ -1364,22 +1368,24 @@ export default function App() {
   const hugNow = hug && hugMoment?.id === hug.id ? hugMoment : undefined;
   const hugBlanket = hug?.blanketStyle ?? preferences.blanketStyle;
   const hugReceiverScene = hug ? sceneOf[hug.target].scene : 'work';
-  const hugAssets = hug ? [visitAsset(hugReceiverScene, hugBlanket), deskAsset(sceneOf.self.scene, sceneOf.self.visual),
+  const hugAssets = hug ? [visitAsset(hugReceiverScene, hugBlanket) ?? '', deskAsset(sceneOf.self.scene, sceneOf.self.visual),
     deskAsset(sceneOf.partner.scene, sceneOf.partner.visual)].join(' ') : '';
   useEffect(() => {
     if (!hugAssets || renderPaused) return;
-    // Loaded before they are needed, so nothing flashes in: the hug, both desks and the walker.
+    // Loaded before they are needed, so nothing flashes in: the hug (none at an away desk), both desks and the walker.
     const [visit, ...desks] = hugAssets.split(' ');
-    void preloadSprite(visit).catch(() => undefined);
+    if (visit) void preloadSprite(visit).catch(() => undefined);
     for (const name of [...desks, 'hug-walker']) new Image().src = `/pets/animations/${name}.png`;
   }, [hugAssets, renderPaused]);
-  // As a hug at a sleeping pup's cushion ends, it keeps the blanket; it is
-  // gone once the pup gets up (or, for TA's, when TA is no longer paired).
+  // As a hug at a sleeping pup's cushion ends, it keeps the blanket; at an
+  // away pup's desk, the visitor's paw print stays on its note. Each is gone
+  // once the pup is up or back (or, for TA's, when TA is no longer paired).
   const onHugMoment = (moment: HugMoment) => {
     setHugMoment(moment);
-    if (!moment.tuckedIn || moment.id !== hug?.id || hugReceiverScene !== 'rest') return;
+    if (!moment.tuckedIn || moment.id !== hug?.id) return;
     const side = hug.target;
-    setTucked(current => current[side] === hugBlanket ? current : saveTucked({ ...current, [side]: hugBlanket }));
+    if (hugReceiverScene === 'rest') setTucked(current => current[side] === hugBlanket ? current : saveTucked({ ...current, [side]: hugBlanket }));
+    if (hugReceiverScene === 'away') setPawed(current => current[side] ? current : savePawed({ ...current, [side]: true }));
   };
   const selfAsleep = sceneOf.self.scene === 'rest' && !selfPlayback.transition;
   const partnerAsleep = connected && sceneOf.partner.scene === 'rest' && !partnerPlayback.transition;
@@ -1390,7 +1396,19 @@ export default function App() {
       return next === current ? current : saveTucked(next);
     });
   }, [selfAsleep, partnerAsleep]);
+  const selfAway = sceneOf.self.scene === 'away' && !selfPlayback.transition;
+  const partnerAway = connected && sceneOf.partner.scene === 'away' && !partnerPlayback.transition;
+  useEffect(() => {
+    setPawed(current => {
+      const next = stillPawed(current, { self: selfAway, partner: partnerAway });
+      return next === current ? current : savePawed(next);
+    });
+  }, [selfAway, partnerAway]);
   const tuckedClass = (side: PetTarget) => asleep[side] && tucked[side] ? `tucked-${tucked[side]}` : '';
+  const note = (side: PetTarget, playback: typeof selfPlayback) => {
+    const shown = awayNote(playback);
+    return shown && <AwayNote words={text.awayNote} arriving={shown === 'arriving'} paw={Boolean(pawed[side])} />;
+  };
   const hugRole = (side: PetTarget) => hug ? (hug.target === side ? 'receiver' as const : 'sender' as const) : undefined;
   const hugScenery = (side: PetTarget) => hug && <HugScenery id={hug.id} role={hugRole(side)!} moment={hugNow}
     scene={sceneOf[side].scene} visual={sceneOf[side].visual} skins={gestureSkins} blanket={hugBlanket} paused={renderPaused} />;
@@ -1448,7 +1466,8 @@ export default function App() {
               onPlaybackEnd={() => selfPlayback.completeTransition(selfPlayback.transition!.key)}
             />}
             {hugScenery('self')}
-            {deskShown(selfPlayback) && <DeskSpeaker playing={audio && selfPlayback.displayedActivity !== 'meeting'} />}
+            {deskShown(selfPlayback) && <DeskSpeaker playing={audio && sceneFor(selfPlayback.displayedActivity) === 'work'} />}
+            {note('self', selfPlayback)}
             {activePomodoro && <PomodoroTimer pomodoro={activePomodoro} paused={renderPaused}
               atPaw={selfPlayback.displayedActivity === 'work' || selfPlayback.displayedActivity === 'meeting'}
               label={text.pomodoroLeft(minutesLeft(activePomodoro, selfPomodoroNow))} />}
@@ -1479,7 +1498,8 @@ export default function App() {
               onPlaybackEnd={() => partnerPlayback.completeTransition(partnerPlayback.transition!.key)}
             />}
             {hugScenery('partner')}
-            {deskShown(partnerPlayback) && <DeskSpeaker playing={companions.partner.audio && !playing && partnerPlayback.displayedActivity !== 'meeting'} />}
+            {deskShown(partnerPlayback) && <DeskSpeaker playing={companions.partner.audio && !playing && sceneFor(partnerPlayback.displayedActivity) === 'work'} />}
+            {note('partner', partnerPlayback)}
             {partnerPomodoro && partnerPomodoroPhase !== 'over' && <PomodoroTimer pomodoro={partnerPomodoro} paused={renderPaused}
               atPaw={partnerPlayback.displayedActivity === 'work' || partnerPlayback.displayedActivity === 'meeting'}
               x={pendingCups.self ? clearOfMyCup(selfScale, partnerScale, petDistance(preferences.petDistancePercent)) : undefined}

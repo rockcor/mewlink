@@ -32,10 +32,8 @@ LAYERS = ["back", "pet", "front", "fx"]
 # keep the props still when the pose changes.
 ALIGN = {"peak_meeting": (-11, 0), "peak_rest": (1, 0)}
 # Rows below this stay pinned when the pup nods (top edge of the laptop / TV).
-NOD_BELOW = {"meeting": 190, "rest": 256, "idle": 256}
-BACK_PROPS = {"rest", "idle"}
-# Away from the computer the pup simply sleeps: idle shows the rest scene.
-SLEEPS = {"idle": "rest"}
+NOD_BELOW = {"meeting": 190, "rest": 256}
+BACK_PROPS = {"rest"}
 
 
 def shifted(layer, name):
@@ -106,7 +104,10 @@ def _pose_warp(layer, sy=1.0, lean=0.0, hop=0.0, nod=0.0, nod_below=None):
 def loop_frame(state, i, n=N_LOOP):
     i %= n
     t = i / n
-    state = SLEEPS.get(state, state)
+    if state == "idle":
+        # Away for a while: its desk without it (away.py builds on visit.py, which builds on this module).
+        import away
+        return away.loop_frame(i)
     if state == "meeting":
         return meeting_frame(i)
     if state == "rest":
@@ -139,7 +140,6 @@ def loop_start(state, visual="code"):
 
 def scene_parts(state, visual):
     """Dog layer, props layer and props anchor for a state's resting frame."""
-    state = SLEEPS.get(state, state)
     if state == "work":
         dog, props = split(f"{visual}_input_none")
     elif state == "meeting":
@@ -156,17 +156,13 @@ def _neutral(x, pose="base_idle", sy=1.0, lean=0.0, hop=0.0):
     return warp(dog, dx=x - head_cx(dog), dy=-hop, sy=sy, sx=1 / math.sqrt(sy), lean=lean)
 
 
-def same_scene(a, b):
-    """Idle and rest look the same (asleep): keep breathing through the change."""
-    return [loop_frame("rest", round(N_LOOP - 1 + k * (N_LOOP + 1) / (N_TRANSITION - 1))) for k in range(N_TRANSITION)]
-
-
 def transition(a, b, visual_a="code", visual_b="code"):
-    if SLEEPS.get(a, a) == SLEEPS.get(b, b):
-        return same_scene(a, b)
+    if "idle" in (a, b):
+        # Stepping away and back happens at the desk (away.py).
+        import away
+        return away.transition(a, b, visual_a, visual_b)
     if {a, b} == {"work", "meeting"}:
         return headset_on(visual_a) if a == "work" else headset_off(visual_b)
-    a, b = SLEEPS.get(a, a), SLEEPS.get(b, b)
     frames = []
     dog_a, props_a, anchor_a = scene_parts(a, visual_a)
     dog_b, props_b, anchor_b = scene_parts(b, visual_b)
@@ -176,40 +172,27 @@ def transition(a, b, visual_a="code", visual_b="code"):
     ya, yb = (bbox(dog_a)[1] + bbox(dog_a)[3]) / 2, (bbox(dog_b)[1] + bbox(dog_b)[3]) / 2
     side_a = "back" if a in BACK_PROPS else "front"
     side_b = "back" if b in BACK_PROPS else "front"
-    has_a, has_b = a != "idle", b != "idle"
 
     # ---- exit: anticipate, props pop away under a poof, the pup emerges in its idle sit
     frames.append(loop_end(a, visual_a))
     for k, (sy, lean) in enumerate(((0.975, 0), (0.955, 3 * d), (1.0, 6 * d)), start=1):
-        if a == "idle":
-            pet = _pose_warp(dog_of("base_idle"), sy=sy, lean=lean)
-        else:
-            pet = _pose_warp(dog_a, sy=sy, lean=lean, nod_below=NOD_BELOW.get(a))
-        frames.append(frame(pet=pet, **{side_a: props_a}) if has_a else frame(pet=pet))
+        pet = _pose_warp(dog_a, sy=sy, lean=lean, nod_below=NOD_BELOW.get(a))
+        frames.append(frame(pet=pet, **{side_a: props_a}))
     prop_scales = (1.08, 0.72, 0.34, 0.0, 0.0, 0.0, 0.0, 0.0)
     for k in range(8):  # frames 4..11
         fx = []
-        props_layer = scale_about(props_a, prop_scales[k], *anchor_a) if has_a else None
-        if has_a:
-            if k in (1, 2, 3, 4, 5):
-                fx += poof(xa, ya, k - 1)
-            if k in (3, 4, 5):
-                fx += [{"k": "puff", "x": anchor_a[0] + dx, "y": anchor_a[1] - 16 + dy, "r": r * (1.2 - 0.3 * (k - 3))}
-                       for dx, dy, r in ((-40, 0, 4), (40, -6, 4), (0, -24, 3.5))]
-            if k < 2:
-                pet = _pose_warp(dog_a, sy=1.0 - 0.02 * k, lean=6 * d, nod_below=NOD_BELOW.get(a))
-            else:
-                sy = (0.94, 0.94, 0.97, 1.02, 1.0, 0.98)[k - 2]
-                pet = _neutral(xa, sy=sy)
+        if k in (1, 2, 3, 4, 5):
+            fx += poof(xa, ya, k - 1)
+        if k in (3, 4, 5):
+            fx += [{"k": "puff", "x": anchor_a[0] + dx, "y": anchor_a[1] - 16 + dy, "r": r * (1.2 - 0.3 * (k - 3))}
+                   for dx, dy, r in ((-40, 0, 4), (40, -6, 4), (0, -24, 3.5))]
+        if k < 2:
+            pet = _pose_warp(dog_a, sy=1.0 - 0.02 * k, lean=6 * d, nod_below=NOD_BELOW.get(a))
         else:
-            pose = "peak_idle" if k in (0, 1) else "base_idle"
-            sy = (0.95, 1.0, 1.0, 0.98, 1.0, 1.0, 0.97, 1.0)[k]
-            pet = _neutral(xa, pose=pose, sy=sy, lean=(3 * d if k in (2, 3) else 0))
-            if k in (0, 1):
-                fx += [{"k": "bang", "x": xa + 110 * d, "y": 40}]
+            sy = (0.94, 0.94, 0.97, 1.02, 1.0, 0.98)[k - 2]
+            pet = _neutral(xa, sy=sy)
         f = frame(pet=pet, fx=fx_layer(fx))
-        if props_layer is not None:
-            f[side_a] = props_layer
+        f[side_a] = scale_about(props_a, prop_scales[k], *anchor_a)
         frames.append(f)
 
     # ---- travel: crouch, cheer at the top of the hop, land squashed
@@ -231,28 +214,18 @@ def transition(a, b, visual_a="code", visual_b="code"):
         fx = []
         pet = _neutral(xb, sy=(1.0, 0.99, 1.0, 1.01, 1.0, 1.0)[k], lean=(0, 0, -2 * d, 0, 2 * d, 0)[k])
         f = frame(pet=pet)
-        if has_b:
-            f[side_b] = scale_about(props_b, pop_in[k], *anchor_b)
-            if k in (3, 4):
-                fx += [{"k": "sparkle", "x": anchor_b[0] + 70, "y": anchor_b[1] - 80},
-                       {"k": "sparkle_s", "x": anchor_b[0] - 76, "y": anchor_b[1] - 50}]
-        else:
-            if k in (2, 3):
-                f["pet"] = _neutral(xb, pose="peak_idle", sy=0.97)
+        f[side_b] = scale_about(props_b, pop_in[k], *anchor_b)
+        if k in (3, 4):
+            fx += [{"k": "sparkle", "x": anchor_b[0] + 70, "y": anchor_b[1] - 80},
+                   {"k": "sparkle_s", "x": anchor_b[0] - 76, "y": anchor_b[1] - 50}]
         f["fx"] = fx_layer(fx)
         frames.append(f)
     for k in range(7):  # frames 24..30
-        fx = []
-        if has_b:
-            if k <= 4:
-                fx += poof(xb, yb, k)
-            pet = _neutral(xb) if k < 2 else _pose_warp(dog_b, sy=(0.94, 0.95, 1.02, 0.99, 1.0)[k - 2],
-                                                         nod_below=NOD_BELOW.get(b))
-            f = frame(pet=pet, fx=fx_layer(fx))
-            f[side_b] = props_b
-        else:
-            sy = (0.96, 1.0, 1.01, 1.0, 0.98, 1.0, 1.0)[k]
-            f = frame(pet=_neutral(xb, sy=sy), fx=fx_layer([{"k": "sparkle_s", "x": xb + 96, "y": 40 - 4 * k}] if k < 4 else []))
+        fx = poof(xb, yb, k) if k <= 4 else []
+        pet = _neutral(xb) if k < 2 else _pose_warp(dog_b, sy=(0.94, 0.95, 1.02, 0.99, 1.0)[k - 2],
+                                                     nod_below=NOD_BELOW.get(b))
+        f = frame(pet=pet, fx=fx_layer(fx))
+        f[side_b] = props_b
         frames.append(f)
     frames.append(loop_start(b, visual_b))
     assert len(frames) == N_TRANSITION, len(frames)
@@ -562,6 +535,10 @@ def _cup_of(prefix):
 
 def water(prefix, counts=(5, 6, 7, 6)):
     """The cup slides in from the right and lands with a bounce, then the authored poses."""
+    if prefix.startswith("water_idle_"):
+        # Nobody at the desk: it lands there to wait (away.py).
+        import away
+        return away.water(prefix[len("water_idle_"):])
     def fx(index, pose, k):
         if pose == 2 and k < 3:
             return [{"k": "sparkle_s", "x": 360, "y": 190}]

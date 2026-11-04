@@ -9,6 +9,8 @@ import { growthScale } from '../../src/statistics/growth';
 import { PomodoroTimer } from '../../src/components/PomodoroTimer';
 import { DeskSpeaker } from '../../src/components/DeskSpeaker';
 import { deskShown } from '../../src/pet/interaction';
+import { AwayNote } from '../../src/components/AwayNote';
+import { awayNote } from '../../src/pet/away';
 import { ReplayNotice, ReplayScrubber } from '../../src/components/ReplayControls';
 import { WhatsNewCloud } from '../../src/components/WhatsNewCloud';
 import { WHATS_NEW } from '../../src/whatsNew';
@@ -127,7 +129,9 @@ export function Playback({ desired, paused, reduced, sound }: { desired: Activit
     {playback.transition && <SpriteCanvas skin={taSkin} paused={paused} key={playback.transition.key} style={noCss}
       className={`pet-sprite partner-sprite activity-transition ${transitionAssetName(playback.transition)}`}
       onPlaybackEnd={() => playback.completeTransition(playback.transition!.key)} />}
-    {deskShown(playback) && <DeskSpeaker playing={sound && playback.displayedActivity !== 'meeting'} />}
+    {deskShown(playback) && <DeskSpeaker playing={sound && playback.displayedActivity === 'work'} />}
+    {/* ?paw: a visitor left its paw print on TA's note. */}
+    {awayNote(playback) && <AwayNote words={params.get('lang') === 'en' ? 'Back\nsoon' : '马上\n回来'} arriving={awayNote(playback) === 'arriving'} paw={params.has('paw')} />}
   </button>;
 }
 const root = createRoot(document.getElementById('root')!);

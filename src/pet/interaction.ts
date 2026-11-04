@@ -17,8 +17,8 @@ export type GestureVariant =
  * the activity itself is kept, so it never counts as work in the statistics.
  */
 export const sceneFor = (activity: ActivityKind): Exclude<ActivityKind, 'leisure'> => activity === 'leisure' ? 'work' : activity;
-const atDesk = (activity: ActivityKind) => sceneFor(activity) === 'work' || sceneFor(activity) === 'meeting';
-/** The desk, and the speaker on its monitor: at work and in a meeting, and through the change between the two (in place). */
+const atDesk = (activity: ActivityKind) => sceneFor(activity) !== 'rest';
+/** The desk, and the speaker on its monitor: at work, in a meeting and away from it, and through the changes between them (in place). */
 export const deskShown = ({ displayedActivity, transition }: { displayedActivity: ActivityKind; transition?: { from: ActivityKind; to: ActivityKind } }) =>
   transition ? atDesk(transition.from) && atDesk(transition.to) : atDesk(displayedActivity);
 
@@ -30,9 +30,8 @@ export const deskShown = ({ displayedActivity, transition }: { displayedActivity
  */
 export function gestureFor(action: InteractionKind, receiverActivity: ActivityKind): GestureVariant {
   if (action === 'hug') return 'hug';
-  // Away from the computer the pup sleeps, so idle gets the sleeping interactions.
-  const scene = sceneFor(receiverActivity);
-  return `water-${scene === 'idle' ? 'rest' : scene}` as GestureVariant;
+  // Away, the cup lands on its empty desk to wait for it.
+  return `water-${sceneFor(receiverActivity)}` as GestureVariant;
 }
 
 export function waterDrinkDelay(placedAt: number, now = Date.now()): number {

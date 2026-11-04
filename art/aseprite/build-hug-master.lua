@@ -12,7 +12,8 @@
 -- which the app colours one by one (pet/SpriteCanvas.tsx).
 --
 -- Other props built the same way name their own master with
--- --script-param project=... (the desk speaker: rig/speaker.py).
+-- --script-param project=... (the desk speaker: rig/speaker.py; the away
+-- note's paw print: rig/away.py).
 
 local root = app.params.root
 local build = app.params.build

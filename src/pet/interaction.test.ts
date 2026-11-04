@@ -2,10 +2,13 @@ import { describe, expect, it } from 'vitest';
 import { deskShown, gestureFor, sceneFor, WATER_AUTO_DRINK_MS, waterDrinkDelay } from './interaction';
 
 describe('state-aware pet interactions', () => {
-  it('keeps the desk (and its speaker) through work and meetings, but not through getting up or lying down', () => {
+  it('keeps the desk (and its speaker) through work, meetings and stepping away, but not through lying down', () => {
     expect(deskShown({ displayedActivity: 'leisure' })).toBe(true);
     expect(deskShown({ displayedActivity: 'meeting' })).toBe(true);
-    expect(deskShown({ displayedActivity: 'idle' })).toBe(false);
+    expect(deskShown({ displayedActivity: 'idle' })).toBe(true);
+    expect(deskShown({ displayedActivity: 'rest' })).toBe(false);
+    expect(deskShown({ displayedActivity: 'work', transition: { from: 'work', to: 'idle' } })).toBe(true);
+    expect(deskShown({ displayedActivity: 'idle', transition: { from: 'idle', to: 'rest' } })).toBe(false);
     expect(deskShown({ displayedActivity: 'work', transition: { from: 'work', to: 'meeting' } })).toBe(true);
     expect(deskShown({ displayedActivity: 'work', transition: { from: 'work', to: 'rest' } })).toBe(false);
     expect(deskShown({ displayedActivity: 'rest', transition: { from: 'rest', to: 'work' } })).toBe(false);
@@ -20,8 +23,8 @@ describe('state-aware pet interactions', () => {
     expect(gestureFor('water', 'leisure')).toBe('water-work');
   });
 
-  it('treats an idle pup as asleep', () => {
-    expect(gestureFor('water', 'idle')).toBe('water-rest');
+  it('lands a cup on an away pup’s empty desk', () => {
+    expect(gestureFor('water', 'idle')).toBe('water-idle');
   });
 
   it('keeps a received cup for fifteen minutes', () => {

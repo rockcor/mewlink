@@ -1,0 +1,16 @@
+{
+ "words": {
+  "x": 81,
+  "y": 130,
+  "width": 45,
+  "height": 30
+ },
+ "paw": {
+  "x": 81,
+  "y": 160,
+  "width": 21,
+  "height": 18
+ },
+ "noteLands": 19,
+ "transitionFrames": 32
+}
