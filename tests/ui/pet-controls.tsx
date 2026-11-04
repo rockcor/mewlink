@@ -9,6 +9,8 @@ import { growthScale } from '../../src/statistics/growth';
 import { PomodoroTimer } from '../../src/components/PomodoroTimer';
 import { DeskSpeaker } from '../../src/components/DeskSpeaker';
 import { deskShown } from '../../src/pet/interaction';
+import { AwayNote } from '../../src/components/AwayNote';
+import { awayNote } from '../../src/pet/away';
 import { ReplayNotice, ReplayScrubber } from '../../src/components/ReplayControls';
 import { WhatsNewCloud } from '../../src/components/WhatsNewCloud';
 import { WHATS_NEW } from '../../src/whatsNew';
@@ -19,13 +21,13 @@ import { SpriteCanvas } from '../../src/pet/SpriteCanvas';
 import { petSkinFilters } from '../../src/pet/skins';
 import { transitionAssetName, useActivityPlayback } from '../../src/pet/activityPlayback';
 import { spriteSheets } from '../../src/pet/spriteAssets';
-import type { ActivityKind, CupStyle, PetSkin } from '../../src/domain/types';
+import type { CupStyle, PetSkin, ShownActivity } from '../../src/domain/types';
 import '../../src/styles.css';
 import '../../src/pet.css';
 import '../../src/settings-panel.css';
 
 const noop = () => undefined;
-const kinds: ActivityKind[] = ['work', 'meeting', 'rest', 'idle'];
+const kinds: ShownActivity[] = ['work', 'meeting', 'rest', 'meal', 'idle'];
 const params = new URLSearchParams(location.search);
 const mySkin = (params.get('me') ?? 'cream') as PetSkin;
 const taSkin = (params.get('ta') ?? 'mint') as PetSkin;
@@ -42,7 +44,7 @@ export function Checks() {
   const growth = growthScale(Number(new URLSearchParams(location.search).get('growth') ?? 0));
   const [panel, setPanel] = useState('');
   const [cup, setCup] = useState<CupStyle>('ceramic');
-  const [activity, setActivity] = useState<ActivityKind>('idle');
+  const [activity, setActivity] = useState<ShownActivity>('idle');
   const [paused, setPaused] = useState(false);
   const [reduced, setReduced] = useState(false);
   // ?sound: a video or music playing at both desks (the speaker on the monitor bounces).
@@ -96,7 +98,7 @@ export function Checks() {
   </main>
   <details style={{ position: 'fixed', top: 0, left: 0, zIndex: 9, background: '#fff8e9', fontSize: 12 }}>
     <summary>Test controls</summary>
-    <label>Remote activity <select value={activity} onChange={event => setActivity(event.target.value as ActivityKind)}>{kinds.map(kind => <option key={kind}>{kind}</option>)}</select></label>
+    <label>Remote activity <select value={activity} onChange={event => setActivity(event.target.value as ShownActivity)}>{kinds.map(kind => <option key={kind}>{kind}</option>)}</select></label>
     <label><input type="checkbox" checked={paused} onChange={event => setPaused(event.target.checked)} />Pause render</label>
     <label><input type="checkbox" checked={reduced} onChange={event => setReduced(event.target.checked)} />Disable CSS animation</label>
     <label><input type="checkbox" checked={sound} onChange={event => setSound(event.target.checked)} />Sound playing</label>
@@ -113,7 +115,7 @@ export function Checks() {
   {panel === 'statistics' && <StatisticsPanel language={preferences.language} connected visibility="private" onVisibilityChange={noop} onClose={() => setPanel('')} />}
   </>;
 }
-export function Playback({ desired, paused, reduced, sound }: { desired: ActivityKind; paused: boolean; reduced: boolean; sound: boolean }) {
+export function Playback({ desired, paused, reduced, sound }: { desired: ShownActivity; paused: boolean; reduced: boolean; sound: boolean }) {
   const playback = useActivityPlayback({ desiredActivity: desired, desiredWorkVisual: 'web',
     initialActivity: 'idle', initialWorkVisual: 'web', workHandsSettled: true, transitionDurationMs: 480, paused });
   const style = { '--pet-idle-duration': '400ms', '--pet-meeting-duration': '400ms', '--pet-video-duration': '400ms', '--pet-rest-duration': '400ms',
@@ -127,7 +129,9 @@ export function Playback({ desired, paused, reduced, sound }: { desired: Activit
     {playback.transition && <SpriteCanvas skin={taSkin} paused={paused} key={playback.transition.key} style={noCss}
       className={`pet-sprite partner-sprite activity-transition ${transitionAssetName(playback.transition)}`}
       onPlaybackEnd={() => playback.completeTransition(playback.transition!.key)} />}
-    {deskShown(playback) && <DeskSpeaker playing={sound && playback.displayedActivity !== 'meeting'} />}
+    {deskShown(playback) && <DeskSpeaker playing={sound && playback.displayedActivity === 'work'} />}
+    {/* ?paw: a visitor left its paw print on TA's note. */}
+    {awayNote(playback) && <AwayNote words={params.get('lang') === 'en' ? 'Back\nsoon' : '马上\n回来'} arriving={awayNote(playback) === 'arriving'} paw={params.has('paw')} />}
   </button>;
 }
 const root = createRoot(document.getElementById('root')!);

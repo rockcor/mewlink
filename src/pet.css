@@ -21,6 +21,7 @@
 [data-render-paused="true"] .hug-visit,
 [data-render-paused="true"] .hug-walker,
 [data-render-paused="true"] .desk-speaker,
+[data-render-paused="true"] .away-note,
 [data-render-paused="true"] .waiting-cup i { animation-play-state: paused !important; visibility: hidden; }
 
 /* The body stays fixed. Only the hand-specific source frame changes on real input. */
@@ -55,6 +56,12 @@
   background-image: url('/pets/animations/rest.png');
   background-size: 2400% 100%;
   animation: sprite-strip var(--pet-rest-duration, 4300ms) steps(24, jump-none) infinite;
+}
+/* Resting at a mealtime of its own clock it eats (pet/meal.ts). */
+.pet-sprite.meal {
+  background-image: url('/pets/animations/meal.png');
+  background-size: 2400% 100%;
+  animation: sprite-strip var(--pet-meal-duration, 3600ms) steps(24, jump-none) infinite;
 }
 .pet-sprite.replaying { filter: drop-shadow(0 13px 10px rgba(86, 45, 67, .16)) saturate(1.08); }
 .self-pet .pet-sprite { filter: var(--self-pet-skin-filter, brightness(1)) drop-shadow(0 13px 10px rgba(86, 45, 67, .16)); }
@@ -116,6 +123,22 @@
 .transition-rest-work-web { background-image: url('/pets/animations/transition-rest-work-web.png'); }
 .transition-rest-work-ai { background-image: url('/pets/animations/transition-rest-work-ai.png'); }
 .transition-rest-work-mewlink { background-image: url('/pets/animations/transition-rest-work-mewlink.png'); }
+.transition-work-meal { background-image: url('/pets/animations/transition-work-meal.png'); }
+.transition-meeting-meal { background-image: url('/pets/animations/transition-meeting-meal.png'); }
+.transition-idle-meal { background-image: url('/pets/animations/transition-idle-meal.png'); }
+.transition-rest-meal { background-image: url('/pets/animations/transition-rest-meal.png'); }
+.transition-meal-work { background-image: url('/pets/animations/transition-meal-work.png'); }
+.transition-meal-meeting { background-image: url('/pets/animations/transition-meal-meeting.png'); }
+.transition-meal-idle { background-image: url('/pets/animations/transition-meal-idle.png'); }
+.transition-meal-rest { background-image: url('/pets/animations/transition-meal-rest.png'); }
+.transition-work-document-meal { background-image: url('/pets/animations/transition-work-document-meal.png'); }
+.transition-work-web-meal { background-image: url('/pets/animations/transition-work-web-meal.png'); }
+.transition-work-ai-meal { background-image: url('/pets/animations/transition-work-ai-meal.png'); }
+.transition-work-mewlink-meal { background-image: url('/pets/animations/transition-work-mewlink-meal.png'); }
+.transition-meal-work-document { background-image: url('/pets/animations/transition-meal-work-document.png'); }
+.transition-meal-work-web { background-image: url('/pets/animations/transition-meal-work-web.png'); }
+.transition-meal-work-ai { background-image: url('/pets/animations/transition-meal-work-ai.png'); }
+.transition-meal-work-mewlink { background-image: url('/pets/animations/transition-meal-work-mewlink.png'); }
 
 .interaction-sprite {
   position: absolute;
@@ -144,16 +167,19 @@
 .interaction-sprite.water-meeting { background-image: url('/pets/animations/water-meeting-ceramic.png'); }
 .interaction-sprite.water-idle { background-image: url('/pets/animations/water-idle-ceramic.png'); }
 .interaction-sprite.water-rest { background-image: url('/pets/animations/water-rest-ceramic.png'); }
+.interaction-sprite.water-meal { background-image: url('/pets/animations/water-meal-ceramic.png'); }
 .interaction-sprite.water-drink { background-image: url('/pets/animations/water-drink-ceramic.png'); }
 .interaction-sprite.water-work.cup-tumbler { background-image: url('/pets/animations/water-work-tumbler.png'); }
 .interaction-sprite.water-meeting.cup-tumbler { background-image: url('/pets/animations/water-meeting-tumbler.png'); }
 .interaction-sprite.water-idle.cup-tumbler { background-image: url('/pets/animations/water-idle-tumbler.png'); }
 .interaction-sprite.water-rest.cup-tumbler { background-image: url('/pets/animations/water-rest-tumbler.png'); }
+.interaction-sprite.water-meal.cup-tumbler { background-image: url('/pets/animations/water-meal-tumbler.png'); }
 .interaction-sprite.water-drink.cup-tumbler { background-image: url('/pets/animations/water-drink-tumbler.png'); }
 .interaction-sprite.water-work.cup-bottle { background-image: url('/pets/animations/water-work-bottle.png'); }
 .interaction-sprite.water-meeting.cup-bottle { background-image: url('/pets/animations/water-meeting-bottle.png'); }
 .interaction-sprite.water-idle.cup-bottle { background-image: url('/pets/animations/water-idle-bottle.png'); }
 .interaction-sprite.water-rest.cup-bottle { background-image: url('/pets/animations/water-rest-bottle.png'); }
+.interaction-sprite.water-meal.cup-bottle { background-image: url('/pets/animations/water-meal-bottle.png'); }
 .interaction-sprite.water-drink.cup-bottle { background-image: url('/pets/animations/water-drink-bottle.png'); }
 .pet-pair.interaction-water.target-self .self-pet,
 .pet-pair.interaction-water.target-partner .partner-pet { opacity: 0; }
@@ -250,7 +276,7 @@
   .interaction-sprite { animation: none; background-position: 52.173913% 0; }
   .hug-visit { animation: none; background-position: 100% 0; }
   .waiting-cup i { animation: none; }
-  .desk-speaker { animation: none; }
+  .desk-speaker, .away-words, .away-paw { animation: none; }
   .desk-speaker.playing { animation: none; background-position: 12.5% 0; }
 }
 
@@ -278,6 +304,41 @@
 }
 @keyframes speaker-in { from { opacity: 0; transform: scale(.6); } }
 @keyframes speaker-beat { from { background-position: 12.5% 0; } to { background-position: 112.5% 0; } }
+
+/* An away pup's note (AwayNote): the words on it and a visitor's paw print, in its pup's frame and colours. */
+.away-note {
+  position: absolute;
+  z-index: 3;
+  left: -2px;
+  bottom: 6px;
+  width: 230px;
+  height: 153px;
+  pointer-events: none;
+}
+.self-pet .away-note { filter: var(--self-pet-skin-filter, brightness(1)); }
+.partner-pet .away-note { filter: var(--partner-pet-skin-filter, brightness(1)); }
+.away-words {
+  position: absolute;
+  display: grid;
+  place-items: center;
+  color: #7d3353;
+  font-size: 8.5px;
+  font-weight: 800;
+  line-height: 1.05;
+  letter-spacing: .02em;
+  text-align: center;
+  white-space: pre-line;
+  animation: away-words 220ms ease-out both;
+}
+/* Arriving, the words appear as the note lands (its frame of the transition). */
+.away-note.arriving .away-words { animation-delay: calc(var(--activity-transition-duration, 4800ms) * var(--words-at)); }
+.away-paw {
+  position: absolute;
+  background: url('/pets/animations/away-paw.png') 0 0 / 100% 100% no-repeat;
+  animation: away-paw 320ms cubic-bezier(.2, .8, .2, 1.4) both;
+}
+@keyframes away-words { from { opacity: 0; transform: scale(.7); } }
+@keyframes away-paw { from { opacity: 0; transform: scale(1.8); } }
 
 /* The pomodoro stands in its pup's frame (see PomodoroTimer), so it scales and hides with the pup. */
 .pomodoro-frame {

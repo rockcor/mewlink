@@ -1,5 +1,7 @@
 export const activityKinds = ['work', 'meeting', 'leisure', 'idle', 'rest'] as const;
 export type ActivityKind = (typeof activityKinds)[number];
+/** What a pup's sprite shows: its activity, or, resting at a mealtime of its own clock, a meal (pet/meal.ts). */
+export type ShownActivity = ActivityKind | 'meal';
 export const workVisuals = ['code', 'document', 'web', 'ai', 'mewlink'] as const;
 export type WorkVisual = (typeof workVisuals)[number];
 export const interactionKinds = ['water', 'hug'] as const;
@@ -21,6 +23,8 @@ export interface ActivitySegment {
   pomodoro?: { id: string; startedAt: string; durationMs: number };
   /** A video or music playing: the speaker on the desk bounces. Absent when quiet (and from older versions). */
   audio?: boolean;
+  /** Resting at a mealtime of the sender's own clock: its pup eats (pet/meal.ts). Absent otherwise. */
+  meal?: boolean;
 }
 // Relative milliseconds, key presses, pointer events, clicks, activity, work screen.
 // Counts and categories only: never key values, titles, URLs or coordinates.

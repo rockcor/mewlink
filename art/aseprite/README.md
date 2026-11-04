@@ -4,7 +4,7 @@ Open `mewlink-pet-animation-master.aseprite` in Aseprite. It holds 2448 frames i
 
 ## Animation groups
 
-- Activity loops, 24 frames each: `idle` (sways, squashes, then hops with the `> <` face), `meeting` (nods and waves behind the laptop, sound waves by the mic), `leisure` (munches with a bob, laughs with flying chips), `rest` (breathes on the cushion, rising z's)
+- Activity loops, 24 frames each: `idle` (away: its empty desk with a sticky note on the screen, see below), `meeting` (nods and waves behind the laptop, sound waves by the mic), `leisure` (munches with a bob, laughs with flying chips), `rest` (breathes on the cushion, rising z's)
 - Work screens: `work-code`, `work-document`, `work-web`, `work-ai`, `work-mewlink`; each stores the exact authored `none`, `keyboard`, `pointer`, `both` input frames
 - High-intensity input variants: `work-<screen>-stress`, with authored `> <` eyes while the body and equipment stay locked
 - 24-frame interactions: `water-<state>-<cup>` and `water-drink-<cup>` (`ceramic`, `tumbler`, `bottle`); authored poses land with a squash, bob gently and add sparkles
@@ -19,6 +19,14 @@ Open `mewlink-pet-animation-master.aseprite` in Aseprite. It holds 2448 frames i
 - `hug-visit-work`, `hug-visit-meeting`, `hug-visit-rest-<blanket>`: the authored hug poses mapped back onto the receiver's everyday size and place, without their own props. Layers `receiver`, `visitor` and (tucking in) `blanket`, exported as one row each so each pup keeps its own colours and the blanket the one chosen for it. In a meeting the receiver keeps its headset.
 - `rest-tucked-<blanket>`: after a hug at its cushion a pup keeps the blanket while it sleeps on: the everyday sleeping loop (first row, the same frames) with the blanket over it up to its chin, under its ear, breathing with it (second row, in the blanket's own colours).
 - `desk-<scene>`: each scene's desk, laptop or cushion without its pup; where paws hid the keyboard and mouse, their rows of keys and the mouse's other half fill in. It is drawn while its pup is away, and over the hug, so the desk stays in front.
+
+## Away, at the desk
+
+`idle` is the pup away for a while (`rig/away.py`): its own desk without it, the screen on standby (a glint, the light on the monitor's chin slowly on and off) and a square sticky note on the screen with its corner folded up. The app writes "back soon" on it in the viewer's language and, after a visit, adds the paw print `away-paw` (from `mewlink-away-master.aseprite`); `src/pet/away.json` says where both go. Nothing moves to get there: stepping away, the pup ducks down behind its desk at the keyboard's height, the screen switches off to a line and a dot, and the note pops on; coming back it pops up with a stretch, the note pops off and the screen comes on. Going to sleep the desk shrinks away under a poof and the whole cushion pops in, and back. A cup for an away pup (`water-idle-<cup>`) lands on its desk to wait. `original.py` hands all of these to `away.py`, so `build.py` renders them like any other strip.
+
+## A meal, while resting at a mealtime
+
+`meal` is how rest looks at breakfast, lunch or dinner of the pup's own clock (`rig/meal.py`; the app decides in `src/pet/meal.ts`): the authored mug pose (`base_water`) with a heaped bowl of rice in place of the mug, chopsticks in it and its paws round the bowl, at a low pink table with an egg on a dish and a cup of tea. Twice a loop it nods into the bowl for a bite, a few grains hop and it chews; steam rises from the tea. Its scene goes through the same transitions as every other state (`transition-*-meal`, `transition-meal-*`, and to and from away in `away.py`), and a cup for it (`water-meal-<cup>`) lands beside the table.
 
 ## The speaker on the monitor
 
@@ -45,6 +53,13 @@ aseprite -b --script-param root="$PWD" --script-param build=/tmp/mewlink-hug --s
 ```
 
 It also writes `src/pet/hugVisit.json`: where each scene's pup sits and where the walker stops beside the receiver, which the app uses to walk it there.
+
+The away note's paw print, from `rig/away.py` (the `idle` strips themselves come from `build.py`):
+
+```bash
+/tmp/mewlink-venv/bin/python art/aseprite/rig/away.py --out /tmp/mewlink-away
+aseprite -b --script-param root="$PWD" --script-param build=/tmp/mewlink-away --script-param project=mewlink-away-master --script art/aseprite/build-hug-master.lua
+```
 
 The speaker master too, from `rig/speaker.py`, under its own name:
 

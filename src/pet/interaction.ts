@@ -1,4 +1,4 @@
-import type { ActivityKind, InteractionKind } from '../domain/types';
+import type { ActivityKind, InteractionKind, ShownActivity } from '../domain/types';
 
 export const WATER_AUTO_DRINK_MS = 15 * 60 * 1_000;
 export const ACTIVITY_TRANSITION_MS = 4_800;
@@ -9,6 +9,7 @@ export type GestureVariant =
   | 'water-meeting'
   | 'water-idle'
   | 'water-rest'
+  | 'water-meal'
   | 'water-drink';
 
 /**
@@ -16,10 +17,14 @@ export type GestureVariant =
  * apps and older versions) is drawn at the desk like any other screen time;
  * the activity itself is kept, so it never counts as work in the statistics.
  */
-export const sceneFor = (activity: ActivityKind): Exclude<ActivityKind, 'leisure'> => activity === 'leisure' ? 'work' : activity;
-const atDesk = (activity: ActivityKind) => sceneFor(activity) === 'work' || sceneFor(activity) === 'meeting';
-/** The desk, and the speaker on its monitor: at work and in a meeting, and through the change between the two (in place). */
-export const deskShown = ({ displayedActivity, transition }: { displayedActivity: ActivityKind; transition?: { from: ActivityKind; to: ActivityKind } }) =>
+export function sceneFor(activity: ActivityKind): Exclude<ActivityKind, 'leisure'>;
+export function sceneFor(activity: ShownActivity): Exclude<ShownActivity, 'leisure'>;
+export function sceneFor(activity: ShownActivity) {
+  return activity === 'leisure' ? 'work' : activity;
+}
+const atDesk = (activity: ShownActivity) => sceneFor(activity) !== 'rest' && activity !== 'meal';
+/** The desk, and the speaker on its monitor: at work, in a meeting and away from it, and through the changes between them (in place). */
+export const deskShown = ({ displayedActivity, transition }: { displayedActivity: ShownActivity; transition?: { from: ShownActivity; to: ShownActivity } }) =>
   transition ? atDesk(transition.from) && atDesk(transition.to) : atDesk(displayedActivity);
 
 /**
@@ -28,11 +33,10 @@ export const deskShown = ({ displayedActivity, transition }: { displayedActivity
  * sender is always at the computer (they just pressed the button), so it is
  * both working, or the receiver away and asleep (tucked in); never both away.
  */
-export function gestureFor(action: InteractionKind, receiverActivity: ActivityKind): GestureVariant {
+export function gestureFor(action: InteractionKind, receiverActivity: ShownActivity): GestureVariant {
   if (action === 'hug') return 'hug';
-  // Away from the computer the pup sleeps, so idle gets the sleeping interactions.
-  const scene = sceneFor(receiverActivity);
-  return `water-${scene === 'idle' ? 'rest' : scene}` as GestureVariant;
+  // Away, the cup lands on its empty desk to wait for it; at a meal, beside its table.
+  return `water-${sceneFor(receiverActivity)}` as GestureVariant;
 }
 
 export function waterDrinkDelay(placedAt: number, now = Date.now()): number {
