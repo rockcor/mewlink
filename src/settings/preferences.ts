@@ -35,6 +35,8 @@ export interface Preferences {
   pomodoroMinutes: number;
   /** Minutes without input before the companion is considered inactive. */
   inactivityMinutes: number;
+  /** Minutes since the last input before sleeping; never earlier than away. */
+  restMinutes: number;
   selfPetSkin: PetSkin;
   blanketStyle: BlanketStyle;
   language: Language;
@@ -64,6 +66,7 @@ export function defaultPreferences(): Preferences {
     petTransparencyPercent: 50,
     pomodoroMinutes: 25,
     inactivityMinutes: 5,
+    restMinutes: 10,
     selfPetSkin: 'cream',
     blanketStyle: 'blush',
     language: browserLanguage(),
@@ -84,6 +87,11 @@ export const PET_WINDOW_MIN_WIDTH = 440;
 
 export function normalizeInactivityMinutes(value: number): number {
   if (!Number.isFinite(value)) return 5;
+  return Math.min(30, Math.max(1, Math.round(value)));
+}
+
+export function normalizeRestMinutes(value: number): number {
+  if (!Number.isFinite(value)) return 10;
   return Math.min(30, Math.max(1, Math.round(value)));
 }
 
@@ -135,6 +143,10 @@ export function loadPreferences(storage?: StorageLike): Preferences {
     const validLanguage = languages.includes(value.language as Language);
     // Keep an existing language choice when upgrading older installations.
     const manualLanguage = validLanguage && (value.languageMode === 'manual' || value.languageMode === undefined);
+    const inactivityMinutes = typeof value.inactivityMinutes === 'number'
+      ? normalizeInactivityMinutes(value.inactivityMinutes) : defaults.inactivityMinutes;
+    const restMinutes = Math.max(inactivityMinutes, typeof value.restMinutes === 'number'
+      ? normalizeRestMinutes(value.restMinutes) : defaults.restMinutes);
     return {
       autoUpdate: typeof value.autoUpdate === 'boolean' ? value.autoUpdate : defaults.autoUpdate,
       replayEnabled: typeof value.replayEnabled === 'boolean' ? value.replayEnabled : defaults.replayEnabled,
@@ -163,7 +175,8 @@ export function loadPreferences(storage?: StorageLike): Preferences {
         : defaults.petDistancePercent,
       growWithBusyness: typeof value.growWithBusyness === 'boolean' ? value.growWithBusyness : defaults.growWithBusyness,
       windowLayer: windowLayers.includes(value.windowLayer as WindowLayer) ? value.windowLayer as WindowLayer : defaults.windowLayer,
-      inactivityMinutes: typeof value.inactivityMinutes === 'number' ? normalizeInactivityMinutes(value.inactivityMinutes) : defaults.inactivityMinutes,
+      inactivityMinutes,
+      restMinutes,
       pomodoroMinutes: typeof value.pomodoroMinutes === 'number' ? normalizePomodoroMinutes(value.pomodoroMinutes) : defaults.pomodoroMinutes,
       petTransparencyPercent: typeof value.petTransparencyPercent === 'number'
         ? normalizePetTransparencyPercent(value.petTransparencyPercent)

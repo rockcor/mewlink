@@ -1,5 +1,5 @@
 import { invoke } from '@tauri-apps/api/core';
-import { normalizeInactivityMinutes } from '../settings/preferences';
+import { normalizeInactivityMinutes, normalizeRestMinutes } from '../settings/preferences';
 import { sceneFor } from '../pet/interaction';
 import type { ActivityKind, WorkVisual } from '../domain/types';
 
@@ -33,9 +33,8 @@ export const listening = (signal: PresenceSignal) => Boolean(signal.audio) && !s
 export const present = (signal: PresenceSignal, inactivityMinutes = 5) => !signal.locked
   && (signal.idleSeconds < normalizeInactivityMinutes(inactivityMinutes) * 60 || listening(signal));
 
-export const classify = (signal: PresenceSignal, inactivityMinutes = 5): ActivityKind => {
-  // Keep eight minutes between away and rest, even when away is set past ten minutes.
-  const restSeconds = normalizeInactivityMinutes(inactivityMinutes) * 60 + 8 * 60;
+export const classify = (signal: PresenceSignal, inactivityMinutes = 5, restMinutes = 10): ActivityKind => {
+  const restSeconds = Math.max(normalizeInactivityMinutes(inactivityMinutes), normalizeRestMinutes(restMinutes)) * 60;
   if (signal.locked || (signal.idleSeconds >= restSeconds && !listening(signal))) return 'rest';
   if (!present(signal, inactivityMinutes)) return 'idle';
   // Sound without input for a while is watching or listening, not working (it shows at the desk all the same).
@@ -53,8 +52,8 @@ export const nextSampleDelay = (signal: PresenceSignal) => {
   return 500;
 };
 
-export function nextActivity(previous: ActivityKind, signal: PresenceSignal, inactivityMinutes = 5): ActivityKind {
-  const activity = classify(signal, inactivityMinutes);
+export function nextActivity(previous: ActivityKind, signal: PresenceSignal, inactivityMinutes = 5, restMinutes = 10): ActivityKind {
+  const activity = classify(signal, inactivityMinutes, restMinutes);
   if (activity === 'work' && signal.appClass === 'unknown'
     && previous !== 'rest' && previous !== 'idle') return previous;
   return activity;

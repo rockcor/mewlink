@@ -51,3 +51,15 @@ describe('inactivity setting', () => {
     expect(html).toContain('30 min');
   });
 });
+
+
+it('exposes a separate sleep setting bounded by away and thirty minutes', () => {
+  const html = renderToStaticMarkup(createElement(SettingsPanel, {
+    ...props, preferences: { ...props.preferences, inactivityMinutes: 5, restMinutes: 20 },
+  }));
+  const slider = html.match(/<input[^>]*aria-label="Sleep timeout in minutes"[^>]*>/)?.[0];
+  expect(slider).toBeDefined();
+  expect(slider).toContain('min="5"');
+  expect(slider).toContain('max="30"');
+  expect(slider).toContain('value="20"');
+});

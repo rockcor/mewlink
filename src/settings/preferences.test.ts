@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { petSkins } from '../domain/types';
-import { animationDurationScale, effectiveUtcOffsetMinutes, formatUtcOffset, loadPreferences, normalizePetDistancePercent, normalizePetTransparencyPercent, normalizePomodoroMinutes, normalizeInactivityMinutes, normalizePetScalePercent, normalizeReplayRetentionHours, petDistance, petWindowWidth, savePreferences, scalePetWithPinch } from './preferences';
+import { animationDurationScale, effectiveUtcOffsetMinutes, formatUtcOffset, loadPreferences, normalizePetDistancePercent, normalizePetTransparencyPercent, normalizePomodoroMinutes, normalizeInactivityMinutes, normalizeRestMinutes, normalizePetScalePercent, normalizeReplayRetentionHours, petDistance, petWindowWidth, savePreferences, scalePetWithPinch } from './preferences';
 
 function memoryStorage(initial?: string) {
   let value = initial ?? null;
@@ -41,7 +41,7 @@ describe('desktop preferences', () => {
 
   it('persists replay, manual timezone, and update preferences', () => {
     const storage = memoryStorage();
-    savePreferences({ autoUpdate: false, replayEnabled: false, liveTyping: true, replayRetentionHours: 36, statisticsVisibility: 'partner', timezoneMode: 'manual', manualUtcOffsetMinutes: 330, animationSpeed: 'natural', selfPetScalePercent: 85, partnerPetScalePercent: 95, petDistancePercent: 130, growWithBusyness: false, windowLayer: 'bottom', petTransparencyPercent: 40, pomodoroMinutes: 45, inactivityMinutes: 15, selfPetSkin: 'sixtySix', blanketStyle: 'night', language: 'en', languageMode: 'manual' }, storage);
+    savePreferences({ autoUpdate: false, replayEnabled: false, liveTyping: true, replayRetentionHours: 36, statisticsVisibility: 'partner', timezoneMode: 'manual', manualUtcOffsetMinutes: 330, animationSpeed: 'natural', selfPetScalePercent: 85, partnerPetScalePercent: 95, petDistancePercent: 130, growWithBusyness: false, windowLayer: 'bottom', petTransparencyPercent: 40, pomodoroMinutes: 45, inactivityMinutes: 15, restMinutes: 20, selfPetSkin: 'sixtySix', blanketStyle: 'night', language: 'en', languageMode: 'manual' }, storage);
     const saved = loadPreferences(storage);
     expect(effectiveUtcOffsetMinutes(saved)).toBe(330);
     expect(saved.autoUpdate).toBe(false);
@@ -72,7 +72,7 @@ describe('desktop preferences', () => {
 
   it('lets people turn automatic timezone detection off', () => {
     const storage = memoryStorage();
-    savePreferences({ autoUpdate: true, replayEnabled: true, liveTyping: false, replayRetentionHours: 24, statisticsVisibility: 'private', timezoneMode: 'off', manualUtcOffsetMinutes: 0, animationSpeed: 'calm', selfPetScalePercent: 100, partnerPetScalePercent: 100, petDistancePercent: 100, growWithBusyness: true, windowLayer: 'top', petTransparencyPercent: 0, pomodoroMinutes: 25, inactivityMinutes: 5, selfPetSkin: 'cream', blanketStyle: 'blush', language: 'zh', languageMode: 'manual' }, storage);
+    savePreferences({ autoUpdate: true, replayEnabled: true, liveTyping: false, replayRetentionHours: 24, statisticsVisibility: 'private', timezoneMode: 'off', manualUtcOffsetMinutes: 0, animationSpeed: 'calm', selfPetScalePercent: 100, partnerPetScalePercent: 100, petDistancePercent: 100, growWithBusyness: true, windowLayer: 'top', petTransparencyPercent: 0, pomodoroMinutes: 25, inactivityMinutes: 5, restMinutes: 10, selfPetSkin: 'cream', blanketStyle: 'blush', language: 'zh', languageMode: 'manual' }, storage);
     expect(loadPreferences(storage).timezoneMode).toBe('off');
   });
 
@@ -123,6 +123,20 @@ describe('desktop preferences', () => {
     }
     expect(loadPreferences(memoryStorage('{"inactivityMinutes":999}')).inactivityMinutes).toBe(30);
     expect(loadPreferences(memoryStorage('{"inactivityMinutes":"30"}')).inactivityMinutes).toBe(5);
+  });
+
+  it('persists a separate sleep deadline, defaulting to ten minutes and no earlier than away', () => {
+    const storage = memoryStorage('{}');
+    expect(loadPreferences(storage)).toMatchObject({ inactivityMinutes: 5, restMinutes: 10 });
+    savePreferences({ ...loadPreferences(storage), inactivityMinutes: 7, restMinutes: 25 }, storage);
+    expect(loadPreferences(storage)).toMatchObject({ inactivityMinutes: 7, restMinutes: 25 });
+    expect(loadPreferences(memoryStorage('{"inactivityMinutes":20,"restMinutes":10}')))
+      .toMatchObject({ inactivityMinutes: 20, restMinutes: 20 });
+    expect(loadPreferences(memoryStorage('{"inactivityMinutes":30}')).restMinutes).toBe(30);
+    expect(loadPreferences(memoryStorage('{"restMinutes":999}')).restMinutes).toBe(30);
+    expect(normalizeRestMinutes(Number.NaN)).toBe(10);
+    expect(normalizeRestMinutes(Infinity)).toBe(10);
+    expect(normalizeRestMinutes(-1)).toBe(1);
   });
 
   it('runs 25-minute pomodoros by default, adjustable in 5-minute steps up to an hour', () => {

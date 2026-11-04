@@ -15,29 +15,33 @@ describe('privacy-first activity classification', () => {
     expect(classify({ ...watching, locked: true })).toBe('rest');
     expect(classify({ ...watching, idleSeconds: LISTENING_AWAKE_SECONDS })).toBe('rest');
   });
-  it('uses a configurable inactivity deadline, followed by eight minutes until rest', () => {
+  it('uses separate away and sleep deadlines from the last input', () => {
     const signal = { locked: false, idleSeconds: 299, appClass: 'editor' as const };
     expect(classify(signal)).toBe('work');
     expect(classify({ ...signal, idleSeconds: 300 })).toBe('idle');
-    expect(classify({ ...signal, idleSeconds: 779 })).toBe('idle');
-    expect(classify({ ...signal, idleSeconds: 780 })).toBe('rest');
-    for (const minutes of [1, 5, 30]) {
-      const idleSeconds = minutes * 60;
-      expect(classify({ ...signal, idleSeconds: idleSeconds - 1 }, minutes)).toBe('work');
-      expect(present({ ...signal, idleSeconds: idleSeconds - 1 }, minutes)).toBe(true);
-      expect(classify({ ...signal, idleSeconds }, minutes)).toBe('idle');
-      expect(present({ ...signal, idleSeconds }, minutes)).toBe(false);
-      expect(classify({ ...signal, idleSeconds: idleSeconds + 480 }, minutes)).toBe('rest');
-      expect(classify({ ...signal, locked: true }, minutes)).toBe('rest');
+    expect(classify({ ...signal, idleSeconds: 599 })).toBe('idle');
+    expect(classify({ ...signal, idleSeconds: 600 })).toBe('rest');
+    for (const [away, sleep] of [[1, 5], [5, 10], [29, 30]]) {
+      const idleSeconds = away * 60;
+      expect(classify({ ...signal, idleSeconds: idleSeconds - 1 }, away, sleep)).toBe('work');
+      expect(present({ ...signal, idleSeconds: idleSeconds - 1 }, away)).toBe(true);
+      expect(classify({ ...signal, idleSeconds }, away, sleep)).toBe('idle');
+      expect(present({ ...signal, idleSeconds }, away)).toBe(false);
+      expect(classify({ ...signal, idleSeconds: sleep * 60 - 1 }, away, sleep)).toBe('idle');
+      expect(classify({ ...signal, idleSeconds: sleep * 60 }, away, sleep)).toBe('rest');
+      expect(classify({ ...signal, locked: true }, away, sleep)).toBe('rest');
     }
-    expect(nextActivity('meeting', { ...signal, appClass: 'unknown' }, 30)).toBe('meeting');
-    expect(nextActivity('meeting', { ...signal, appClass: 'unknown' }, 1)).toBe('idle');
+    // Equal settings sleep at the shared deadline; malformed ordering cannot sleep early.
+    expect(classify({ ...signal, idleSeconds: 1799 }, 30, 10)).toBe('work');
+    expect(classify({ ...signal, idleSeconds: 1800 }, 30, 30)).toBe('rest');
+    expect(nextActivity('meeting', { ...signal, appClass: 'unknown' }, 30, 30)).toBe('meeting');
+    expect(nextActivity('meeting', { ...signal, appClass: 'unknown' }, 1, 5)).toBe('idle');
   });
   it('does not change media playback rules with the ordinary inactivity preference', () => {
     const music = { locked: false, idleSeconds: 120, audio: true, appClass: 'unknown' as const };
     for (const minutes of [1, 5, 30]) {
-      expect(nextActivity('work', music, minutes)).toBe('leisure');
-      expect(classify({ ...music, idleSeconds: 600 }, minutes)).toBe('leisure');
+      expect(nextActivity('work', music, minutes, 30)).toBe('leisure');
+      expect(classify({ ...music, idleSeconds: 600 }, minutes, 30)).toBe('leisure');
       expect(classify({ ...music, idleSeconds: LISTENING_AWAKE_SECONDS }, minutes)).toBe('rest');
     }
   });
@@ -47,7 +51,7 @@ describe('privacy-first activity classification', () => {
     expect(nextActivity('idle', active)).toBe('work');
     expect(nextActivity('meeting', active)).toBe('meeting');
     expect(nextActivity('rest', { ...active, locked: true })).toBe('rest');
-    expect(nextActivity('work', { ...active, idleSeconds: 780 })).toBe('rest');
+    expect(nextActivity('work', { ...active, idleSeconds: 600 })).toBe('rest');
   });
   it('treats lock as rest regardless of app', () => expect(classify({ locked: true, idleSeconds: 0, appClass: 'editor' })).toBe('rest'));
   it('uses idle thresholds before app class', () => expect(classify({ locked: false, idleSeconds: 300, appClass: 'meeting' })).toBe('idle'));

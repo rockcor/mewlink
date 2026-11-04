@@ -1,4 +1,4 @@
 # Next release
 
-- Ordinary inactivity timeout is configurable in General settings, from 1 to 30 minutes, defaulting to 5 minutes for new and existing installations. The companion becomes away at that deadline and rests eight minutes later. Locking still rests immediately; media playback retains its own two-minute leisure and three-hour maximum awake rules.
+- General settings offer separate away and sleep deadlines from the last input, defaulting to 5 and 10 minutes. Both are bounded at 30 minutes; sleep cannot precede away. Changing either setting takes effect immediately and persists across restarts. Locking still rests immediately; media playback retains its own two-minute leisure and three-hour maximum awake rules.
 - Add a localized What's New entry when preparing the next version.
