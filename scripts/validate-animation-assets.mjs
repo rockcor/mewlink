@@ -11,8 +11,8 @@ const stressedInputFrame = workVisuals.map(visual => `work-${visual}-stress`);
 const loopFrames = 24;
 const transitionFrames = 32;
 const twentyFourFrame = [
-  'meeting', 'idle', 'rest',
-  ...['work', 'meeting', 'idle', 'rest'].flatMap(state =>
+  'meeting', 'idle', 'rest', 'meal',
+  ...['work', 'meeting', 'idle', 'rest', 'meal'].flatMap(state =>
     ['ceramic', 'tumbler', 'bottle'].map(style => `water-${state}-${style}`)),
   ...['ceramic', 'tumbler', 'bottle'].map(style => `water-drink-${style}`),
 ];
@@ -31,7 +31,8 @@ const hugSheets = new Map([
 const speaker = JSON.parse(await readFile(path.resolve('src/pet/speaker.json'), 'utf8'));
 // Away (art/aseprite/rig/away.py): where the app writes on the note, and a visitor's paw print.
 const away = JSON.parse(await readFile(path.resolve('src/pet/away.json'), 'utf8'));
-const states = ['work', 'meeting', 'idle', 'rest'];
+// A meal (rig/meal.py) is how rest looks at a mealtime of the pup's own clock.
+const states = ['work', 'meeting', 'idle', 'rest', 'meal'];
 const transitionSpecs = states.flatMap(from => states.filter(to => to !== from).map(to => ({
   name: `transition-${from}-${to}`,
   from,

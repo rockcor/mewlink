@@ -26,7 +26,7 @@ from palette import palette, snap  # noqa: E402
 from cutout import H, W  # noqa: E402
 
 CUPS = ["ceramic", "tumbler", "bottle"]
-LOOP_MS = dict(meeting=2500, idle=3800, rest=4300)
+LOOP_MS = dict(meeting=2500, idle=3800, rest=4300, meal=3600)
 
 
 def animations():

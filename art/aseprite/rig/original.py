@@ -24,7 +24,8 @@ from pixel import Canvas, capsule, ellipse, ramp, rrect
 
 N_LOOP, N_TRANSITION, N_INTERACTION = 24, 32, 24
 # Watching videos is drawn at the desk (the app's sceneFor), so there is no leisure scene.
-STATES = ["work", "meeting", "idle", "rest"]
+# A meal is how rest looks at a mealtime of the pup's own clock (meal.py).
+STATES = ["work", "meeting", "idle", "rest", "meal"]
 WORK_VISUALS = ["code", "document", "web", "ai", "mewlink"]
 LAYERS = ["back", "pet", "front", "fx"]
 
@@ -32,7 +33,7 @@ LAYERS = ["back", "pet", "front", "fx"]
 # keep the props still when the pose changes.
 ALIGN = {"peak_meeting": (-11, 0), "peak_rest": (1, 0)}
 # Rows below this stay pinned when the pup nods (top edge of the laptop / TV).
-NOD_BELOW = {"meeting": 190, "rest": 256}
+NOD_BELOW = {"meeting": 190, "rest": 256, "meal": 152}
 BACK_PROPS = {"rest"}
 
 
@@ -108,6 +109,9 @@ def loop_frame(state, i, n=N_LOOP):
         # Away for a while: its desk without it (away.py builds on visit.py, which builds on this module).
         import away
         return away.loop_frame(i)
+    if state == "meal":
+        import meal
+        return meal.loop_frame(i)
     if state == "meeting":
         return meeting_frame(i)
     if state == "rest":
@@ -140,6 +144,9 @@ def loop_start(state, visual="code"):
 
 def scene_parts(state, visual):
     """Dog layer, props layer and props anchor for a state's resting frame."""
+    if state == "meal":
+        import meal
+        return meal.scene_parts()
     if state == "work":
         dog, props = split(f"{visual}_input_none")
     elif state == "meeting":
@@ -539,6 +546,9 @@ def water(prefix, counts=(5, 6, 7, 6)):
         # Nobody at the desk: it lands there to wait (away.py).
         import away
         return away.water(prefix[len("water_idle_"):])
+    if prefix.startswith("water_meal_"):
+        import meal
+        return meal.water(prefix[len("water_meal_"):])
     def fx(index, pose, k):
         if pose == 2 and k < 3:
             return [{"k": "sparkle_s", "x": 360, "y": 190}]

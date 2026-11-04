@@ -21,6 +21,8 @@ describe('a hug in place', () => {
     expect(hugScene('idle')).toBe('away');
     expect(hugScene('rest')).toBe('rest');
     expect(visitAsset('away', 'mint')).toBeUndefined();
+    expect(hugScene('meal')).toBe('meal');
+    expect(visitAsset('meal', 'mint')).toBeUndefined();
     expect(deskAsset('work', 'ai')).toBe('desk-work-ai');
     expect(deskAsset('meeting', 'ai')).toBe('desk-meeting');
     expect(visitAsset('work', 'mint')).toBe('hug-visit-work');
@@ -131,6 +133,20 @@ describe('a hug in place', () => {
     expect(plan.frames.slice(0, -1).every(frame => frame.shown)).toBe(true);
     // It goes home the way it came, and sits down again.
     expect(plan.frames.at(-2)).toMatchObject({ x: framePoint('self', seatOf('work', 'code'), geometry).x });
+  });
+
+  it('does not squeeze a pup at its meal: it hops for it beside its table and goes home', () => {
+    for (const sender of ['self', 'partner'] as const) {
+      const plan = planHug(way(sender, 'work', 'meal'));
+      const spot = framePoint(sender === 'self' ? 'partner' : 'self', visitSpotOf('meal'), geometry);
+      const there = plan.frames.filter(frame => Math.abs(frame.x - spot.x) < 1e-6 && frame.shown && frame.squash === 1);
+      expect(there.length).toBeGreaterThan(0);
+      // It faces the eating pup (from its right), and hops.
+      expect(plan.frames.filter(frame => frame.y > spot.y + 1e-6 && frame.shown).every(frame => frame.facing === -1)).toBe(true);
+      expect(plan.frames.filter(frame => frame.y > spot.y + 1e-6).length).toBe(2);
+      expect(plan.host[0]).toBe(plan.host[1]);
+      expect(hugPhase(plan, plan.host[0] + 1).hosting).toBe(false);
+    }
   });
 
   it('keeps room right of TA, so my pup hugging TA from the right is never cut off', () => {

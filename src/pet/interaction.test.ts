@@ -7,6 +7,8 @@ describe('state-aware pet interactions', () => {
     expect(deskShown({ displayedActivity: 'meeting' })).toBe(true);
     expect(deskShown({ displayedActivity: 'idle' })).toBe(true);
     expect(deskShown({ displayedActivity: 'rest' })).toBe(false);
+    expect(deskShown({ displayedActivity: 'meal' })).toBe(false);
+    expect(deskShown({ displayedActivity: 'idle', transition: { from: 'idle', to: 'meal' } })).toBe(false);
     expect(deskShown({ displayedActivity: 'work', transition: { from: 'work', to: 'idle' } })).toBe(true);
     expect(deskShown({ displayedActivity: 'idle', transition: { from: 'idle', to: 'rest' } })).toBe(false);
     expect(deskShown({ displayedActivity: 'work', transition: { from: 'work', to: 'meeting' } })).toBe(true);
@@ -25,6 +27,7 @@ describe('state-aware pet interactions', () => {
 
   it('lands a cup on an away pup’s empty desk', () => {
     expect(gestureFor('water', 'idle')).toBe('water-idle');
+    expect(gestureFor('water', 'meal')).toBe('water-meal');
   });
 
   it('keeps a received cup for fifteen minutes', () => {

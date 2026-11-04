@@ -59,7 +59,7 @@ export function spriteAssetFor(className: string): string {
   if (interaction) return `${interaction}-${classes.find(name => name.startsWith('cup-'))?.slice(4) ?? 'ceramic'}`;
   const work = classes.find(name => name.startsWith('work-'));
   if (work) return `${work}${classes.includes('input-stressed') ? '-stress' : ''}`;
-  const loop = classes.find(name => ['meeting', 'idle', 'rest'].includes(name)) ?? 'idle';
+  const loop = classes.find(name => ['meeting', 'idle', 'rest', 'meal'].includes(name)) ?? 'idle';
   // Asleep (idle sleeps too) under the blanket a hug left on it.
   const tucked = classes.find(name => name.startsWith('tucked-'));
   return tucked && loop !== 'meeting' ? `rest-${tucked}` : loop;

@@ -1,10 +1,10 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import type { ActivityKind, WorkVisual } from '../domain/types';
+import type { ShownActivity, WorkVisual } from '../domain/types';
 import { spriteSheets } from './spriteAssets';
 
 export interface ActivityTransition {
-  from: ActivityKind;
-  to: ActivityKind;
+  from: ShownActivity;
+  to: ShownActivity;
   fromWorkVisual: WorkVisual;
   toWorkVisual: WorkVisual;
   key: number;
@@ -17,9 +17,9 @@ export const transitionAssetName = ({ from, to, fromWorkVisual, toWorkVisual }: 
 };
 
 interface ActivityPlaybackOptions {
-  desiredActivity: ActivityKind;
+  desiredActivity: ShownActivity;
   desiredWorkVisual: WorkVisual;
-  initialActivity: ActivityKind;
+  initialActivity: ShownActivity;
   initialWorkVisual: WorkVisual;
   workHandsSettled: boolean;
   transitionDurationMs: number;

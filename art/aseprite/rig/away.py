@@ -4,7 +4,8 @@ the viewer's language (src/components/AwayNote.tsx).
 
 Nothing moves to get there: the pup ducks down behind its desk and the note
 pops onto the screen; when it is back it pops up again and the note goes.
-Going to sleep, the desk gives way to the cushion under a poof, and back.
+Going to sleep (or to eat: meal.py), the desk gives way to the cushion (or
+the table) under a poof, and back.
 A cup for an away pup lands on its desk; a pup visiting it leaves a paw print
 on the note (the app shows it; the print is exported here).
 
@@ -233,34 +234,47 @@ def _popping(name, layer, sparkle_y):
             for k, s in enumerate(POP_IN)]
 
 
-def to_bed():
-    """Away to asleep: the desk shrinks away under a poof, its cushion pops in
-    and a second poof finds the pup asleep on it, breathing on into its loop."""
+# What the pup leaves the desk for: asleep on its cushion, or a meal at its
+# table (meal.py). Its props pop in on their own (the whole cushion), then a
+# poof finds the pup there with them.
+def _away_from_desk(state):
+    if state == "meal":
+        import meal
+        pup, table, _ = meal.scene_parts()
+        return pup, "front", table, table, None
+    return og.dog_of("base_rest"), "back", og.props_of("base_rest"), visit.desk("rest"), og.NOD_BELOW["rest"]
+
+
+def leave_desk(state):
+    """Away to asleep (or eating): the desk shrinks away under a poof, the
+    cushion (or the table) pops in and a second poof finds the pup there,
+    going on into its loop."""
     frames = [loop_frame(og.N_LOOP - 1)] + [loop_frame(i) for i in range(2)]
     desk = scene(2)
     frames += _shrinking({"front": desk}, _anchor(desk), _centre(desk))
-    frames += _popping("back", visit.desk("rest"), 80)
-    pup = og.dog_of("base_rest")
+    pup, side, props, alone, nod_below = _away_from_desk(state)
+    frames += _popping(side, alone, 80)
     centre = _centre(pup)
     for k in range(5):
-        pet = None if k < 2 else og._pose_warp(pup, sy=(0.94, 1.02, 0.99)[k - 2], nod_below=og.NOD_BELOW["rest"])
-        frames.append(og.frame(pet=pet, back=og.props_of("base_rest") if pet is not None else visit.desk("rest"),
-                               fx=og.fx_layer(og.poof(*centre, k))))
-    frames += [og.loop_frame("rest", i) for i in range(og.N_LOOP - 6, og.N_LOOP)]
-    frames.append(og.loop_start("rest"))
+        pet = None if k < 2 else og._pose_warp(pup, sy=(0.94, 1.02, 0.99)[k - 2], nod_below=nod_below)
+        frames.append(og.frame(pet=pet, **{side: props if pet is not None else alone}, fx=og.fx_layer(og.poof(*centre, k))))
+    frames += [og.loop_frame(state, i) for i in range(og.N_LOOP - 6, og.N_LOOP)]
+    frames.append(og.loop_start(state))
     assert len(frames) == og.N_TRANSITION, len(frames)
     return frames
 
 
-def from_bed():
-    """Asleep to away: the pup and its cushion go under a poof, and its desk
-    pops back in with the note on the screen."""
-    start = og.loop_end("rest")
+def back_to_desk(state):
+    """Asleep (or eating) to away: the pup and its cushion (or table) go under
+    a poof, and its desk pops back in with the note on the screen."""
+    start = og.loop_end(state)
     frames = [start]
-    pup, bed = start["pet"], start["back"]
+    side = "back" if state == "rest" else "front"
+    pup, props = start["pet"], start[side]
+    nod_below = og.NOD_BELOW[state]
     for sy, lean in ((0.975, 0), (0.955, 3), (1.0, 6)):
-        frames.append(og.frame(pet=og._pose_warp(pup, sy=sy, lean=lean, nod_below=og.NOD_BELOW["rest"]), back=bed))
-    frames += _shrinking({"pet": pup, "back": bed}, _anchor(bed), _centre(pup))
+        frames.append(og.frame(pet=og._pose_warp(pup, sy=sy, lean=lean, nod_below=nod_below), **{side: props}))
+    frames += _shrinking({"pet": pup, side: props}, _anchor(props), _centre(pup))
     frames += _popping("front", scene(og.N_LOOP - 17), 120)
     frames += [loop_frame(i) for i in range(og.N_LOOP - 10, og.N_LOOP)]
     frames.append(loop_frame(0))
@@ -269,10 +283,10 @@ def from_bed():
 
 
 def transition(a, b, visual_a="code", visual_b="code"):
-    if a == "idle" and b == "rest":
-        return to_bed()
-    if a == "rest" and b == "idle":
-        return from_bed()
+    if a == "idle" and b in ("rest", "meal"):
+        return leave_desk(b)
+    if b == "idle" and a in ("rest", "meal"):
+        return back_to_desk(a)
     if a == "idle":
         return step_back(b, visual_b)
     return step_away(a, visual_a)

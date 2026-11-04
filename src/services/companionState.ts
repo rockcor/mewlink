@@ -46,12 +46,13 @@ export function companionStates(
   // A replay below may still show historical work. Time zones never decide activity.
   let activity: ActivityKind = payload?.category ?? 'idle';
   let workVisual: WorkVisual = payload?.workVisual ?? 'web';
-  // Live only: a replay or a stale heartbeat has no sound.
+  // Live only: a replay or a stale heartbeat has no sound, and no meal.
   const audio = Boolean(payload?.audio) && !replay;
+  const meal = Boolean(payload?.meal) && !replay;
   if (replay) {
     const lastActivity = replay.items.slice(0, replay.frame + 1).reverse().find(item => item.activity);
     activity = lastActivity?.activity ?? activity;
     workVisual = lastActivity?.workVisual ?? workVisual;
   }
-  return { self: { ...self }, partner: { activity, workVisual, skin, audio }, partnerLive: live };
+  return { self: { ...self }, partner: { activity, workVisual, skin, audio, meal }, partnerLive: live };
 }

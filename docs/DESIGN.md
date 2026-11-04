@@ -46,7 +46,7 @@ DP 只用于需要同步的聚合统计（例如“今天大约工作多久”�
 
 ## 6. 状态机
 
-活动状态机：`unknown -> active(category) -> idle -> rest`。锁屏立即进入 `rest`；解锁且出现输入后重新采样；类别需连续 30 秒才提交，防抖；状态段最短 5 分钟才同步。用户手动设定 `private` 时暂停状态发送。
+活动状态机：`unknown -> active(category) -> idle -> rest`。`rest` 在宠物主人自己时区的饭点（7:00–9:00、11:30–13:30、17:30–19:30，且离开电脑不超过 2 小时）显示为吃饭，其余时间显示为睡觉；由各自的 App 按本机时区判断，随心跳发送一位 `meal`，不新增同步状态。锁屏立即进入 `rest`；解锁且出现输入后重新采样；类别需连续 30 秒才提交，防抖；状态段最短 5 分钟才同步。用户手动设定 `private` 时暂停状态发送。
 
 互动状态机：`composed -> queued -> encrypted -> uploaded -> delivered -> acknowledged -> expired`。专注模式下 `delivered -> cached`，退出后按频率规则回放。静音时保留收件箱但不动画；阻止后拒收并轮换关系密钥。
 

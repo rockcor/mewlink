@@ -30,6 +30,14 @@ describe('independent local and remote companions', () => {
     expect(companionStates(self, events, identity, undefined, now, online).partner.activity).toBe('work');
     expect(companionStates(self, events, identity, undefined, now + PRESENCE_STALE_MS + 1, online).partner.activity).toBe('idle');
   });
+  it('shows TA eating from a live heartbeat only (TA’s app decides by TA’s own clock)', () => {
+    const eating = activity('rest');
+    eating.event.payload = { ...eating.event.payload, meal: true } as typeof eating.event.payload;
+    const online = { ...identity, online: true };
+    expect(companionStates(self, [eating], identity, undefined, now, online).partner).toMatchObject({ activity: 'rest', meal: true });
+    expect(companionStates(self, [activity('rest')], identity, undefined, now, online).partner.meal).toBe(false);
+    expect(companionStates(self, [eating], identity, undefined, now + PRESENCE_STALE_MS + 1, online).partner.meal).toBe(false);
+  });
   it('plays TA’s speaker from a live heartbeat only', () => {
     const playing = activity('work');
     playing.event.payload = { ...playing.event.payload, audio: true } as typeof playing.event.payload;
@@ -44,7 +52,7 @@ describe('independent local and remote companions', () => {
     const skin = activity('work');
     skin.event = { ...skin.event, kind: 'profile.skin', payload: { skin: 'sky' } };
     expect(companionStates(self, [activity('work'), skin], identity, undefined, now,
-      { ...identity, online: false }).partner).toEqual({ activity: 'idle', workVisual: 'web', skin: 'sky', audio: false });
+      { ...identity, online: false }).partner).toEqual({ activity: 'idle', workVisual: 'web', skin: 'sky', audio: false, meal: false });
   });
   it('keeps replay historical when the partner is offline, then returns to idle', () => {
     const events = [activity('work', 'bob', now - 300_000)];
@@ -68,7 +76,7 @@ describe('independent local and remote companions', () => {
       const event = activity('work');
       event.event.senderUtcOffsetMinutes = offset;
       const result = companionStates(self, [event], identity, undefined, now);
-      expect(result.partner).toEqual({ activity: 'work', workVisual: 'ai', skin: 'cream', audio: false });
+      expect(result.partner).toEqual({ activity: 'work', workVisual: 'ai', skin: 'cream', audio: false, meal: false });
       expect(result.self).toEqual(self);
       expect(result.partnerLive).toBe(true);
     }
@@ -85,7 +93,7 @@ describe('independent local and remote companions', () => {
     skin.event = { ...skin.event, kind: 'profile.skin', payload: { skin: 'sky' } };
     const alice = companionStates(self, [activity('meeting'), skin], identity, undefined, now);
     expect(alice.self).toEqual(self);
-    expect(alice.partner).toEqual({ activity: 'meeting', workVisual: 'ai', skin: 'sky', audio: false });
+    expect(alice.partner).toEqual({ activity: 'meeting', workVisual: 'ai', skin: 'sky', audio: false, meal: false });
     const bobSelf = { activity: 'meeting', workVisual: 'web', skin: 'sky' } as const;
     const bob = companionStates(bobSelf, [activity('work', 'alice')], { ...identity, deviceId: 'bob', partnerDeviceId: 'alice' }, undefined, now);
     expect(bob.self).toEqual(bobSelf);

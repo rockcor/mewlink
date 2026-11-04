@@ -79,7 +79,7 @@ export function SpriteCanvas({ skin, senderSkin, paused, className = '', onLoopB
       unregisterPixels = registerSpritePixels(node, sheet, () => Math.max(0, previousFrame));
       // A tucked-in pup is its sleeping loop with a blanket over it: it breathes on without a restart.
       const clockAsset = asset.startsWith('rest-tucked-') ? (className.split(/\s+/).includes('idle') ? 'idle' : 'rest') : asset;
-      const loop = ['idle', 'meeting', 'rest'].includes(clockAsset) && !className.includes('transition-source-frame');
+      const loop = ['idle', 'meeting', 'rest', 'meal'].includes(clockAsset) && !className.includes('transition-source-frame');
       const finite = className.includes('activity-transition') || className.includes('interaction-sprite') || className.includes('hug-visit');
       const clockKey = `${clockAsset}:${loop ? 'loop' : finite ? 'once' : 'still'}`;
       const paint = () => {

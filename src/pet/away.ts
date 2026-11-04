@@ -1,4 +1,4 @@
-import type { ActivityKind } from '../domain/types';
+import type { ShownActivity } from '../domain/types';
 import type { PetTarget } from './pendingCups';
 import layout from './away.json';
 
@@ -12,7 +12,7 @@ export { layout as awayLayout };
 export const WORDS_AT = layout.noteLands / (layout.transitionFrames - 1);
 
 /** The note's words: while away; arriving, once the note has landed; gone as soon as the pup comes back. */
-export function awayNote({ displayedActivity, transition }: { displayedActivity: ActivityKind; transition?: { from: ActivityKind; to: ActivityKind } }) {
+export function awayNote({ displayedActivity, transition }: { displayedActivity: ShownActivity; transition?: { from: ShownActivity; to: ShownActivity } }) {
   if (transition) return transition.to === 'idle' ? 'arriving' as const : undefined;
   return displayedActivity === 'idle' ? 'shown' as const : undefined;
 }
