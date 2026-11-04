@@ -5,6 +5,11 @@ import { compareVersions } from './services/update';
 // it, under the version's title. Keep each to a sentence that fits two short
 // lines; every release from 0.3.31 on needs one (src/whatsNew.test.ts).
 export const WHATS_NEW: Record<string, Record<Language, string>> = {
+  '0.3.45': {
+    zh: '暂时离开和睡觉时间可分别设置，默认 5 和 10 分钟，最长 30 分钟',
+    'zh-Hant': '暫時離開和睡覺時間可分別設定，預設 5 和 10 分鐘，最長 30 分鐘',
+    en: 'Set away and sleep times separately: defaults of 5 and 10 minutes, up to 30 minutes.',
+  },
   '0.3.44': {
     zh: '回放提示随悬停菜单出现；播放影音时，双方小狗桌前的音箱会跳动',
     'zh-Hant': '回放提示隨懸停選單出現；播放影音時，雙方小狗桌前的音箱會跳動',
