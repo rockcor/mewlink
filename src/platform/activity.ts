@@ -1,4 +1,5 @@
 import { invoke } from '@tauri-apps/api/core';
+import { normalizeInactivityMinutes } from '../settings/preferences';
 import { sceneFor } from '../pet/interaction';
 import type { ActivityKind, WorkVisual } from '../domain/types';
 
@@ -29,13 +30,16 @@ export const shouldAnimatePointer = (lastAnimationAt: number, now: number) =>
 export const LISTENING_AWAKE_SECONDS = 3 * 60 * 60;
 export const listening = (signal: PresenceSignal) => Boolean(signal.audio) && !signal.locked && signal.idleSeconds < LISTENING_AWAKE_SECONDS;
 /** At the computer: recent input, or something playing. */
-export const present = (signal: PresenceSignal) => !signal.locked && (signal.idleSeconds < 120 || listening(signal));
+export const present = (signal: PresenceSignal, inactivityMinutes = 5) => !signal.locked
+  && (signal.idleSeconds < normalizeInactivityMinutes(inactivityMinutes) * 60 || listening(signal));
 
-export const classify = (signal: PresenceSignal): ActivityKind => {
-  if (signal.locked || (signal.idleSeconds >= 600 && !listening(signal))) return 'rest';
-  if (!present(signal)) return 'idle';
+export const classify = (signal: PresenceSignal, inactivityMinutes = 5): ActivityKind => {
+  // Keep eight minutes between away and rest, even when away is set past ten minutes.
+  const restSeconds = normalizeInactivityMinutes(inactivityMinutes) * 60 + 8 * 60;
+  if (signal.locked || (signal.idleSeconds >= restSeconds && !listening(signal))) return 'rest';
+  if (!present(signal, inactivityMinutes)) return 'idle';
   // Sound without input for a while is watching or listening, not working (it shows at the desk all the same).
-  if (signal.idleSeconds >= 120 && signal.appClass !== 'meeting') return 'leisure';
+  if (listening(signal) && signal.idleSeconds >= 120 && signal.appClass !== 'meeting') return 'leisure';
   const map: Record<NonNullable<PresenceSignal['appClass']>, ActivityKind> = {
     editor: 'work', reader: 'work', meeting: 'meeting', media: 'leisure', browser: 'work', ai: 'work', mewlink: 'work', unknown: 'work'
   };
@@ -49,10 +53,11 @@ export const nextSampleDelay = (signal: PresenceSignal) => {
   return 500;
 };
 
-export function nextActivity(previous: ActivityKind, signal: PresenceSignal): ActivityKind {
-  if (!signal.locked && signal.idleSeconds < 120 && signal.appClass === 'unknown'
+export function nextActivity(previous: ActivityKind, signal: PresenceSignal, inactivityMinutes = 5): ActivityKind {
+  const activity = classify(signal, inactivityMinutes);
+  if (activity === 'work' && signal.appClass === 'unknown'
     && previous !== 'rest' && previous !== 'idle') return previous;
-  return classify(signal);
+  return activity;
 }
 
 export const visualInputForActivity = (activity: ActivityKind, keyboard: boolean, pointer: boolean): InputMotion => {

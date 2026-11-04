@@ -33,6 +33,8 @@ export interface Preferences {
   petTransparencyPercent: number;
   /** Length of a pomodoro. */
   pomodoroMinutes: number;
+  /** Minutes without input before the companion is considered inactive. */
+  inactivityMinutes: number;
   selfPetSkin: PetSkin;
   blanketStyle: BlanketStyle;
   language: Language;
@@ -61,6 +63,7 @@ export function defaultPreferences(): Preferences {
     // Half see-through by default, so the pets never hide what is under them; solid while the pointer is on them.
     petTransparencyPercent: 50,
     pomodoroMinutes: 25,
+    inactivityMinutes: 5,
     selfPetSkin: 'cream',
     blanketStyle: 'blush',
     language: browserLanguage(),
@@ -78,6 +81,11 @@ export function normalizePetScalePercent(value: number): number {
 export const DEFAULT_PET_DISTANCE = 212;
 export const PET_FRAME_WIDTH = 228;
 export const PET_WINDOW_MIN_WIDTH = 440;
+
+export function normalizeInactivityMinutes(value: number): number {
+  if (!Number.isFinite(value)) return 5;
+  return Math.min(30, Math.max(1, Math.round(value)));
+}
 
 export function normalizePomodoroMinutes(value: number): number {
   if (!Number.isFinite(value)) return 25;
@@ -155,6 +163,7 @@ export function loadPreferences(storage?: StorageLike): Preferences {
         : defaults.petDistancePercent,
       growWithBusyness: typeof value.growWithBusyness === 'boolean' ? value.growWithBusyness : defaults.growWithBusyness,
       windowLayer: windowLayers.includes(value.windowLayer as WindowLayer) ? value.windowLayer as WindowLayer : defaults.windowLayer,
+      inactivityMinutes: typeof value.inactivityMinutes === 'number' ? normalizeInactivityMinutes(value.inactivityMinutes) : defaults.inactivityMinutes,
       pomodoroMinutes: typeof value.pomodoroMinutes === 'number' ? normalizePomodoroMinutes(value.pomodoroMinutes) : defaults.pomodoroMinutes,
       petTransparencyPercent: typeof value.petTransparencyPercent === 'number'
         ? normalizePetTransparencyPercent(value.petTransparencyPercent)

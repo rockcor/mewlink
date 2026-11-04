@@ -821,8 +821,8 @@ export default function App() {
         }
         foregroundSequence = signal.foregroundSequence;
         setLocked(current => current === signal.locked ? current : signal.locked);
-        if (present(signal) && signal.appClass !== 'unknown') setWorkVisual(workVisualFor(signal));
-        setActivity(currentActivity => nextActivity(currentActivity, signal));
+        if (present(signal, preferences.inactivityMinutes) && signal.appClass !== 'unknown') setWorkVisual(workVisualFor(signal));
+        setActivity(currentActivity => nextActivity(currentActivity, signal, preferences.inactivityMinutes));
         const sounding = listening(signal);
         setAudio(current => current === sounding ? current : sounding);
         delay = nextSampleDelay(signal);
@@ -834,7 +834,7 @@ export default function App() {
     };
     void sample();
     return () => { stopped = true; window.clearTimeout(timer); };
-  }, []);
+  }, [preferences.inactivityMinutes]);
   useEffect(() => {
     let keyboardReleaseTimer: number | undefined;
     let pointerReleaseTimer: number | undefined;

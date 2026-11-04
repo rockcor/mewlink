@@ -1,6 +1,6 @@
 import { classify, inputBurstReached, inputBurstSampleForSequence, inputChangesForSequence, keyboardEventsForSequence, KEYBOARD_STRESS_THRESHOLD, nextSampleDelay, POINTER_ANIMATION_INTERVAL_MS, POINTER_EVENTS_PER_ANIMATION, POINTER_CLICK_STRESS_THRESHOLD, pointerClicksForSequence, pointerEventsForSequence, shouldAnimatePointer, trimInputBurst, visualInputForActivity, workVisualFor, type InputBurstSample } from './activity';
 import { describe, expect, it } from 'vitest';
-import { LISTENING_AWAKE_SECONDS, nextActivity } from './activity';
+import { LISTENING_AWAKE_SECONDS, nextActivity, present } from './activity';
 describe('privacy-first activity classification', () => {
   it('stays at the desk while a video or music plays, without input, until the screen locks', () => {
     const watching = { locked: false, idleSeconds: 1_800, appClass: 'browser' as const, audio: true };
@@ -15,16 +15,42 @@ describe('privacy-first activity classification', () => {
     expect(classify({ ...watching, locked: true })).toBe('rest');
     expect(classify({ ...watching, idleSeconds: LISTENING_AWAKE_SECONDS })).toBe('rest');
   });
+  it('uses a configurable inactivity deadline, followed by eight minutes until rest', () => {
+    const signal = { locked: false, idleSeconds: 299, appClass: 'editor' as const };
+    expect(classify(signal)).toBe('work');
+    expect(classify({ ...signal, idleSeconds: 300 })).toBe('idle');
+    expect(classify({ ...signal, idleSeconds: 779 })).toBe('idle');
+    expect(classify({ ...signal, idleSeconds: 780 })).toBe('rest');
+    for (const minutes of [1, 5, 30]) {
+      const idleSeconds = minutes * 60;
+      expect(classify({ ...signal, idleSeconds: idleSeconds - 1 }, minutes)).toBe('work');
+      expect(present({ ...signal, idleSeconds: idleSeconds - 1 }, minutes)).toBe(true);
+      expect(classify({ ...signal, idleSeconds }, minutes)).toBe('idle');
+      expect(present({ ...signal, idleSeconds }, minutes)).toBe(false);
+      expect(classify({ ...signal, idleSeconds: idleSeconds + 480 }, minutes)).toBe('rest');
+      expect(classify({ ...signal, locked: true }, minutes)).toBe('rest');
+    }
+    expect(nextActivity('meeting', { ...signal, appClass: 'unknown' }, 30)).toBe('meeting');
+    expect(nextActivity('meeting', { ...signal, appClass: 'unknown' }, 1)).toBe('idle');
+  });
+  it('does not change media playback rules with the ordinary inactivity preference', () => {
+    const music = { locked: false, idleSeconds: 120, audio: true, appClass: 'unknown' as const };
+    for (const minutes of [1, 5, 30]) {
+      expect(nextActivity('work', music, minutes)).toBe('leisure');
+      expect(classify({ ...music, idleSeconds: 600 }, minutes)).toBe('leisure');
+      expect(classify({ ...music, idleSeconds: LISTENING_AWAKE_SECONDS }, minutes)).toBe('rest');
+    }
+  });
   it('wakes up after idle or lock even when the foreground app is unknown', () => {
     const active = { locked: false, idleSeconds: 0, appClass: 'unknown' as const };
     expect(nextActivity('rest', active)).toBe('work');
     expect(nextActivity('idle', active)).toBe('work');
     expect(nextActivity('meeting', active)).toBe('meeting');
     expect(nextActivity('rest', { ...active, locked: true })).toBe('rest');
-    expect(nextActivity('work', { ...active, idleSeconds: 600 })).toBe('rest');
+    expect(nextActivity('work', { ...active, idleSeconds: 780 })).toBe('rest');
   });
   it('treats lock as rest regardless of app', () => expect(classify({ locked: true, idleSeconds: 0, appClass: 'editor' })).toBe('rest'));
-  it('uses idle thresholds before app class', () => expect(classify({ locked: false, idleSeconds: 200, appClass: 'meeting' })).toBe('idle'));
+  it('uses idle thresholds before app class', () => expect(classify({ locked: false, idleSeconds: 300, appClass: 'meeting' })).toBe('idle'));
   it('merges AI tools, editors, documents, and browsers into work', () => {
     expect(classify({ locked: false, idleSeconds: 1, appClass: 'ai' })).toBe('work');
     expect(classify({ locked: false, idleSeconds: 1, appClass: 'reader' })).toBe('work');
@@ -49,7 +75,7 @@ describe('privacy-first activity classification', () => {
   it('polls active input quickly and rests slowly', () => {
     expect(nextSampleDelay({ locked: false, idleSeconds: 1, appClass: 'editor' })).toBe(500);
     expect(nextSampleDelay({ locked: false, idleSeconds: 0, appClass: 'editor', inputKind: 'keyboard' })).toBe(260);
-    expect(nextSampleDelay({ locked: false, idleSeconds: 200, appClass: 'editor' })).toBe(900);
+    expect(nextSampleDelay({ locked: false, idleSeconds: 300, appClass: 'editor' })).toBe(900);
     expect(nextSampleDelay({ locked: true, idleSeconds: 0, appClass: 'editor' })).toBe(5_000);
   });
   it('advances a hand only when a real input sequence changes', () => {

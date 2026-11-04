@@ -36,3 +36,18 @@ describe('Keychain recovery in settings', () => {
     expect(html).not.toContain('>Authorize Keychain</button>');
   });
 });
+
+
+describe('inactivity setting', () => {
+  it('shows the saved minutes with a one-to-thirty-minute control', () => {
+    const html = renderToStaticMarkup(createElement(SettingsPanel, {
+      ...props, preferences: { ...props.preferences, inactivityMinutes: 30 },
+    }));
+    const slider = html.match(/<input[^>]*aria-label="Inactivity timeout in minutes"[^>]*>/)?.[0];
+    expect(slider).toBeDefined();
+    expect(slider).toContain('min="1"');
+    expect(slider).toContain('max="30"');
+    expect(slider).toContain('value="30"');
+    expect(html).toContain('30 min');
+  });
+});
